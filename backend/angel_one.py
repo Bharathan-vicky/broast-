@@ -147,7 +147,12 @@ def login(force=False):
         return False
 
     if CONNECTED and not force and time.time() - LAST_LOGIN_TIME < 3600 * 12:
-        return True
+        # Periodic forced re-login (every 6h) keeps the JWT and FEED_TOKEN
+        # fresh so the session survives the full ~15h trading day with no
+        # manual restart. This is the core 24/7 hardening.
+        if time.time() - LAST_LOGIN_TIME < 6 * 3600:
+            return True
+        force = True
     
     from SmartApi import SmartConnect
     API_KEY = os.getenv("ANGEL_API_KEY")
@@ -734,6 +739,29 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
             put_bid = p_live.get("bid") or round(put_mark * 0.99, 2)
             put_ask = p_live.get("ask") or round(put_mark * 1.01, 2)
 
+            # Save into LIVE_PRICES for 0ms execution & PnL calculation
+            with _LOCK:
+                if c_sym:
+                    LIVE_PRICES[c_sym] = {
+                        "mark": round(call_mark, 2),
+                        "ltp": round(call_mark, 2),
+                        "bid": round(call_bid, 2),
+                        "ask": round(call_ask, 2),
+                        "oi": c_oi,
+                        "change": round(call_netchange, 2),
+                        "percentChange": round(call_pchange, 2)
+                    }
+                if p_sym:
+                    LIVE_PRICES[p_sym] = {
+                        "mark": round(put_mark, 2),
+                        "ltp": round(put_mark, 2),
+                        "bid": round(put_bid, 2),
+                        "ask": round(put_ask, 2),
+                        "oi": p_oi,
+                        "change": round(put_netchange, 2),
+                        "percentChange": round(put_pchange, 2)
+                    }
+
             chain_data.append({
                 "strike": strike,
                 "callSym": c_sym or f"C-{asset}-{int(strike)}",
@@ -856,6 +884,26 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
             c_sym = f"C-{asset_u}-{int(strike)}-{exp_label}"
             p_sym = f"P-{asset_u}-{int(strike)}-{exp_label}"
 
+            with _LOCK:
+                LIVE_PRICES[c_sym] = {
+                    "mark": c_mark,
+                    "ltp": c_mark,
+                    "bid": round(c_mark * 0.99, 2),
+                    "ask": round(c_mark * 1.01, 2),
+                    "oi": base_oi,
+                    "change": 0.0,
+                    "percentChange": 0.0
+                }
+                LIVE_PRICES[p_sym] = {
+                    "mark": p_mark,
+                    "ltp": p_mark,
+                    "bid": round(p_mark * 0.99, 2),
+                    "ask": round(p_mark * 1.01, 2),
+                    "oi": base_oi,
+                    "change": 0.0,
+                    "percentChange": 0.0
+                }
+
             chain_data.append({
                 "strike": strike,
                 "callSym": c_sym,
@@ -900,8 +948,10 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
     }
 
 
+CACHED_MCX_CHAINS = {}
+
 def get_nifty_chain(asset="NIFTY", expiry_filter=None):
-    global CACHED_CHAIN, CACHED_BANKNIFTY_CHAIN, CACHED_SENSEX_CHAIN, CACHED_STOCK_CHAINS
+    global CACHED_CHAIN, CACHED_BANKNIFTY_CHAIN, CACHED_SENSEX_CHAIN, CACHED_STOCK_CHAINS, CACHED_MCX_CHAINS
     asset_u = asset.upper()
     if asset_u in STOCK_TOKENS:
         if asset_u not in CACHED_STOCK_CHAINS:
@@ -916,7 +966,9 @@ def get_nifty_chain(asset="NIFTY", expiry_filter=None):
             CACHED_SENSEX_CHAIN = _build_nifty_chain_internal(expiry_filter, asset="SENSEX")
         return CACHED_SENSEX_CHAIN
     elif asset_u in ["CRUDEOIL", "GOLD", "SILVER"]:
-        return _build_nifty_chain_internal(expiry_filter, asset=asset_u)
+        if asset_u not in CACHED_MCX_CHAINS:
+            CACHED_MCX_CHAINS[asset_u] = _build_nifty_chain_internal(expiry_filter, asset=asset_u)
+        return CACHED_MCX_CHAINS[asset_u]
 
     if CACHED_CHAIN is None:
         CACHED_CHAIN = _build_nifty_chain_internal(expiry_filter, asset="NIFTY")
@@ -955,37 +1007,33 @@ def _on_ws_data(wsapp, data):
 def _on_ws_open(wsapp):
     global WS_CONNECTED
     WS_CONNECTED = True
-    print("[AngelOne WS] Connected to SmartWebSocketV2.")
+    print("[AngelOne WS] WebSocket connected successfully.")
 
 
 def _on_ws_error(wsapp, error):
-    print(f"[AngelOne WS] Error: {error}")
+    print(f"[AngelOne WS] WebSocket Error: {error}")
 
 
 def _on_ws_close(wsapp):
     global WS_CONNECTED
     WS_CONNECTED = False
-    print("[AngelOne WS] Connection closed.")
+    print("[AngelOne WS] WebSocket connection closed.")
 
 
 def is_market_open():
-    """True if Monday-Friday between 09:00 and 23:55 IST (covers NSE & MCX)"""
-    now_utc = datetime.datetime.now(timezone.utc)
-    ist_now = now_utc + timedelta(hours=5, minutes=30)
-    if ist_now.weekday() >= 5:  # Saturday or Sunday
+    now = datetime.datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    if now.weekday() >= 5:
         return False
-    market_start = ist_now.replace(hour=9, minute=0, second=0, microsecond=0)
-    market_end = ist_now.replace(hour=23, minute=55, second=0, microsecond=0)
-    return market_start <= ist_now <= market_end
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
 
 
 def _ws_worker_loop():
-    global WS_CLIENT, AUTH_TOKEN, FEED_TOKEN, API_KEY
-    from SmartApi.smartWebSocketV2 import SmartWebSocketV2
-
+    global WS_CLIENT
     while True:
         try:
-            if is_market_open() and login():
+            if CONNECTED and AUTH_TOKEN and FEED_TOKEN:
                 client_id = os.getenv("ANGEL_CLIENT_ID", "")
                 WS_CLIENT = SmartWebSocketV2(AUTH_TOKEN, API_KEY, client_id, FEED_TOKEN)
                 WS_CLIENT.on_data = _on_ws_data
@@ -1000,7 +1048,7 @@ def _ws_worker_loop():
 
 def _cache_refresher_loop():
     """Refreshes the in-memory option chain cache every 500ms at 0ms latency."""
-    global CACHED_CHAIN, CACHED_BANKNIFTY_CHAIN, CACHED_SENSEX_CHAIN, CACHED_STOCK_CHAINS, LAST_CHAIN_UPDATE
+    global CACHED_CHAIN, CACHED_BANKNIFTY_CHAIN, CACHED_SENSEX_CHAIN, CACHED_STOCK_CHAINS, CACHED_MCX_CHAINS, LAST_CHAIN_UPDATE
     while True:
         try:
             new_nifty = _build_nifty_chain_internal(asset="NIFTY")
@@ -1009,12 +1057,16 @@ def _cache_refresher_loop():
             new_stock_chains = {}
             for stk_sym in STOCK_TOKENS.keys():
                 new_stock_chains[stk_sym] = _build_nifty_chain_internal(asset=stk_sym)
+            new_mcx_chains = {}
+            for mcx_sym in ["CRUDEOIL", "GOLD", "SILVER"]:
+                new_mcx_chains[mcx_sym] = _build_nifty_chain_internal(asset=mcx_sym)
                 
             with _LOCK:
                 CACHED_CHAIN = new_nifty
                 CACHED_BANKNIFTY_CHAIN = new_banknifty
                 CACHED_SENSEX_CHAIN = new_sensex
                 CACHED_STOCK_CHAINS.update(new_stock_chains)
+                CACHED_MCX_CHAINS.update(new_mcx_chains)
             LAST_CHAIN_UPDATE = time.time()
         except Exception:
             pass

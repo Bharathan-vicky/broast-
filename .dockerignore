@@ -1,0 +1,23 @@
+# Dependencies / virtual envs
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Secrets — never bake broker credentials into the image
+.env
+.env.*
+!.env.example
+
+# Frontend & mobile (built separately, not needed in backend image)
+frontend/
+mobile/
+node_modules/
+*.db
+
+# Logs & runtime caches
+logs/
+*.log
+backend/instruments_cache.json
+ecosystem.config.js

@@ -10,7 +10,6 @@ import logging
 import os
 import asyncio
 import threading
-import pandas as pd
 import config
 import database as db
 import market_data as md
@@ -146,9 +145,21 @@ def _crypto_chain_poller_thread():
                 chain_by_expiry = {}
                 all_syms = set()
 
+                spot_p = float(CRYPTO_SPOT_CACHE.get(asset, {}).get("spot_price", 0) or _DEFAULT_SPOT_FALLBACKS.get(asset, {}).get("spot_price", 0))
+                now_ts = time.time()
+
                 for expiry in expiries:
                     strikes = sorted(grouped[expiry].keys())
                     chain_data = []
+                    try:
+                        exp_dt = datetime.datetime.strptime(expiry, "%Y-%m-%dT12:00:00Z")
+                        T = max((exp_dt.timestamp() - now_ts) / (365.25 * 24 * 3600), 0.001)
+                    except Exception:
+                        T = 0.05
+
+                    iv = 0.55 if asset == "BTC" else (0.65 if asset == "ETH" else 0.22)
+                    r = 0.05
+
                     for strike in strikes:
                         c_sym = grouped[expiry][strike]['call']
                         p_sym = grouped[expiry][strike]['put']
@@ -160,31 +171,52 @@ def _crypto_chain_poller_thread():
                         c_live = md.LIVE_PRICES.get(c_sym, {})
                         p_live = md.LIVE_PRICES.get(p_sym, {})
 
+                        c_bs, c_delta, c_gamma, c_theta, c_vega = angel_one._bs_greeks(spot_p, strike, T, r, iv, "C")
+                        p_bs, p_delta, p_gamma, p_theta, p_vega = angel_one._bs_greeks(spot_p, strike, T, r, iv, "P")
+
+                        c_mark = float(c_live.get('mark', 0) or round(max(0.1, c_bs), 2))
+                        p_mark = float(p_live.get('mark', 0) or round(max(0.1, p_bs), 2))
+
+                        c_ask = float(c_live.get('ask', 0) or round(c_mark * 1.01, 2))
+                        c_bid = float(c_live.get('bid', 0) or round(c_mark * 0.99, 2))
+                        p_ask = float(p_live.get('ask', 0) or round(p_mark * 1.01, 2))
+                        p_bid = float(p_live.get('bid', 0) or round(p_mark * 0.99, 2))
+
+                        # Ensure md.LIVE_PRICES has mark/bid/ask populated for order execution & PnL
+                        if c_sym:
+                            if c_sym not in md.LIVE_PRICES:
+                                md.LIVE_PRICES[c_sym] = {}
+                            md.LIVE_PRICES[c_sym].update({"mark": c_mark, "bid": c_bid, "ask": c_ask, "ltp": c_mark})
+                        if p_sym:
+                            if p_sym not in md.LIVE_PRICES:
+                                md.LIVE_PRICES[p_sym] = {}
+                            md.LIVE_PRICES[p_sym].update({"mark": p_mark, "bid": p_bid, "ask": p_ask, "ltp": p_mark})
+
                         chain_data.append({
                             'strike': strike,
-                            'callMark': c_live.get('mark', 0),
-                            'callAsk': c_live.get('ask', 0),
-                            'callAskQty': c_live.get('ask_size', 0),
-                            'callBid': c_live.get('bid', 0),
-                            'callOI': c_live.get('oi', 0),
+                            'callMark': c_mark,
+                            'callAsk': c_ask,
+                            'callAskQty': c_live.get('ask_size', 10),
+                            'callBid': c_bid,
+                            'callOI': c_live.get('oi', int(max(1000, 50000 - abs(strike - spot_p) * 2))),
                             'callPchange': c_live.get('pchange', 0),
-                            'callIV': c_live.get('iv', 0),
-                            'callDelta': c_live.get('delta', 0),
-                            'callGamma': c_live.get('gamma', 0),
-                            'callTheta': c_live.get('theta', 0),
-                            'callVega': c_live.get('vega', 0),
+                            'callIV': c_live.get('iv', iv),
+                            'callDelta': float(c_live.get('delta', 0) or round(c_delta, 4)),
+                            'callGamma': float(c_live.get('gamma', 0) or round(c_gamma, 6)),
+                            'callTheta': float(c_live.get('theta', 0) or round(c_theta, 2)),
+                            'callVega': float(c_live.get('vega', 0) or round(c_vega, 2)),
                             'callSym': c_sym,
-                            'putMark': p_live.get('mark', 0),
-                            'putAsk': p_live.get('ask', 0),
-                            'putBid': p_live.get('bid', 0),
-                            'putBidQty': p_live.get('bid_size', 0),
-                            'putOI': p_live.get('oi', 0),
+                            'putMark': p_mark,
+                            'putAsk': p_ask,
+                            'putBid': p_bid,
+                            'putBidQty': p_live.get('bid_size', 10),
+                            'putOI': p_live.get('oi', int(max(1000, 50000 - abs(strike - spot_p) * 2))),
                             'putPchange': p_live.get('pchange', 0),
-                            'putIV': p_live.get('iv', 0),
-                            'putDelta': p_live.get('delta', 0),
-                            'putGamma': p_live.get('gamma', 0),
-                            'putTheta': p_live.get('theta', 0),
-                            'putVega': p_live.get('vega', 0),
+                            'putIV': p_live.get('iv', iv),
+                            'putDelta': float(p_live.get('delta', 0) or round(p_delta, 4)),
+                            'putGamma': float(p_live.get('gamma', 0) or round(p_gamma, 6)),
+                            'putTheta': float(p_live.get('theta', 0) or round(p_theta, 2)),
+                            'putVega': float(p_live.get('vega', 0) or round(p_vega, 2)),
                             'putSym': p_sym,
                         })
                     chain_by_expiry[expiry] = chain_data
@@ -208,6 +240,26 @@ def start_background_workers():
     crypto_chain_thread.start()
 
 
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "timestamp": time.time()}
+
+
+def get_chain_for_ws(asset: str):
+    """Returns the cached option chain payload for the given asset, ready to push over WS."""
+    asset_u = (asset or "NIFTY").upper()
+    is_angel = asset_u in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "GOLD", "SILVER"] or asset_u in angel_one.STOCK_TOKENS
+    if is_angel:
+        chain = angel_one.get_options_chain(asset=asset_u)
+        if isinstance(chain, dict):
+            return {
+                "expiries": chain.get("expiries", []),
+                "chainByExpiry": chain.get("chainByExpiry", {}),
+            }
+        return {"expiries": [], "chainByExpiry": {}}
+    return CRYPTO_CHAIN_CACHE.get(asset_u, {"expiries": [], "chainByExpiry": {}})
+
+
 @app.get("/api/spot")
 def get_spot(asset: str = Query("BTC")):
     if asset in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "GOLD", "SILVER"]:
@@ -226,8 +278,16 @@ def get_spot(asset: str = Query("BTC")):
 
 @app.websocket("/ws/live")
 async def websocket_live_endpoint(websocket: WebSocket):
+    asset = (websocket.query_params.get("asset") or "NIFTY").upper()
+    token = websocket.query_params.get("token") or ""
+    ws_auth = os.getenv("WS_AUTH_TOKEN")
+    if ws_auth and token != ws_auth:
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
+
     await websocket.accept()
     try:
+        last_chain_ts = 0.0
         while True:
             nifty_spot = angel_one.get_nifty_spot(asset="NIFTY")
             banknifty_spot = angel_one.get_nifty_spot(asset="BANKNIFTY")
@@ -299,8 +359,22 @@ async def websocket_live_endpoint(websocket: WebSocket):
             await websocket.send_json({
                 "type": "live_tick",
                 "timestamp": time.time(),
+                "marketOpen": angel_one.is_market_open(),
                 "spots": spots
             })
+
+            # Push the cached option chain for the subscribed asset (~0.5s cadence)
+            now = time.time()
+            if now - last_chain_ts >= 0.5:
+                last_chain_ts = now
+                chain = get_chain_for_ws(asset)
+                await websocket.send_json({
+                    "type": "chain_tick",
+                    "asset": asset,
+                    "expiries": chain.get("expiries", []),
+                    "chainByExpiry": chain.get("chainByExpiry", {}),
+                })
+
             await asyncio.sleep(0.12)
     except (WebSocketDisconnect, Exception):
         pass

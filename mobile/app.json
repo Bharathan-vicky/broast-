@@ -20,7 +20,12 @@
       "adaptiveIcon": {
         "backgroundColor": "#0a0d14",
         "foregroundImage": "./assets/android-icon-foreground.png"
-      }
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "usesCleartextTraffic": true
     },
     "extra": {
       "eas": {

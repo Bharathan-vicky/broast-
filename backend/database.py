@@ -2,9 +2,18 @@ import sqlite3
 import os
 from datetime import datetime
 
-# Absolute DB path resolution for hosting durability
+# Absolute DB path resolution for hosting durability.
+# On Fly.io set DB_PATH=/data/paper_trade.db with a mounted volume so the
+# database (open baskets/positions) survives deploys.
 DB_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(DB_DIR, "paper_trade.db")
+DB_PATH = os.getenv("DB_PATH", os.path.join(DB_DIR, "paper_trade.db"))
+
+_db_dir = os.path.dirname(DB_PATH)
+if _db_dir and not os.path.exists(_db_dir):
+    try:
+        os.makedirs(_db_dir, exist_ok=True)
+    except OSError as e:
+        print(f"[DB] Could not create DB directory {_db_dir}: {e}")
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)

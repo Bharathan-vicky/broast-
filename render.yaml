@@ -1,0 +1,24 @@
+# Render.com deployment blueprint for Delta Paper Trader
+services:
+  - type: web
+    name: delta-paper-trader
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn server:app --app-dir backend --host 0.0.0.0 --port $PORT
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: ANGEL_API_KEY
+        sync: false
+      - key: ANGEL_CLIENT_ID
+        sync: false
+      - key: ANGEL_PASSWORD
+        sync: false
+      - key: ANGEL_TOTP_SECRET
+        sync: false
+      - key: WS_AUTH_TOKEN
+        sync: false

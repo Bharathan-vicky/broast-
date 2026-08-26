@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Line as SvgLine, Text as SvgText, Circle, Rect, G, Defs, ClipPath, LinearGradient, Stop } from 'react-native-svg';
 import Constants from 'expo-constants';
+import { usePriceFeed } from './src/lib/priceFeed';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -532,6 +533,7 @@ export default function App() {
   const [tradeLabSubTab, setTradeLabSubTab] = useState<'positions' | 'performance' | 'discover' | 'journal'>('positions');
   const [selectedHeatmapDate, setSelectedHeatmapDate] = useState<string | null>(null);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
+  const [marketOpen, setMarketOpen] = useState(true);
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
@@ -686,7 +688,7 @@ export default function App() {
     };
   }, [accounts, activeAccountId, currency, activeAsset, selectedMarket]);
 
-  const fetchAccounts = () => {
+  const fetchAccounts = useCallback(() => {
     if (!selectedMarket) return;
     fetch(`${BACKEND_URL}/api/accounts?market=${selectedMarket}`)
       .then(r => r.json())
@@ -703,11 +705,11 @@ export default function App() {
         }
       })
       .catch(() => {});
-  };
+  }, [selectedMarket]);
 
   useEffect(() => {
     fetchAccounts();
-  }, [selectedMarket]);
+  }, [fetchAccounts]);
 
   // Synchronize selectedMarket when activeAsset changes (if a market is chosen)
   useEffect(() => {
@@ -716,66 +718,90 @@ export default function App() {
     if (config && config.category && selectedMarket !== config.category) {
       setSelectedMarket(config.category);
     }
-  }, [activeAsset, selectedMarket]);
+  }, [activeAsset]);
 
-  // Real-Time 0-Lag Ultra-Fast WebSocket Stream
+  // Real-Time 0-Lag Ultra-Fast WebSocket Stream (spots + option chain, lag-free)
+  const priceFeed = usePriceFeed(activeAsset);
+
   useEffect(() => {
-    let ws: WebSocket | null = null;
-    let isMounted = true;
-
-    const connectWebSocket = () => {
-      try {
-        const wsUrl = BACKEND_URL.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws/live';
-        ws = new WebSocket(wsUrl);
-
-        ws.onmessage = (event) => {
-          if (!isMounted) return;
-          try {
-            const data = JSON.parse(event.data);
-            if (data && data.spots) {
-              setLiveMarketPrices(data.spots);
-            }
-          } catch (e) {}
-        };
-
-        ws.onerror = () => {};
-        ws.onclose = () => {
-          if (isMounted) {
-            setTimeout(connectWebSocket, 1000);
+    if (priceFeed.spots && Object.keys(priceFeed.spots).length > 0) {
+      setLiveMarketPrices((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const k of Object.keys(priceFeed.spots)) {
+          const p = prev[k];
+          const n = priceFeed.spots[k];
+          if (!p || Math.abs(p.spot - n.spot) > 0.001 || Math.abs(p.change - n.change) > 0.001) {
+            next[k] = n;
+            changed = true;
           }
-        };
-      } catch (e) {}
-    };
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, [priceFeed.spots]);
 
-    connectWebSocket();
-    return () => {
-      isMounted = false;
-      if (ws) {
-        try { ws.close(); } catch (e) {}
-      }
-    };
-  }, []);
+  useEffect(() => {
+    const c = priceFeed.chain;
+    if (c.expiries && c.expiries.length > 0) {
+      setExpiries((prev) => {
+        if (prev.length === c.expiries.length && prev[0] === c.expiries[0]) return prev;
+        return c.expiries;
+      });
+      setActiveExpiry((prev) => (prev && c.expiries.includes(prev)) ? prev : c.expiries[0]);
+    }
+    if (c.chainByExpiry && Object.keys(c.chainByExpiry).length > 0) {
+      setChainByExpiry(c.chainByExpiry);
+    }
+  }, [priceFeed.chain]);
 
-  // Real-Time 0-Lag Atomic Sync Loop (runs every 350ms for options chain & portfolio)
+  useEffect(() => {
+    setMarketOpen((prev) => (prev === priceFeed.marketOpen ? prev : priceFeed.marketOpen));
+  }, [priceFeed.marketOpen]);
+
+  // Real-Time Atomic Sync Loop (fallback for HTTP and periodic portfolio updates)
   useEffect(() => {
     let isMounted = true;
 
     const syncLiveMarket = () => {
-      const accId = activeAccount?.id || 1;
+      const accId = activeAccountId || 1;
+      
+      // If WS is connected, we only need to sync portfolio and history periodically
+      if (priceFeed.connected && !priceFeed.stale) {
+        fetch(`${BACKEND_URL}/api/portfolio?account_id=${accId}`)
+          .then(r => r.json())
+          .then(data => {
+            if (isMounted && data) setPortfolio(data);
+          })
+          .catch(() => {});
+
+        fetch(`${BACKEND_URL}/api/history?account_id=${accId}`)
+          .then(r => r.json())
+          .then(data => {
+            if (isMounted && Array.isArray(data)) setOrderHistory(data);
+          })
+          .catch(() => {});
+        return;
+      }
+
+      // Fallback: Full REST Sync when WebSocket is offline/reconnecting
       fetch(`${BACKEND_URL}/api/sync/live?asset=${activeAsset}&account_id=${accId}`)
         .then(r => r.json())
         .then(data => {
           if (!isMounted || !data) return;
 
-          // 1. Atomic Update of all live spot ticks across all 5 assets
+          // 1. Atomic Update of spots
           if (data.spots) {
-            setLiveMarketPrices(data.spots);
+            setLiveMarketPrices((prev) => ({ ...prev, ...data.spots }));
           }
 
           // 2. Atomic Update of active Option Chain
           if (data.chain) {
             if (data.chain.expiries && data.chain.expiries.length > 0) {
-              setExpiries(data.chain.expiries);
+              setExpiries((prev) => {
+                if (prev.length === data.chain.expiries.length && prev[0] === data.chain.expiries[0]) return prev;
+                return data.chain.expiries;
+              });
               setActiveExpiry(prev => (prev && data.chain.expiries.includes(prev)) ? prev : data.chain.expiries[0]);
             }
             if (data.chain.chainByExpiry) {
@@ -800,12 +826,13 @@ export default function App() {
     };
 
     syncLiveMarket();
-    const interval = setInterval(syncLiveMarket, 300);
+    const intervalTime = priceFeed.connected && !priceFeed.stale ? 1500 : 600;
+    const interval = setInterval(syncLiveMarket, intervalTime);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [activeAsset, activeAccount?.id]);
+  }, [activeAsset, activeAccountId, priceFeed.connected, priceFeed.stale]);
 
   const currentChain = useMemo(() => {
     if (!activeExpiry && expiries.length > 0) {
@@ -2339,6 +2366,18 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
+
+      {/* Market / Feed Status */}
+      {!marketOpen && (
+        <View style={[styles.alertBanner, { backgroundColor: '#2a1020' }]}>
+          <Text style={styles.alertText}>🔴 Market Closed — Live feed resumes during IST trading hours (09:00–23:55)</Text>
+        </View>
+      )}
+      {marketOpen && priceFeed.stale && (
+        <View style={[styles.alertBanner, { backgroundColor: 'rgba(56,189,248,0.15)' }]}>
+          <Text style={styles.alertText}>🟡 Reconnecting to live feed…</Text>
+        </View>
+      )}
 
       {/* Alert */}
       {tradeMessage ? (

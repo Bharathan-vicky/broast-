@@ -265,7 +265,7 @@ function CryptoTerminal() {
 
       setStrategyTargetPrice(prev => prev === 0 ? defaultTarget : prev);
     }
-  }, [spotPrice, currentChain, outlook]);
+  }, [spotPrice, currentChain.length, outlook]);
   const [portfolioTab, setPortfolioTab] = useState('Positions');
   const [orderHistory, setOrderHistory] = useState<any[]>([]);
 
