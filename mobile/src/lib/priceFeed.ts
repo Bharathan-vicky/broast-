@@ -55,6 +55,33 @@ function areSpotsDifferent(prev: Record<string, Spot>, next: Record<string, Spot
   return false;
 }
 
+function areChainsDifferent(prev: ChainPayload, nextExpiries: string[], nextChainByExp: Record<string, any[]>): boolean {
+  if (prev.expiries.length !== nextExpiries.length) return true;
+  if (prev.expiries.length > 0 && prev.expiries[0] !== nextExpiries[0]) return true;
+  
+  const prevExpKeys = Object.keys(prev.chainByExpiry);
+  const nextExpKeys = Object.keys(nextChainByExp);
+  if (prevExpKeys.length !== nextExpKeys.length) return true;
+  
+  // Sample check first expiry strike prices
+  if (prevExpKeys.length > 0) {
+    const firstExp = prevExpKeys[0];
+    const pRows = prev.chainByExpiry[firstExp] || [];
+    const nRows = nextChainByExp[firstExp] || [];
+    if (pRows.length !== nRows.length) return true;
+    if (pRows.length > 0 && nRows.length > 0) {
+      const pMid = pRows[Math.floor(pRows.length / 2)];
+      const nMid = nRows[Math.floor(nRows.length / 2)];
+      if (pMid && nMid) {
+        if (Math.abs((pMid.callMark || 0) - (nMid.callMark || 0)) > 0.01 || Math.abs((pMid.putMark || 0) - (nMid.putMark || 0)) > 0.01) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 export function usePriceFeed(asset: string): PriceFeedResult {
   const [state, setState] = useState<PriceFeedState>({
     connected: false,
@@ -133,15 +160,8 @@ export function usePriceFeed(asset: string): PriceFeedResult {
             const newChainByExp = data.chainByExpiry || {};
 
             setChain((prevChain) => {
-              if (
-                prevChain.expiries.length === newExpiries.length &&
-                prevChain.expiries[0] === newExpiries[0] &&
-                Object.keys(prevChain.chainByExpiry).length === Object.keys(newChainByExp).length
-              ) {
-                return {
-                  expiries: newExpiries,
-                  chainByExpiry: newChainByExp,
-                };
+              if (!areChainsDifferent(prevChain, newExpiries, newChainByExp)) {
+                return prevChain; // Return exact same reference!
               }
               return {
                 expiries: newExpiries,
@@ -168,9 +188,9 @@ export function usePriceFeed(asset: string): PriceFeedResult {
 
     connect();
 
-    // Stale detector: flag the feed if no message arrives for >2.5s.
+    // Stale detector: flag the feed if no message arrives for >3.0s.
     staleTimer.current = setInterval(() => {
-      if (lastMsgTs.current && Date.now() - lastMsgTs.current > 2500) {
+      if (lastMsgTs.current && Date.now() - lastMsgTs.current > 3000) {
         setState((s) => (s.stale ? s : { ...s, stale: true }));
       }
     }, 1000);

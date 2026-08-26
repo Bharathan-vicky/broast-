@@ -1982,6 +1982,9 @@ export default function App() {
   };
 
   const openOrderTicket = (leg?: OptionLeg) => {
+    const isAssetCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
+    const isIndianMarketClosed = !isAssetCrypto && !marketOpen;
+
     if (leg) {
       setOrderModalLeg(leg);
       setOrderLots(leg.size || 1);
@@ -1994,7 +1997,7 @@ export default function App() {
       setOrderLimitPrice(stratBasket[0].price ? stratBasket[0].price.toString() : '');
       setOrderTriggerPrice('');
     }
-    setOrderMode('REGULAR');
+    setOrderMode(isIndianMarketClosed ? 'AMO' : 'REGULAR');
     setProductType('NRML');
     setOrderType('MARKET');
     setHasStoploss(false);
@@ -2783,6 +2786,32 @@ export default function App() {
                 </View>
               </View>
             </View>
+
+            {/* Market Closed & AMO Notice Banner for Indian/MCX/Stock markets */}
+            {selectedMarket !== 'CRYPTO' && !marketOpen && (
+              <View style={{
+                backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                borderWidth: 1,
+                borderColor: 'rgba(234, 179, 8, 0.35)',
+                borderRadius: 8,
+                paddingVertical: 5,
+                paddingHorizontal: 10,
+                marginTop: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 11 }}>🌙</Text>
+                  <Text style={{ color: '#eab308', fontSize: 10.5, fontWeight: '800' }}>
+                    Market Closed (09:15-15:30 IST) • AMO Orders Active
+                  </Text>
+                </View>
+                <View style={{ backgroundColor: 'rgba(234, 179, 8, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ color: '#fef08a', fontSize: 9.5, fontWeight: 'bold' }}>AMO Mode ⚡</Text>
+                </View>
+              </View>
+            )}
           </View>
 
           <FlatList
@@ -4294,7 +4323,7 @@ export default function App() {
                   </View>
 
                   {/* Mode Selector: Regular vs AMO */}
-                  <View style={{ flexDirection: 'row', backgroundColor: '#090d16', borderRadius: 8, padding: 3, marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', backgroundColor: '#090d16', borderRadius: 8, padding: 3, marginBottom: 10 }}>
                     <TouchableOpacity
                       onPress={() => setOrderMode('REGULAR')}
                       style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6, backgroundColor: orderMode === 'REGULAR' ? '#1e293b' : 'transparent' }}
@@ -4308,6 +4337,26 @@ export default function App() {
                       <Text style={{ color: orderMode === 'AMO' ? '#eab308' : '#64748b', fontSize: 12, fontWeight: 'bold' }}>🌙 AMO (After Market)</Text>
                     </TouchableOpacity>
                   </View>
+
+                  {/* AMO Notice Alert */}
+                  {orderMode === 'AMO' && (
+                    <View style={{
+                      backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(234, 179, 8, 0.35)',
+                      borderRadius: 8,
+                      padding: 10,
+                      marginBottom: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8
+                    }}>
+                      <Text style={{ fontSize: 14 }}>🌙</Text>
+                      <Text style={{ color: '#fef08a', fontSize: 11, fontWeight: '600', flex: 1 }}>
+                        After Market Order (AMO) is queued for execution at next market open (09:15 IST).
+                      </Text>
+                    </View>
+                  )}
 
                   {/* Product Type: Intraday (MIS) vs Overnight (NRML) */}
                   <View style={{ marginBottom: 12 }}>
