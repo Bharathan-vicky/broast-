@@ -2801,7 +2801,7 @@ export default function App() {
 
 
       {/* Market / Feed Status */}
-      {!marketOpen && (
+      {!isAssetMarketOpen(activeAsset, marketOpen) && selectedMarket !== 'CRYPTO' && (
         <View style={[styles.alertBanner, { backgroundColor: '#2a1020' }]}>
           <Text style={styles.alertText}>🔴 Market Closed — Live feed resumes during IST trading hours (09:00–23:55)</Text>
         </View>
@@ -4406,6 +4406,7 @@ export default function App() {
 
               const isBuy = leg.side === 'BUY';
               const legAsset = leg.underlying || activeAsset;
+              const isCryptoAsset = legAsset === 'BTC' || legAsset === 'ETH' || legAsset === 'XAUT' || selectedMarket === 'CRYPTO';
               const legLotSize = ASSET_CONFIG[legAsset]?.lotSize || (
                 legAsset === 'NIFTY' ? 65 : 
                 (legAsset === 'BANKNIFTY' ? 30 : 
@@ -4417,7 +4418,7 @@ export default function App() {
               );
               const totalUnits = (orderLots || 1) * legLotSize;
               const ltp = leg.price || 0;
-              const posSym = legAsset === 'BTC' || legAsset === 'ETH' || legAsset === 'XAUT' ? '$' : '₹';
+              const posSym = isCryptoAsset ? '$' : '₹';
 
               // Projected SL & Target calculations
               const slNum = hasStoploss ? parseFloat(slValue) || 0 : 0;
@@ -4493,76 +4494,110 @@ export default function App() {
                     </View>
                   </View>
 
-                  {/* Mode Selector: Regular vs AMO */}
-                  <View style={{ flexDirection: 'row', backgroundColor: '#090d16', borderRadius: 8, padding: 3, marginBottom: 10 }}>
-                    <TouchableOpacity
-                      onPress={() => setOrderMode('REGULAR')}
-                      style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6, backgroundColor: orderMode === 'REGULAR' ? '#1e293b' : 'transparent' }}
-                    >
-                      <Text style={{ color: orderMode === 'REGULAR' ? '#38bdf8' : '#64748b', fontSize: 12, fontWeight: 'bold' }}>⚡ Regular</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setOrderMode('AMO')}
-                      style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6, backgroundColor: orderMode === 'AMO' ? 'rgba(234, 179, 8, 0.2)' : 'transparent' }}
-                    >
-                      <Text style={{ color: orderMode === 'AMO' ? '#eab308' : '#64748b', fontSize: 12, fontWeight: 'bold' }}>🌙 AMO (After Market)</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* Mode Selector & Product Type (Indian Markets Only - Zerodha Kite UI) */}
+                  {!isCryptoAsset && (
+                    <>
+                      {/* Mode Selector: Regular vs AMO */}
+                      <View style={{ flexDirection: 'row', backgroundColor: '#090d16', borderRadius: 8, padding: 3, marginBottom: 10 }}>
+                        <TouchableOpacity
+                          onPress={() => setOrderMode('REGULAR')}
+                          style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6, backgroundColor: orderMode === 'REGULAR' ? '#1e293b' : 'transparent' }}
+                        >
+                          <Text style={{ color: orderMode === 'REGULAR' ? '#38bdf8' : '#64748b', fontSize: 12, fontWeight: 'bold' }}>⚡ Regular</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setOrderMode('AMO')}
+                          style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6, backgroundColor: orderMode === 'AMO' ? 'rgba(234, 179, 8, 0.2)' : 'transparent' }}
+                        >
+                          <Text style={{ color: orderMode === 'AMO' ? '#eab308' : '#64748b', fontSize: 12, fontWeight: 'bold' }}>🌙 AMO (After Market)</Text>
+                        </TouchableOpacity>
+                      </View>
 
-                  {/* AMO Notice Alert */}
-                  {orderMode === 'AMO' && (
-                    <View style={{
-                      backgroundColor: 'rgba(234, 179, 8, 0.12)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(234, 179, 8, 0.35)',
-                      borderRadius: 8,
-                      padding: 10,
-                      marginBottom: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8
-                    }}>
-                      <Text style={{ fontSize: 14 }}>🌙</Text>
-                      <Text style={{ color: '#fef08a', fontSize: 11, fontWeight: '600', flex: 1 }}>
-                        After Market Order (AMO) is queued for execution at next market open (09:15 IST).
-                      </Text>
-                    </View>
+                      {/* AMO Notice Alert */}
+                      {orderMode === 'AMO' && (
+                        <View style={{
+                          backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(234, 179, 8, 0.35)',
+                          borderRadius: 8,
+                          padding: 10,
+                          marginBottom: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 8
+                        }}>
+                          <Text style={{ fontSize: 14 }}>🌙</Text>
+                          <Text style={{ color: '#fef08a', fontSize: 11, fontWeight: '600', flex: 1 }}>
+                            After Market Order (AMO) is queued for execution at next market open (09:15 IST).
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Product Type: Intraday (MIS) vs Overnight (NRML) */}
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={{ color: '#64748b', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, marginBottom: 6 }}>PRODUCT TYPE</Text>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                          <TouchableOpacity
+                            onPress={() => setProductType('MIS')}
+                            style={{
+                              flex: 1,
+                              paddingVertical: 9,
+                              alignItems: 'center',
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: productType === 'MIS' ? '#38bdf8' : '#1e293b',
+                              backgroundColor: productType === 'MIS' ? 'rgba(56, 189, 248, 0.12)' : '#0f172a'
+                            }}
+                          >
+                            <Text style={{ color: productType === 'MIS' ? '#38bdf8' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Intraday (MIS)</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => setProductType('NRML')}
+                            style={{
+                              flex: 1,
+                              paddingVertical: 9,
+                              alignItems: 'center',
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: productType === 'NRML' ? '#38bdf8' : '#1e293b',
+                              backgroundColor: productType === 'NRML' ? 'rgba(56, 189, 248, 0.12)' : '#0f172a'
+                            }}
+                          >
+                            <Text style={{ color: productType === 'NRML' ? '#38bdf8' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Overnight (NRML)</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </>
                   )}
 
-                  {/* Product Type: Intraday (MIS) vs Overnight (NRML) */}
-                  <View style={{ marginBottom: 12 }}>
-                    <Text style={{ color: '#64748b', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, marginBottom: 6 }}>PRODUCT TYPE</Text>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                      <TouchableOpacity
-                        onPress={() => setProductType('MIS')}
-                        style={{
-                          flex: 1,
-                          paddingVertical: 9,
-                          alignItems: 'center',
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: productType === 'MIS' ? '#38bdf8' : '#1e293b',
-                          backgroundColor: productType === 'MIS' ? 'rgba(56, 189, 248, 0.12)' : '#0f172a'
-                        }}
-                      >
-                        <Text style={{ color: productType === 'MIS' ? '#38bdf8' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Intraday (MIS)</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setProductType('NRML')}
-                        style={{
-                          flex: 1,
-                          paddingVertical: 9,
-                          alignItems: 'center',
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: productType === 'NRML' ? '#38bdf8' : '#1e293b',
-                          backgroundColor: productType === 'NRML' ? 'rgba(56, 189, 248, 0.12)' : '#0f172a'
-                        }}
-                      >
-                        <Text style={{ color: productType === 'NRML' ? '#38bdf8' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Overnight (NRML)</Text>
-                      </TouchableOpacity>
+                  {/* Leverage Adjustment (Crypto 24/7 Delta Exchange Mode Only) */}
+                  {isCryptoAsset && (
+                    <View style={{ marginBottom: 14, backgroundColor: '#0f172a', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#1e293b' }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '800' }}>⚡ LEVERAGE (24/7 LIVE)</Text>
+                        <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: 'bold' }}>{cryptoLeverage}x Isolated</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
+                        {[10, 25, 50, 100, 200].map(val => (
+                          <TouchableOpacity
+                            key={val}
+                            onPress={() => setCryptoLeverage(val)}
+                            style={{
+                              flex: 1,
+                              paddingVertical: 6,
+                              alignItems: 'center',
+                              borderRadius: 6,
+                              backgroundColor: cryptoLeverage === val ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+                              borderWidth: 1,
+                              borderColor: cryptoLeverage === val ? '#38bdf8' : 'transparent'
+                            }}
+                          >
+                            <Text style={{ color: cryptoLeverage === val ? '#38bdf8' : '#94a3b8', fontWeight: 'bold', fontSize: 11 }}>{val}x</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </View>
-                  </View>
+                  )}
 
                   {/* Order Type: Market | Limit */}
                   <View style={{ marginBottom: 14 }}>
@@ -4597,7 +4632,9 @@ export default function App() {
                   <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
                     {/* Lots Stepper */}
                     <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#1e293b' }}>
-                      <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 6 }}>LOTS ({legLotSize}/lot)</Text>
+                      <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 6 }}>
+                        {isCryptoAsset ? `CONTRACTS (${legLotSize} ${legAsset})` : `LOTS (${legLotSize}/lot)`}
+                      </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <TouchableOpacity 
                           onPress={() => setOrderLots(prev => Math.max(1, prev - 1))}
@@ -4631,115 +4668,113 @@ export default function App() {
                     )}
                   </View>
 
-                  {/* ===================== STOPLOSS & TARGET (BASED ON ENTRY PRICE) ===================== */}
-                  <View style={{ backgroundColor: '#0c101b', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#172033', marginBottom: 14 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '800' }}>STOPLOSS & TARGET</Text>
+                  {/* ===================== STOPLOSS & TARGET (INDIAN MARKETS ONLY) ===================== */}
+                  {!isCryptoAsset && (
+                    <View style={{ backgroundColor: '#0c101b', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#172033', marginBottom: 14 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '800' }}>STOPLOSS & TARGET</Text>
+                        </View>
+                        <Text style={{ color: '#64748b', fontSize: 10, fontStyle: 'italic' }}>Based on Entry Price</Text>
                       </View>
-                      <Text style={{ color: '#64748b', fontSize: 10, fontStyle: 'italic' }}>Based on Entry Price</Text>
-                    </View>
 
-                    {/* Stoploss Option */}
-                    <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: hasStoploss ? 'rgba(239, 68, 68, 0.4)' : '#1e293b', marginBottom: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <TouchableOpacity 
-                          onPress={() => setHasStoploss(prev => !prev)}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-                        >
-                          <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: hasStoploss ? '#ef4444' : '#64748b', backgroundColor: hasStoploss ? '#ef4444' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
-                            {hasStoploss && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
-                          </View>
-                          <Text style={{ color: hasStoploss ? '#f87171' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Stoploss</Text>
-                        </TouchableOpacity>
+                      {/* Stoploss Option */}
+                      <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: hasStoploss ? 'rgba(239, 68, 68, 0.4)' : '#1e293b', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <TouchableOpacity 
+                            onPress={() => setHasStoploss(prev => !prev)}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                          >
+                            <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: hasStoploss ? '#ef4444' : '#64748b', backgroundColor: hasStoploss ? '#ef4444' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                              {hasStoploss && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
+                            </View>
+                            <Text style={{ color: hasStoploss ? '#f87171' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Stoploss</Text>
+                          </TouchableOpacity>
 
-                        {hasStoploss && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            {/* Mode Dropdown / Toggle Button */}
-                            <TouchableOpacity 
-                              onPress={() => setSlMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
-                              style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
-                            >
-                              <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
-                                {slMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
-                              </Text>
-                            </TouchableOpacity>
+                          {hasStoploss && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <TouchableOpacity 
+                                onPress={() => setSlMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
+                                style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
+                              >
+                                <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
+                                  {slMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
+                                </Text>
+                              </TouchableOpacity>
 
-                            {/* Input Field */}
-                            <TextInput
-                              value={slValue}
-                              onChangeText={setSlValue}
-                              keyboardType="decimal-pad"
-                              placeholder={slMode === 'PERCENT' ? '15' : (ltp * 0.85).toFixed(1)}
-                              placeholderTextColor="#475569"
-                              style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 65, paddingVertical: 3, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
-                            />
+                              <TextInput
+                                value={slValue}
+                                onChangeText={setSlValue}
+                                keyboardType="decimal-pad"
+                                placeholder={slMode === 'PERCENT' ? '15' : (ltp * 0.85).toFixed(1)}
+                                placeholderTextColor="#475569"
+                                style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 65, paddingVertical: 3, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
+                              />
+                            </View>
+                          )}
+                        </View>
+
+                        {hasStoploss && projectedSlPrice > 0 && (
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                            <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                              Trigger: <Text style={{ color: '#f87171', fontWeight: 'bold' }}>{posSym}{projectedSlPrice.toFixed(2)}</Text>
+                            </Text>
+                            <Text style={{ color: '#f87171', fontSize: 10, fontWeight: 'bold' }}>
+                              Max Loss: -{posSym}{projectedSlLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </Text>
                           </View>
                         )}
                       </View>
 
-                      {hasStoploss && projectedSlPrice > 0 && (
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-                          <Text style={{ color: '#94a3b8', fontSize: 10 }}>
-                            Trigger: <Text style={{ color: '#f87171', fontWeight: 'bold' }}>{posSym}{projectedSlPrice.toFixed(2)}</Text>
-                          </Text>
-                          <Text style={{ color: '#f87171', fontSize: 10, fontWeight: 'bold' }}>
-                            Max Loss: -{posSym}{projectedSlLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </Text>
+                      {/* Target Option */}
+                      <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: hasTarget ? 'rgba(16, 185, 129, 0.4)' : '#1e293b' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <TouchableOpacity 
+                            onPress={() => setHasTarget(prev => !prev)}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                          >
+                            <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: hasTarget ? '#10b981' : '#64748b', backgroundColor: hasTarget ? '#10b981' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                              {hasTarget && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
+                            </View>
+                            <Text style={{ color: hasTarget ? '#34d399' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Target</Text>
+                          </TouchableOpacity>
+
+                          {hasTarget && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <TouchableOpacity 
+                                onPress={() => setTargetMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
+                                style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
+                              >
+                                <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
+                                  {targetMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TextInput
+                                value={targetValue}
+                                onChangeText={setTargetValue}
+                                keyboardType="decimal-pad"
+                                placeholder={targetMode === 'PERCENT' ? '30' : (ltp * 1.3).toFixed(1)}
+                                placeholderTextColor="#475569"
+                                style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 65, paddingVertical: 3, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
+                              />
+                            </View>
+                          )}
                         </View>
-                      )}
-                    </View>
 
-                    {/* Target Option */}
-                    <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: hasTarget ? 'rgba(16, 185, 129, 0.4)' : '#1e293b' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <TouchableOpacity 
-                          onPress={() => setHasTarget(prev => !prev)}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-                        >
-                          <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: hasTarget ? '#10b981' : '#64748b', backgroundColor: hasTarget ? '#10b981' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
-                            {hasTarget && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
-                          </View>
-                          <Text style={{ color: hasTarget ? '#34d399' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Target</Text>
-                        </TouchableOpacity>
-
-                        {hasTarget && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            {/* Mode Dropdown / Toggle Button */}
-                            <TouchableOpacity 
-                              onPress={() => setTargetMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
-                              style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
-                            >
-                              <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
-                                {targetMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
-                              </Text>
-                            </TouchableOpacity>
-
-                            {/* Input Field */}
-                            <TextInput
-                              value={targetValue}
-                              onChangeText={setTargetValue}
-                              keyboardType="decimal-pad"
-                              placeholder={targetMode === 'PERCENT' ? '30' : (ltp * 1.3).toFixed(1)}
-                              placeholderTextColor="#475569"
-                              style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 65, paddingVertical: 3, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
-                            />
+                        {hasTarget && projectedTgtPrice > 0 && (
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                            <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                              Target: <Text style={{ color: '#34d399', fontWeight: 'bold' }}>{posSym}{projectedTgtPrice.toFixed(2)}</Text>
+                            </Text>
+                            <Text style={{ color: '#34d399', fontSize: 10, fontWeight: 'bold' }}>
+                              Profit: +{posSym}{projectedTgtProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </Text>
                           </View>
                         )}
                       </View>
-
-                      {hasTarget && projectedTgtPrice > 0 && (
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-                          <Text style={{ color: '#94a3b8', fontSize: 10 }}>
-                            Target: <Text style={{ color: '#34d399', fontWeight: 'bold' }}>{posSym}{projectedTgtPrice.toFixed(2)}</Text>
-                          </Text>
-                          <Text style={{ color: '#34d399', fontSize: 10, fontWeight: 'bold' }}>
-                            Profit: +{posSym}{projectedTgtProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </Text>
-                        </View>
-                      )}
                     </View>
-                  </View>
+                  )}
 
                   {/* Margin & Account Summary */}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4, marginBottom: 14 }}>
@@ -4773,7 +4808,10 @@ export default function App() {
                       <ActivityIndicator size="small" color="white" />
                     ) : (
                       <Text style={{ color: 'white', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }}>
-                        {isBuy ? 'BUY' : 'SELL'} • {orderLots} {orderLots === 1 ? 'LOT' : 'LOTS'} ({orderMode === 'AMO' ? 'AMO' : productType})
+                        {isCryptoAsset 
+                          ? `${isBuy ? 'BUY' : 'SELL'} • ${orderLots} Contracts`
+                          : `${isBuy ? 'BUY' : 'SELL'} • ${orderLots} ${orderLots === 1 ? 'LOT' : 'LOTS'} (${orderMode === 'AMO' ? 'AMO' : productType})`
+                        }
                       </Text>
                     )}
                   </TouchableOpacity>
