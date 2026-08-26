@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import Constants from 'expo-constants';
 import { fetchDirectDeltaTickers, fetchDirectDeltaOptionChain } from './deltaDirectFeed';
+import { fetchAllDirectSpots, fetchDirectYahooSpot } from './directMarketFeed';
 
 const getApiBase = (): string => {
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -90,7 +91,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const restFallbackTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const directDeltaTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const directPollerTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMsgTs = useRef(0);
   const assetRef = useRef(asset);
   assetRef.current = asset;
@@ -100,7 +101,41 @@ export function usePriceFeed(asset: string): PriceFeedResult {
   useEffect(() => {
     let cancelled = false;
 
-    // 1. Instant fast initial sync over REST so data displays in <150ms
+    // 1. Direct on-device live market fetcher (Runs instantly on start)
+    const runDirectDevicePoll = async () => {
+      if (cancelled) return;
+      try {
+        const directSpots = await fetchAllDirectSpots();
+        if (cancelled) return;
+        if (Object.keys(directSpots).length > 0) {
+          lastMsgTs.current = Date.now();
+          setState(s => ({
+            ...s,
+            connected: true,
+            stale: false,
+            spots: { ...s.spots, ...directSpots }
+          }));
+        }
+
+        // Direct Delta Option Chain for crypto
+        if (isCryptoAsset) {
+          const directChain = await fetchDirectDeltaOptionChain(asset as 'BTC' | 'ETH' | 'XAUT');
+          if (cancelled) return;
+          if (directChain.expiries.length > 0) {
+            setChain(prev => {
+              if (!areChainsDifferent(prev, directChain.expiries, directChain.chainByExpiry)) {
+                return prev;
+              }
+              return directChain;
+            });
+          }
+        }
+      } catch {
+        /* ignore device poll errors */
+      }
+    };
+
+    // 2. Fast initial REST sync to Render backend
     const fetchFastInitialSync = async () => {
       if (cancelled) return;
       const base = getApiBase();
@@ -134,12 +169,14 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       }
     };
 
+    // Execute instant direct device poll + backend sync concurrently
+    runDirectDevicePoll();
     fetchFastInitialSync();
 
     const scheduleReconnect = () => {
       if (cancelled) return;
       reconnectAttempt.current = Math.min(reconnectAttempt.current + 1, 6);
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 10000);
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 8000);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       reconnectTimer.current = setTimeout(connect, delay);
     };
@@ -222,66 +259,31 @@ export function usePriceFeed(asset: string): PriceFeedResult {
 
     connect();
 
+    // Direct Device periodic poll every 1.5s
+    directPollerTimer.current = setInterval(() => {
+      runDirectDevicePoll();
+    }, 1500);
+
     // Fallback REST polling if WebSocket is offline
     restFallbackTimer.current = setInterval(() => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         fetchFastInitialSync();
       }
-    }, 1500);
+    }, 2000);
 
     // Stale detector
     staleTimer.current = setInterval(() => {
-      if (lastMsgTs.current && Date.now() - lastMsgTs.current > 3500) {
+      if (lastMsgTs.current && Date.now() - lastMsgTs.current > 4000) {
         setState((s) => (s.stale ? s : { ...s, stale: true }));
       }
-    }, 1200);
-
-    // Direct Delta Exchange Fallback: If Crypto & (WebSocket offline or stale), stream directly from Delta Exchange!
-    if (isCryptoAsset) {
-      const runDirectDeltaPoll = async () => {
-        if (cancelled) return;
-        try {
-          if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || (Date.now() - lastMsgTs.current > 2500)) {
-            const directSpots = await fetchDirectDeltaTickers();
-            if (cancelled) return;
-            if (Object.keys(directSpots).length > 0) {
-              setState((s) => ({
-                ...s,
-                connected: true,
-                stale: false,
-                marketOpen: true,
-                spots: { ...s.spots, ...directSpots },
-              }));
-            }
-
-            if (asset === 'BTC' || asset === 'ETH' || asset === 'XAUT') {
-              const directChain = await fetchDirectDeltaOptionChain(asset as 'BTC' | 'ETH' | 'XAUT');
-              if (cancelled) return;
-              if (directChain.expiries.length > 0) {
-                setChain((prev) => {
-                  if (!areChainsDifferent(prev, directChain.expiries, directChain.chainByExpiry)) {
-                    return prev;
-                  }
-                  return directChain;
-                });
-              }
-            }
-          }
-        } catch {
-          /* ignore direct poll errors */
-        }
-      };
-
-      runDirectDeltaPoll();
-      directDeltaTimer.current = setInterval(runDirectDeltaPoll, 1800);
-    }
+    }, 1500);
 
     return () => {
       cancelled = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (staleTimer.current) clearInterval(staleTimer.current);
       if (restFallbackTimer.current) clearInterval(restFallbackTimer.current);
-      if (directDeltaTimer.current) clearInterval(directDeltaTimer.current);
+      if (directPollerTimer.current) clearInterval(directPollerTimer.current);
       if (wsRef.current) {
         try {
           wsRef.current.close();
