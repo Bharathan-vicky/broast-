@@ -547,6 +547,11 @@ def get_live_sync(asset: str = Query("NIFTY"), account_id: int = Query(1)):
         "journal": trade_journal
     }
 
+@app.get("/api/ping")
+@app.get("/health")
+def ping_health_check():
+    return {"status": "ok", "service": "broast-backend", "time": time.time()}
+
 @app.get("/api/refresh")
 def force_refresh_all():
     _fetch_crypto_tickers_now()
