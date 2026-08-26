@@ -685,7 +685,20 @@ def place_trade(order: BasketOrder):
     legs_dict = [leg.model_dump() for leg in order.legs]
     success, message = te.place_basket_order(order.basket_name, legs_dict, order.account_id)
     if success:
-        return {"status": "success", "message": message}
+        balance = db.get_balance(order.account_id)
+        baskets = db.get_open_baskets(order.account_id)
+        upnl = te.calculate_unrealized_pnl(baskets)
+        return {
+            "status": "success", 
+            "message": message,
+            "portfolio": {
+                "account_id": order.account_id,
+                "balance": balance,
+                "unrealized_pnl": upnl,
+                "equity": balance + upnl,
+                "baskets": baskets
+            }
+        }
     else:
         return {"status": "error", "message": message}
 

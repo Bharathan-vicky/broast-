@@ -2278,6 +2278,7 @@ export default function App() {
           setTradeMessage(data.message || 'Order Executed Successfully! ⚡');
           setShowOrderModal(false);
           setStratBasket([]);
+          if (data.portfolio) setPortfolio(data.portfolio);
           setActiveTab('tradelab');
           setTradeLabSubTab('positions');
           triggerManualRefresh();
