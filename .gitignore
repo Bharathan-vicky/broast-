@@ -1,0 +1,86 @@
+# Development Environments
+.venv/
+venv/
+env/
+ENV/
+bin/
+lib/
+share/
+Include/
+
+# Environment configurations
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python Caches & Compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# SQLite Database files
+*.db
+*.db-journal
+*.sqlite3
+*.sqlite
+
+# Application logs
+logs/
+*.log
+
+# Frontend & Mobile Build files
+node_modules/
+frontend/dist/
+frontend/build/
+mobile/.expo/
+mobile/web-build/
+mobile/android/
+mobile/ios/
+.expo-shared/
+.expo/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*~
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Generated cache files (not source, re-downloaded at runtime)
+backend/instruments_cache.json
+*.cache
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
