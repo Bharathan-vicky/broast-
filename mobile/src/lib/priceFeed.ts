@@ -6,13 +6,7 @@ const getApiBase = (): string => {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const host = hostUri.split(':')[0];
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      return `http://${host}:8000`;
-    }
-  }
+  // Default to 24/7 high-availability cloud backend on Render
   return 'https://broast.onrender.com';
 };
 
@@ -95,6 +89,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
   const reconnectAttempt = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restFallbackTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const directDeltaTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMsgTs = useRef(0);
   const assetRef = useRef(asset);
@@ -105,10 +100,46 @@ export function usePriceFeed(asset: string): PriceFeedResult {
   useEffect(() => {
     let cancelled = false;
 
+    // 1. Instant fast initial sync over REST so data displays in <150ms
+    const fetchFastInitialSync = async () => {
+      if (cancelled) return;
+      const base = getApiBase();
+      const currentAsset = assetRef.current || 'NIFTY';
+      try {
+        const res = await fetch(`${base}/api/sync/live?asset=${encodeURIComponent(currentAsset)}&account_id=1`);
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data && !cancelled) {
+            lastMsgTs.current = Date.now();
+            if (data.spots) {
+              setState(s => ({
+                ...s,
+                connected: true,
+                stale: false,
+                marketOpen: data.marketOpen !== undefined ? data.marketOpen : s.marketOpen,
+                spots: { ...s.spots, ...data.spots }
+              }));
+            }
+            if (data.chain && data.chain.expiries && data.chain.expiries.length > 0) {
+              setChain({
+                expiries: data.chain.expiries,
+                chainByExpiry: data.chain.chainByExpiry || {}
+              });
+            }
+          }
+        }
+      } catch {
+        /* ignore initial fetch error */
+      }
+    };
+
+    fetchFastInitialSync();
+
     const scheduleReconnect = () => {
       if (cancelled) return;
       reconnectAttempt.current = Math.min(reconnectAttempt.current + 1, 6);
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 15000);
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 10000);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       reconnectTimer.current = setTimeout(connect, delay);
     };
@@ -133,7 +164,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       ws.onopen = () => {
         if (cancelled) return;
         reconnectAttempt.current = 0;
-        setState((s) => (s.connected ? s : { ...s, connected: true }));
+        setState((s) => (s.connected ? s : { ...s, connected: true, stale: false }));
       };
 
       ws.onmessage = (ev) => {
@@ -191,19 +222,25 @@ export function usePriceFeed(asset: string): PriceFeedResult {
 
     connect();
 
+    // Fallback REST polling if WebSocket is offline
+    restFallbackTimer.current = setInterval(() => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        fetchFastInitialSync();
+      }
+    }, 1500);
+
     // Stale detector
     staleTimer.current = setInterval(() => {
-      if (lastMsgTs.current && Date.now() - lastMsgTs.current > 3000) {
+      if (lastMsgTs.current && Date.now() - lastMsgTs.current > 3500) {
         setState((s) => (s.stale ? s : { ...s, stale: true }));
       }
-    }, 1000);
+    }, 1200);
 
     // Direct Delta Exchange Fallback: If Crypto & (WebSocket offline or stale), stream directly from Delta Exchange!
     if (isCryptoAsset) {
       const runDirectDeltaPoll = async () => {
         if (cancelled) return;
         try {
-          // If WS is not connected or stale, fetch directly from Delta Exchange
           if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || (Date.now() - lastMsgTs.current > 2500)) {
             const directSpots = await fetchDirectDeltaTickers();
             if (cancelled) return;
@@ -243,6 +280,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       cancelled = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (staleTimer.current) clearInterval(staleTimer.current);
+      if (restFallbackTimer.current) clearInterval(restFallbackTimer.current);
       if (directDeltaTimer.current) clearInterval(directDeltaTimer.current);
       if (wsRef.current) {
         try {

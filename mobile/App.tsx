@@ -30,15 +30,7 @@ const getBackendUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
-  // 2. Expo Go dev mode - auto-detect host IP from dev server
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const host = hostUri.split(':')[0];
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      return `http://${host}:8000`;
-    }
-  }
-  // 3. Standalone APK/Production build - default to Render cloud backend
+  // 2. High-availability 24/7 Cloud Backend on Render
   return 'https://broast.onrender.com';
 };
 
