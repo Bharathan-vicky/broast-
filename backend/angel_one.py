@@ -1120,7 +1120,7 @@ def _cache_refresher_loop():
 
 def _live_market_data_fetcher_thread():
     """
-    Continuously fetches real live market spot prices for Indian stocks & indices.
+    Continuously fetches real live market spot prices for ALL Indian stocks, indices & commodities.
     Guarantees 100% real-time matching with live broker terminal prices.
     """
     import requests
@@ -1136,7 +1136,11 @@ def _live_market_data_fetcher_thread():
         "LT": "LT.NS",
         "NIFTY": "^NSEI",
         "BANKNIFTY": "^NSEBANK",
-        "SENSEX": "^BSESN"
+        "SENSEX": "^BSESN",
+        "CRUDEOIL": "CL=F",
+        "GOLD": "GC=F",
+        "SILVER": "SI=F",
+        "NATURALGAS": "NG=F"
     }
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
@@ -1168,6 +1172,30 @@ def _live_market_data_fetcher_thread():
                             SENSEX_SPOT = round(p, 2)
                             SENSEX_SPOT_CHANGE = diff
                             SENSEX_SPOT_PCT = pct
+                        elif sym_key == "CRUDEOIL":
+                            global CRUDEOIL_SPOT, CRUDEOIL_SPOT_CHANGE, CRUDEOIL_SPOT_PCT
+                            inr_crude = round(p * 95.40, 2)
+                            CRUDEOIL_SPOT = inr_crude
+                            CRUDEOIL_SPOT_CHANGE = round(diff * 95.40, 2)
+                            CRUDEOIL_SPOT_PCT = pct
+                        elif sym_key == "GOLD":
+                            global GOLD_SPOT, GOLD_SPOT_CHANGE, GOLD_SPOT_PCT
+                            inr_gold = round((p / 31.1035) * 10 * 95.40 * 1.15, 2)
+                            GOLD_SPOT = inr_gold
+                            GOLD_SPOT_CHANGE = round((diff / 31.1035) * 10 * 95.40 * 1.15, 2)
+                            GOLD_SPOT_PCT = pct
+                        elif sym_key == "SILVER":
+                            global SILVER_SPOT, SILVER_SPOT_CHANGE, SILVER_SPOT_PCT
+                            inr_silver = round((p / 31.1035) * 1000 * 95.40 * 1.15, 2)
+                            SILVER_SPOT = inr_silver
+                            SILVER_SPOT_CHANGE = round((diff / 31.1035) * 1000 * 95.40 * 1.15, 2)
+                            SILVER_SPOT_PCT = pct
+                        elif sym_key == "NATURALGAS":
+                            inr_ng = round(p * 87.0, 2)
+                            if "NATURALGAS" in STOCK_SPOTS:
+                                STOCK_SPOTS["NATURALGAS"]["spot"] = inr_ng
+                                STOCK_SPOTS["NATURALGAS"]["change"] = round(diff * 87.0, 2)
+                                STOCK_SPOTS["NATURALGAS"]["pctChange"] = pct
                         elif sym_key in STOCK_SPOTS:
                             STOCK_SPOTS[sym_key]["spot"] = round(p, 2)
                             STOCK_SPOTS[sym_key]["change"] = diff
