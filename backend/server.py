@@ -398,9 +398,9 @@ async def websocket_live_endpoint(websocket: WebSocket):
                 "spots": spots
             })
 
-            # Push the cached option chain for the subscribed asset (~0.5s cadence)
+            # Push the cached option chain for the subscribed asset (~1.0s cadence)
             now = time.time()
-            if now - last_chain_ts >= 0.5:
+            if now - last_chain_ts >= 1.0:
                 last_chain_ts = now
                 chain = get_chain_for_ws(asset)
                 await websocket.send_json({
@@ -410,7 +410,7 @@ async def websocket_live_endpoint(websocket: WebSocket):
                     "chainByExpiry": chain.get("chainByExpiry", {}),
                 })
 
-            await asyncio.sleep(0.12)
+            await asyncio.sleep(0.5)
     except (WebSocketDisconnect, Exception):
         pass
 
