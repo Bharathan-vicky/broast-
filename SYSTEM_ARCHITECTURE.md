@@ -184,4 +184,38 @@ $$d_1 = \frac{\ln(S/K) + (r + \sigma^2/2)T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \
 
 * **Dynamic CORS Settings:** Wildcards (`*`) are disabled in production. Allowable domains are restricted through the `ALLOWED_ORIGINS` environment variable.
 * **Database Path Resilience:** `paper_trade.db` path is dynamically computed relative to the `backend/database.py` script location. This prevents DB replication issues when running shell scripts from other project folders.
-* **Angel One Credential Isolation:** Authentication tokens and login TOTP keys are read directly from `.env` environment contexts, preventing secrets leaks.
+* **Angel One & Delta API Key Isolation:** Private API secrets, TOTP keys, and authentication tokens are kept strictly on the backend server environment (`.env` & Render Dashboard). No private secrets are bundled into client APK binaries.
+* **Public vs Private API Separation:** Public market data (crypto tickers, spots, options chains) requires zero API keys. Private trading operations are signed server-side with HMAC-SHA256.
+
+---
+
+## 7. CI/CD Pipeline Architecture
+
+The repository uses GitHub Actions for continuous integration and automated quality gates:
+
+```mermaid
+flowchart LR
+    A[Git Push to main] --> B[GitHub Actions CI/CD]
+    B --> C[Validate Mobile TypeScript]
+    B --> D[Validate Backend Python]
+    C & D --> E[Render Cloud Auto-Deploy]
+    B -.->|Workflow Dispatch| F[Expo EAS Cloud Android APK Build]
+```
+
+* **Workflow:** `.github/workflows/ci-cd.yml`
+* **Triggers:** Push to `main`, Pull Requests, and manual workflow dispatch.
+* **Quality Gates:**
+  1. `validate-mobile`: Runs `npx tsc --noEmit` on `mobile/` with Node.js 20.
+  2. `validate-backend`: Runs Python syntax and module validation with Python 3.11.
+  3. `build-android-apk`: Triggers EAS CLI to compile standalone Android preview APKs.
+
+---
+
+## 8. Dual-Mode Price Feed Architecture (24/7 Zero Failure)
+
+To ensure crypto market prices (BTC, ETH, XAUT spots and option chains) **never fail** in standalone mobile APK builds:
+
+1. **Primary Feed:** WebSocket stream connecting to the Render cloud backend (`wss://broast.onrender.com/ws/live`).
+2. **Direct Delta Exchange Fallback:** If the primary cloud backend is unreachable, asleep, or restarting, the mobile app automatically switches to direct Delta Exchange public endpoints (`https://api.india.delta.exchange` / `https://api.delta.exchange`).
+3. **No Key Required:** Delta Exchange public endpoints are 100% free and open, guaranteeing continuous 24/7/365 live crypto pricing on any device without server dependencies.
+

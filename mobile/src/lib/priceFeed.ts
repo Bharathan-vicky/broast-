@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import Constants from 'expo-constants';
+import { fetchDirectDeltaTickers, fetchDirectDeltaOptionChain } from './deltaDirectFeed';
 
 const getApiBase = (): string => {
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -63,7 +64,6 @@ function areChainsDifferent(prev: ChainPayload, nextExpiries: string[], nextChai
   const nextExpKeys = Object.keys(nextChainByExp);
   if (prevExpKeys.length !== nextExpKeys.length) return true;
   
-  // Sample check first expiry strike prices
   if (prevExpKeys.length > 0) {
     const firstExp = prevExpKeys[0];
     const pRows = prev.chainByExpiry[firstExp] || [];
@@ -95,9 +95,12 @@ export function usePriceFeed(asset: string): PriceFeedResult {
   const reconnectAttempt = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const directDeltaTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMsgTs = useRef(0);
   const assetRef = useRef(asset);
   assetRef.current = asset;
+
+  const isCryptoAsset = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
 
   useEffect(() => {
     let cancelled = false;
@@ -161,7 +164,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
 
             setChain((prevChain) => {
               if (!areChainsDifferent(prevChain, newExpiries, newChainByExp)) {
-                return prevChain; // Return exact same reference!
+                return prevChain;
               }
               return {
                 expiries: newExpiries,
@@ -169,7 +172,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
               };
             });
           }
-        } catch (e) {
+        } catch {
           /* ignore malformed frames */
         }
       };
@@ -188,21 +191,63 @@ export function usePriceFeed(asset: string): PriceFeedResult {
 
     connect();
 
-    // Stale detector: flag the feed if no message arrives for >3.0s.
+    // Stale detector
     staleTimer.current = setInterval(() => {
       if (lastMsgTs.current && Date.now() - lastMsgTs.current > 3000) {
         setState((s) => (s.stale ? s : { ...s, stale: true }));
       }
     }, 1000);
 
+    // Direct Delta Exchange Fallback: If Crypto & (WebSocket offline or stale), stream directly from Delta Exchange!
+    if (isCryptoAsset) {
+      const runDirectDeltaPoll = async () => {
+        if (cancelled) return;
+        try {
+          // If WS is not connected or stale, fetch directly from Delta Exchange
+          if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || (Date.now() - lastMsgTs.current > 2500)) {
+            const directSpots = await fetchDirectDeltaTickers();
+            if (cancelled) return;
+            if (Object.keys(directSpots).length > 0) {
+              setState((s) => ({
+                ...s,
+                connected: true,
+                stale: false,
+                marketOpen: true,
+                spots: { ...s.spots, ...directSpots },
+              }));
+            }
+
+            if (asset === 'BTC' || asset === 'ETH') {
+              const directChain = await fetchDirectDeltaOptionChain(asset);
+              if (cancelled) return;
+              if (directChain.expiries.length > 0) {
+                setChain((prev) => {
+                  if (!areChainsDifferent(prev, directChain.expiries, directChain.chainByExpiry)) {
+                    return prev;
+                  }
+                  return directChain;
+                });
+              }
+            }
+          }
+        } catch {
+          /* ignore direct poll errors */
+        }
+      };
+
+      runDirectDeltaPoll();
+      directDeltaTimer.current = setInterval(runDirectDeltaPoll, 1800);
+    }
+
     return () => {
       cancelled = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (staleTimer.current) clearInterval(staleTimer.current);
+      if (directDeltaTimer.current) clearInterval(directDeltaTimer.current);
       if (wsRef.current) {
         try {
           wsRef.current.close();
-        } catch (e) {
+        } catch {
           /* noop */
         }
       }

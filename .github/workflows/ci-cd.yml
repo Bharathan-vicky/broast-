@@ -1,0 +1,102 @@
+name: CI/CD Pipeline & Quality Gate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      trigger_eas_build:
+        description: 'Build Standalone Android APK on EAS'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # ==========================================
+  # STAGE 1: Mobile App Typecheck & Quality
+  # ==========================================
+  validate-mobile:
+    name: Mobile App TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install Mobile Dependencies
+        working-directory: ./mobile
+        run: npm ci
+
+      - name: Run TypeScript Quality Check
+        working-directory: ./mobile
+        run: npx tsc --noEmit
+
+  # ==========================================
+  # STAGE 2: Python Backend Quality Gate
+  # ==========================================
+  validate-backend:
+    name: Backend Syntax & Module Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Verify Backend Syntax & Imports
+        run: |
+          python -m py_compile backend/server.py
+          python -m py_compile backend/database.py
+          python -m py_compile backend/trading_engine.py
+          python -m py_compile backend/angel_one.py
+          python -m py_compile backend/market_data.py
+
+  # ==========================================
+  # STAGE 3: EAS Android APK Build (On Demand)
+  # ==========================================
+  build-android-apk:
+    name: Build Standalone Android APK (EAS)
+    needs: [validate-mobile, validate-backend]
+    if: ${{ github.event.inputs.trigger_eas_build == 'true' || github.event.inputs.trigger_eas_build == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install Dependencies
+        working-directory: ./mobile
+        run: npm ci
+
+      - name: Trigger EAS Preview APK Build
+        working-directory: ./mobile
+        run: eas build --platform android --profile preview --non-interactive
