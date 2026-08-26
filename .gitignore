@@ -3,10 +3,10 @@
 venv/
 env/
 ENV/
-bin/
-lib/
-share/
-Include/
+/bin/
+/lib/
+/share/
+/Include/
 
 # Environment configurations
 .env
