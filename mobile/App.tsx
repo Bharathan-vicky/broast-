@@ -502,6 +502,216 @@ const PriceFlasher = ({ price, children }: { price: number, children: React.Reac
   );
 };
 
+const isAssetMarketOpen = (asset: string, serverMarketOpen: boolean): boolean => {
+  const conf = ASSET_CONFIG[asset];
+  if (!conf) return serverMarketOpen;
+  if (conf.category === 'CRYPTO') return true; // Crypto 24/7/365
+
+  if (conf.category === 'COMMODITY') {
+    // MCX Commodities: 09:00 to 23:30 IST Monday-Friday
+    try {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const istTime = new Date(utc + (3600000 * 5.5));
+      const day = istTime.getDay();
+      if (day === 0 || day === 6) return false;
+      const curMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+      return curMinutes >= (9 * 60) && curMinutes <= (23 * 60 + 30);
+    } catch {
+      return serverMarketOpen;
+    }
+  }
+
+  // Indian Indices & Stocks (NSE/BSE): 09:15 to 15:30 IST Monday-Friday
+  try {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const istTime = new Date(utc + (3600000 * 5.5));
+    const day = istTime.getDay();
+    if (day === 0 || day === 6) return false;
+    const curMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+    return curMinutes >= (9 * 60 + 15) && curMinutes <= (15 * 60 + 30);
+  } catch {
+    return serverMarketOpen;
+  }
+};
+
+interface OptionRowProps {
+  row: any;
+  isCallITM: boolean;
+  isPutITM: boolean;
+  showSpotLine: boolean;
+  isCallFocused: boolean;
+  isPutFocused: boolean;
+  callLegSide: 'BUY' | 'SELL' | null;
+  putLegSide: 'BUY' | 'SELL' | null;
+  callChangePct: number;
+  putChangePct: number;
+  callLtp: number;
+  putLtp: number;
+  callOI: number;
+  putOI: number;
+  maxOI: number;
+  viewMode: 'LTP' | 'OI';
+  currSym: string;
+  selectedMarket: string | null;
+  activeAsset: string;
+  spotPrice: number;
+  onFocusCall: () => void;
+  onFocusPut: () => void;
+  onFocusClear: () => void;
+  onToggleCallBuy: (e: any) => void;
+  onToggleCallSell: (e: any) => void;
+  onTogglePutBuy: (e: any) => void;
+  onTogglePutSell: (e: any) => void;
+}
+
+const OptionChainRow = React.memo(({
+  row,
+  isCallITM,
+  isPutITM,
+  showSpotLine,
+  isCallFocused,
+  isPutFocused,
+  callLegSide,
+  putLegSide,
+  callChangePct,
+  putChangePct,
+  callLtp,
+  putLtp,
+  callOI,
+  putOI,
+  maxOI,
+  viewMode,
+  currSym,
+  selectedMarket,
+  activeAsset,
+  spotPrice,
+  onFocusCall,
+  onFocusPut,
+  onFocusClear,
+  onToggleCallBuy,
+  onToggleCallSell,
+  onTogglePutBuy,
+  onTogglePutSell,
+}: OptionRowProps) => {
+  return (
+    <View key={row.strike}>
+      <View style={styles.tableRow}>
+        {/* CALL SIDE */}
+        <TouchableOpacity
+          activeOpacity={0.82}
+          onPress={onFocusCall}
+          style={[styles.callCell, isCallITM && styles.itmCall, isCallFocused && { backgroundColor: 'rgba(0, 192, 135, 0.09)' }, { overflow: 'hidden' }]}
+        >
+          {viewMode === 'OI' && callOI > 0 && (
+            <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${(callOI / maxOI) * 100}%`, backgroundColor: 'rgba(0, 192, 135, 0.15)' }} />
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <View style={{ flex: 1, paddingRight: 4 }}>
+              <Text style={styles.priceText} numberOfLines={1}>
+                {viewMode === 'LTP' ? `${currSym}${callLtp.toFixed(selectedMarket === 'CRYPTO' ? 1 : 2)}` : formatOI(callOI, activeAsset === 'NIFTY' ? null : 'CRYPTO')}
+              </Text>
+              <Text style={[styles.chngText, { color: callChangePct >= 0 ? '#00c087' : '#f84960' }]}>
+                {callChangePct >= 0 ? `+${callChangePct.toFixed(1)}%` : `${callChangePct.toFixed(1)}%`}
+              </Text>
+            </View>
+
+            {(isCallFocused || callLegSide) ? (
+              <View style={styles.actionBadgesWrapper}>
+                <TouchableOpacity
+                  style={[styles.growwBadge, styles.growwBadgeBuy, callLegSide === 'BUY' && styles.growwBadgeBuyActive]}
+                  onPress={onToggleCallBuy}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Text style={[styles.growwBadgeText, { color: callLegSide === 'BUY' ? '#ffffff' : '#00c087' }]}>BUY</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.growwBadge, styles.growwBadgeSell, callLegSide === 'SELL' && styles.growwBadgeSellActive]}
+                  onPress={onToggleCallSell}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Text style={[styles.growwBadgeText, { color: callLegSide === 'SELL' ? '#ffffff' : '#f84960' }]}>SELL</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              viewMode === 'OI' ? (
+                <View style={[styles.subtleVolumeBarCall, { width: Math.max(10, Math.min(36, (callOI / 10000) * 3)) }]} />
+              ) : (
+                <View style={{ width: 1 }} />
+              )
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* STRIKE PILLAR */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={onFocusClear}
+          style={[styles.strikeCell, (isCallFocused || isPutFocused) && styles.strikeCellFocused]}
+        >
+          <Text style={styles.strikeText}>{row.strike.toLocaleString('en-IN')}</Text>
+        </TouchableOpacity>
+
+        {/* PUT SIDE */}
+        <TouchableOpacity
+          activeOpacity={0.82}
+          onPress={onFocusPut}
+          style={[styles.putCell, isPutITM && styles.itmPut, isPutFocused && { backgroundColor: 'rgba(248, 73, 96, 0.09)' }, { overflow: 'hidden' }]}
+        >
+          {viewMode === 'OI' && putOI > 0 && (
+            <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(putOI / maxOI) * 100}%`, backgroundColor: 'rgba(248, 73, 96, 0.15)' }} />
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            {(isPutFocused || putLegSide) ? (
+              <View style={styles.actionBadgesWrapper}>
+                <TouchableOpacity
+                  style={[styles.growwBadge, styles.growwBadgeBuy, putLegSide === 'BUY' && styles.growwBadgeBuyActive]}
+                  onPress={onTogglePutBuy}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Text style={[styles.growwBadgeText, { color: putLegSide === 'BUY' ? '#ffffff' : '#00c087' }]}>BUY</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.growwBadge, styles.growwBadgeSell, putLegSide === 'SELL' && styles.growwBadgeSellActive]}
+                  onPress={onTogglePutSell}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Text style={[styles.growwBadgeText, { color: putLegSide === 'SELL' ? '#ffffff' : '#f84960' }]}>SELL</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              viewMode === 'OI' ? (
+                <View style={[styles.subtleVolumeBarPut, { width: Math.max(10, Math.min(36, (putOI / 10000) * 3)) }]} />
+              ) : (
+                <View style={{ width: 1 }} />
+              )
+            )}
+
+            <View style={{ flex: 1, alignItems: 'flex-end', paddingLeft: 4 }}>
+              <Text style={styles.priceText} numberOfLines={1}>
+                {viewMode === 'LTP' ? `${currSym}${putLtp.toFixed(selectedMarket === 'CRYPTO' ? 1 : 2)}` : formatOI(putOI, activeAsset === 'NIFTY' ? null : 'CRYPTO')}
+              </Text>
+              <Text style={[styles.chngText, { color: putChangePct >= 0 ? '#00c087' : '#f84960' }]}>
+                {putChangePct >= 0 ? `+${putChangePct.toFixed(1)}%` : `${putChangePct.toFixed(1)}%`}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {showSpotLine && (
+        <View style={styles.spotLineContainer}>
+          <View style={styles.spotLine} />
+          <View style={styles.spotPill}>
+            <Text style={styles.spotPillText}>{activeAsset} {spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+});
+
 export default function App() {
 
   const [selectedMarket, setSelectedMarket] = useState<'CRYPTO' | 'INDIAN' | 'STOCKS' | 'COMMODITY' | null>(null);
@@ -2863,131 +3073,48 @@ export default function App() {
               const putLeg = stratBasket.find(l => l.strike === row.strike && l.option_type === 'PUT');
 
               return (
-                <View key={row.strike}>
-                  <View style={styles.tableRow}>
-                    {/* CALL SIDE */}
-                    <TouchableOpacity
-                      activeOpacity={0.82}
-                      onPress={() => setActiveRowTarget(isCallFocused ? null : { strike: row.strike, side: 'CALL' })}
-                      style={[styles.callCell, isCallITM && styles.itmCall, isCallFocused && { backgroundColor: 'rgba(0, 192, 135, 0.09)' }, { overflow: 'hidden' }]}
-                    >
-                      {viewMode === 'OI' && callOI > 0 && (
-                        <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${(callOI / maxOI) * 100}%`, backgroundColor: 'rgba(0, 192, 135, 0.15)' }} />
-                      )}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <View style={{ flex: 1, paddingRight: 4 }}>
-                          <Text style={styles.priceText} numberOfLines={1}>
-                            {viewMode === 'LTP' ? `${currSym}${callLtp.toFixed(selectedMarket === 'CRYPTO' ? 1 : 2)}` : formatOI(callOI, activeAsset === 'NIFTY' ? null : 'CRYPTO')}
-                          </Text>
-                          <Text style={[styles.chngText, { color: callChangePct >= 0 ? '#00c087' : '#f84960' }]}>
-                            {callChangePct >= 0 ? `+${callChangePct.toFixed(1)}%` : `${callChangePct.toFixed(1)}%`}
-                          </Text>
-                        </View>
-
-                        {(isCallFocused || callLeg) ? (
-                          <View style={styles.actionBadgesWrapper}>
-                            <TouchableOpacity
-                              style={[styles.growwBadge, styles.growwBadgeBuy, callLeg?.side === 'BUY' && styles.growwBadgeBuyActive]}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleToggleLeg(row, 'CALL', 'BUY');
-                              }}
-                              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                            >
-                              <Text style={[styles.growwBadgeText, { color: callLeg?.side === 'BUY' ? '#ffffff' : '#00c087' }]}>BUY</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[styles.growwBadge, styles.growwBadgeSell, callLeg?.side === 'SELL' && styles.growwBadgeSellActive]}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleToggleLeg(row, 'CALL', 'SELL');
-                              }}
-                              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                            >
-                              <Text style={[styles.growwBadgeText, { color: callLeg?.side === 'SELL' ? '#ffffff' : '#f84960' }]}>SELL</Text>
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          viewMode === 'OI' ? (
-                            <View style={[styles.subtleVolumeBarCall, { width: Math.max(10, Math.min(36, (callOI / 10000) * 3)) }]} />
-                          ) : (
-                            <View style={{ width: 1 }} />
-                          )
-                        )}
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* STRIKE PILLAR */}
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => setActiveRowTarget(null)}
-                      style={[styles.strikeCell, (isCallFocused || isPutFocused) && styles.strikeCellFocused]}
-                    >
-                      <Text style={styles.strikeText}>{row.strike.toLocaleString('en-IN')}</Text>
-                    </TouchableOpacity>
-
-                    {/* PUT SIDE */}
-                    <TouchableOpacity
-                      activeOpacity={0.82}
-                      onPress={() => setActiveRowTarget(isPutFocused ? null : { strike: row.strike, side: 'PUT' })}
-                      style={[styles.putCell, isPutITM && styles.itmPut, isPutFocused && { backgroundColor: 'rgba(248, 73, 96, 0.09)' }, { overflow: 'hidden' }]}
-                    >
-                      {viewMode === 'OI' && putOI > 0 && (
-                        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(putOI / maxOI) * 100}%`, backgroundColor: 'rgba(248, 73, 96, 0.15)' }} />
-                      )}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        {(isPutFocused || putLeg) ? (
-                          <View style={styles.actionBadgesWrapper}>
-                            <TouchableOpacity
-                              style={[styles.growwBadge, styles.growwBadgeBuy, putLeg?.side === 'BUY' && styles.growwBadgeBuyActive]}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleToggleLeg(row, 'PUT', 'BUY');
-                              }}
-                              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                            >
-                              <Text style={[styles.growwBadgeText, { color: putLeg?.side === 'BUY' ? '#ffffff' : '#00c087' }]}>BUY</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[styles.growwBadge, styles.growwBadgeSell, putLeg?.side === 'SELL' && styles.growwBadgeSellActive]}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleToggleLeg(row, 'PUT', 'SELL');
-                              }}
-                              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                            >
-                              <Text style={[styles.growwBadgeText, { color: putLeg?.side === 'SELL' ? '#ffffff' : '#f84960' }]}>SELL</Text>
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          viewMode === 'OI' ? (
-                            <View style={[styles.subtleVolumeBarPut, { width: Math.max(10, Math.min(36, (putOI / 10000) * 3)) }]} />
-                          ) : (
-                            <View style={{ width: 1 }} />
-                          )
-                        )}
-
-                        <View style={{ flex: 1, alignItems: 'flex-end', paddingLeft: 4 }}>
-                          <Text style={styles.priceText} numberOfLines={1}>
-                            {viewMode === 'LTP' ? `${currSym}${putLtp.toFixed(selectedMarket === 'CRYPTO' ? 1 : 2)}` : formatOI(putOI, activeAsset === 'NIFTY' ? null : 'CRYPTO')}
-                          </Text>
-                          <Text style={[styles.chngText, { color: putChangePct >= 0 ? '#00c087' : '#f84960' }]}>
-                            {putChangePct >= 0 ? `+${putChangePct.toFixed(1)}%` : `${putChangePct.toFixed(1)}%`}
-                          </Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-
-                  {showSpotLine && (
-                    <View style={styles.spotLineContainer}>
-                      <View style={styles.spotLine} />
-                      <View style={styles.spotPill}>
-                        <Text style={styles.spotPillText}>{activeAsset} {sp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
+                <OptionChainRow
+                  key={row.strike}
+                  row={row}
+                  isCallITM={isCallITM}
+                  isPutITM={isPutITM}
+                  showSpotLine={showSpotLine}
+                  isCallFocused={isCallFocused}
+                  isPutFocused={isPutFocused}
+                  callLegSide={callLeg?.side || null}
+                  putLegSide={putLeg?.side || null}
+                  callChangePct={callChangePct}
+                  putChangePct={putChangePct}
+                  callLtp={callLtp}
+                  putLtp={putLtp}
+                  callOI={callOI}
+                  putOI={putOI}
+                  maxOI={maxOI}
+                  viewMode={viewMode}
+                  currSym={currSym}
+                  selectedMarket={selectedMarket}
+                  activeAsset={activeAsset}
+                  spotPrice={sp}
+                  onFocusCall={() => setActiveRowTarget(isCallFocused ? null : { strike: row.strike, side: 'CALL' })}
+                  onFocusPut={() => setActiveRowTarget(isPutFocused ? null : { strike: row.strike, side: 'PUT' })}
+                  onFocusClear={() => setActiveRowTarget(null)}
+                  onToggleCallBuy={(e: any) => {
+                    e?.stopPropagation?.();
+                    handleToggleLeg(row, 'CALL', 'BUY');
+                  }}
+                  onToggleCallSell={(e: any) => {
+                    e?.stopPropagation?.();
+                    handleToggleLeg(row, 'CALL', 'SELL');
+                  }}
+                  onTogglePutBuy={(e: any) => {
+                    e?.stopPropagation?.();
+                    handleToggleLeg(row, 'PUT', 'BUY');
+                  }}
+                  onTogglePutSell={(e: any) => {
+                    e?.stopPropagation?.();
+                    handleToggleLeg(row, 'PUT', 'SELL');
+                  }}
+                />
               );
             }}
             ListEmptyComponent={
@@ -3053,13 +3180,14 @@ export default function App() {
                 <TouchableOpacity 
                   style={[
                     styles.prominentPlaceOrderBtn,
+                    !isAssetMarketOpen(activeAsset, marketOpen) && { backgroundColor: '#d97706', borderColor: '#f59e0b', borderWidth: 1 },
                     orderMargin > tradeLabStats.availableMargin && styles.prominentPlaceOrderBtnDisabled
                   ]} 
                   onPress={handlePlaceOrder}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.prominentPlaceOrderBtnText}>
-                    PLACE ORDER ({stratBasket.length})
+                    {!isAssetMarketOpen(activeAsset, marketOpen) ? `PLACE AMO ORDER (${stratBasket.length}) 🌙` : `PLACE ORDER (${stratBasket.length}) ⚡`}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -3334,13 +3462,13 @@ export default function App() {
 
               <TouchableOpacity 
                 style={{ 
-                  backgroundColor: orderMargin > tradeLabStats.availableMargin ? '#5c371d' : '#f78d38', 
+                  backgroundColor: !isAssetMarketOpen(activeAsset, marketOpen) ? '#d97706' : (orderMargin > tradeLabStats.availableMargin ? '#5c371d' : '#f78d38'), 
                   paddingVertical: 12, 
                   borderRadius: 6, 
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1,
-                  borderColor: orderMargin > tradeLabStats.availableMargin ? '#783c13' : 'transparent'
+                  borderColor: !isAssetMarketOpen(activeAsset, marketOpen) ? '#f59e0b' : (orderMargin > tradeLabStats.availableMargin ? '#783c13' : 'transparent')
                 }} 
                 onPress={() => {
                   handlePlaceOrder();
@@ -3348,7 +3476,7 @@ export default function App() {
                 }}
               >
                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>
-                  Place Order ({stratBasket.length})
+                  {!isAssetMarketOpen(activeAsset, marketOpen) ? `Place AMO Order (${stratBasket.length}) 🌙` : `Place Order (${stratBasket.length}) ⚡`}
                 </Text>
               </TouchableOpacity>
             </View>
