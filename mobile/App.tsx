@@ -164,15 +164,15 @@ const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; l
   'ITC': { currency: 'INR', lotSize: 1600, lotUnit: 'shares', symbol: '₹', name: 'ITC Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 5, defaultSpot: 270.25, exchange: 'NSE' },
   'LT': { currency: 'INR', lotSize: 150, lotUnit: 'shares', symbol: '₹', name: 'Larsen & Toubro Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 4038.10, exchange: 'NSE' },
 
-  // MCX Commodities & Minis (Real Lot Sizes & Steps)
-  'CRUDEOIL': { currency: 'INR', lotSize: 100, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 50, defaultSpot: 8315.0, exchange: 'MCX' },
-  'CRUDEOILM': { currency: 'INR', lotSize: 10, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil Mini', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 50, defaultSpot: 8315.0, exchange: 'MCX' },
-  'GOLD': { currency: 'INR', lotSize: 100, lotUnit: 'grams', symbol: '₹', name: 'Gold Standard', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 100, defaultSpot: 161690.0, exchange: 'MCX' },
-  'GOLDM': { currency: 'INR', lotSize: 10, lotUnit: 'grams', symbol: '₹', name: 'Gold Mini (10g)', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 100, defaultSpot: 161690.0, exchange: 'MCX' },
-  'SILVER': { currency: 'INR', lotSize: 30, lotUnit: 'kg', symbol: '₹', name: 'Silver Standard', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 500, defaultSpot: 246274.0, exchange: 'MCX' },
-  'SILVERM': { currency: 'INR', lotSize: 5, lotUnit: 'kg', symbol: '₹', name: 'Silver Mini (5kg)', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 500, defaultSpot: 246274.0, exchange: 'MCX' },
-  'NATURALGAS': { currency: 'INR', lotSize: 1250, lotUnit: 'mmBtu', symbol: '₹', name: 'Natural Gas', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 5, defaultSpot: 240.5, exchange: 'MCX' },
-  'NATGASM': { currency: 'INR', lotSize: 250, lotUnit: 'mmBtu', symbol: '₹', name: 'Natural Gas Mini', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 5, defaultSpot: 240.5, exchange: 'MCX' },
+  // MCX Commodities & Minis (Exact Groww MCX Prices & Steps)
+  'CRUDEOIL': { currency: 'INR', lotSize: 100, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 50, defaultSpot: 7850.0, exchange: 'MCX' },
+  'CRUDEOILM': { currency: 'INR', lotSize: 10, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil Mini', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 50, defaultSpot: 7850.0, exchange: 'MCX' },
+  'GOLD': { currency: 'INR', lotSize: 100, lotUnit: 'grams', symbol: '₹', name: 'Gold Standard', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 100, defaultSpot: 161128.0, exchange: 'MCX' },
+  'GOLDM': { currency: 'INR', lotSize: 10, lotUnit: 'grams', symbol: '₹', name: 'Gold Mini (10g)', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 100, defaultSpot: 160010.0, exchange: 'MCX' },
+  'SILVER': { currency: 'INR', lotSize: 30, lotUnit: 'kg', symbol: '₹', name: 'Silver Standard', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 500, defaultSpot: 240950.0, exchange: 'MCX' },
+  'SILVERM': { currency: 'INR', lotSize: 5, lotUnit: 'kg', symbol: '₹', name: 'Silver Mini (5kg)', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 500, defaultSpot: 250198.0, exchange: 'MCX' },
+  'NATURALGAS': { currency: 'INR', lotSize: 1250, lotUnit: 'mmBtu', symbol: '₹', name: 'Natural Gas', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 5, defaultSpot: 278.6, exchange: 'MCX' },
+  'NATGASM': { currency: 'INR', lotSize: 250, lotUnit: 'mmBtu', symbol: '₹', name: 'Natural Gas Mini', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 5, defaultSpot: 278.5, exchange: 'MCX' },
   
   // Crypto Derivatives
   'BTC': { currency: 'USD', lotSize: 0.001, lotUnit: 'BTC', symbol: '$', name: 'Bitcoin Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 1000, defaultSpot: 60000.0, exchange: 'DELTA', settlementCurrency: 'INR' },

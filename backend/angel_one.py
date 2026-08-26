@@ -101,6 +101,17 @@ COMMODITY_STRIKE_STEPS = {
     "NATGASM": 5
 }
 
+COMMODITY_SPOTS = {
+    "CRUDEOIL": {"spot": 7850.00, "change": 13.00, "pctChange": 0.17},
+    "CRUDEOILM": {"spot": 7850.00, "change": 11.00, "pctChange": 0.14},
+    "GOLD": {"spot": 161128.00, "change": -1754.00, "pctChange": -1.08},
+    "GOLDM": {"spot": 160010.00, "change": -1728.00, "pctChange": -1.07},
+    "SILVER": {"spot": 240950.00, "change": -3177.00, "pctChange": -1.30},
+    "SILVERM": {"spot": 250198.00, "change": -2869.00, "pctChange": -1.13},
+    "NATURALGAS": {"spot": 278.60, "change": 8.30, "pctChange": 3.07},
+    "NATGASM": {"spot": 278.50, "change": 8.20, "pctChange": 3.03}
+}
+
 STOCK_SPOTS = {
     "RELIANCE": {"spot": 1298.00, "change": -19.0, "pctChange": -1.44},
     "TCS": {"spot": 2270.00, "change": -26.2, "pctChange": -1.14},
@@ -610,14 +621,14 @@ def get_spot_info(asset="NIFTY"):
         return {"spot_price": SENSEX_SPOT, "change": SENSEX_SPOT_CHANGE, "percent_change": SENSEX_SPOT_PCT, "symbol": "SENSEX", "is_live": True}
     elif asset_u == "BANKNIFTY":
         return {"spot_price": BANKNIFTY_SPOT, "change": BANKNIFTY_SPOT_CHANGE, "percent_change": BANKNIFTY_SPOT_PCT, "symbol": "BANKNIFTY", "is_live": True}
-    elif asset_u in ["CRUDEOIL", "CRUDEOILM"]:
-        return {"spot_price": CRUDEOIL_SPOT, "change": CRUDEOIL_SPOT_CHANGE, "percent_change": CRUDEOIL_SPOT_PCT, "symbol": asset_u, "is_live": True}
-    elif asset_u in ["GOLD", "GOLDM"]:
-        return {"spot_price": GOLD_SPOT, "change": GOLD_SPOT_CHANGE, "percent_change": GOLD_SPOT_PCT, "symbol": asset_u, "is_live": True}
-    elif asset_u in ["SILVER", "SILVERM"]:
-        return {"spot_price": SILVER_SPOT, "change": SILVER_SPOT_CHANGE, "percent_change": SILVER_SPOT_PCT, "symbol": asset_u, "is_live": True}
-    elif asset_u in ["NATURALGAS", "NATGASM"]:
-        return {"spot_price": 240.50, "change": 2.10, "percent_change": 0.88, "symbol": asset_u, "is_live": True}
+    elif asset_u in COMMODITY_SPOTS:
+        return {
+            "spot_price": COMMODITY_SPOTS[asset_u]["spot"],
+            "change": COMMODITY_SPOTS[asset_u]["change"],
+            "percent_change": COMMODITY_SPOTS[asset_u]["pctChange"],
+            "symbol": asset_u,
+            "is_live": True
+        }
     return {"spot_price": NIFTY_SPOT, "change": NIFTY_SPOT_CHANGE, "percent_change": NIFTY_SPOT_PCT, "symbol": "NIFTY", "is_live": True}
 
 
@@ -1187,29 +1198,33 @@ def _live_market_data_fetcher_thread():
                     SENSEX_SPOT_CHANGE = diff
                     SENSEX_SPOT_PCT = pct
                 elif sym_key == "CRUDEOIL":
-                    global CRUDEOIL_SPOT, CRUDEOIL_SPOT_CHANGE, CRUDEOIL_SPOT_PCT
-                    inr_crude = round(p * 95.40, 2)
-                    CRUDEOIL_SPOT = inr_crude
-                    CRUDEOIL_SPOT_CHANGE = round(diff * 95.40, 2)
-                    CRUDEOIL_SPOT_PCT = pct
+                    COMMODITY_SPOTS["CRUDEOIL"]["spot"] = round(7850.0 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["CRUDEOIL"]["change"] = round(7850.0 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["CRUDEOIL"]["pctChange"] = pct
+                    COMMODITY_SPOTS["CRUDEOILM"]["spot"] = round(7850.0 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["CRUDEOILM"]["change"] = round(7850.0 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["CRUDEOILM"]["pctChange"] = pct
                 elif sym_key == "GOLD":
-                    global GOLD_SPOT, GOLD_SPOT_CHANGE, GOLD_SPOT_PCT
-                    inr_gold = round((p / 31.1035) * 10 * 95.40 * 1.15, 2)
-                    GOLD_SPOT = inr_gold
-                    GOLD_SPOT_CHANGE = round((diff / 31.1035) * 10 * 95.40 * 1.15, 2)
-                    GOLD_SPOT_PCT = pct
+                    COMMODITY_SPOTS["GOLD"]["spot"] = round(161128.0 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["GOLD"]["change"] = round(161128.0 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["GOLD"]["pctChange"] = pct
+                    COMMODITY_SPOTS["GOLDM"]["spot"] = round(160010.0 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["GOLDM"]["change"] = round(160010.0 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["GOLDM"]["pctChange"] = pct
                 elif sym_key == "SILVER":
-                    global SILVER_SPOT, SILVER_SPOT_CHANGE, SILVER_SPOT_PCT
-                    inr_silver = round((p / 31.1035) * 1000 * 95.40 * 1.15, 2)
-                    SILVER_SPOT = inr_silver
-                    SILVER_SPOT_CHANGE = round((diff / 31.1035) * 1000 * 95.40 * 1.15, 2)
-                    SILVER_SPOT_PCT = pct
+                    COMMODITY_SPOTS["SILVER"]["spot"] = round(240950.0 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["SILVER"]["change"] = round(240950.0 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["SILVER"]["pctChange"] = pct
+                    COMMODITY_SPOTS["SILVERM"]["spot"] = round(250198.0 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["SILVERM"]["change"] = round(250198.0 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["SILVERM"]["pctChange"] = pct
                 elif sym_key == "NATURALGAS":
-                    inr_ng = round(p * 87.0, 2)
-                    if "NATURALGAS" in STOCK_SPOTS:
-                        STOCK_SPOTS["NATURALGAS"]["spot"] = inr_ng
-                        STOCK_SPOTS["NATURALGAS"]["change"] = round(diff * 87.0, 2)
-                        STOCK_SPOTS["NATURALGAS"]["pctChange"] = pct
+                    COMMODITY_SPOTS["NATURALGAS"]["spot"] = round(278.60 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["NATURALGAS"]["change"] = round(278.60 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["NATURALGAS"]["pctChange"] = pct
+                    COMMODITY_SPOTS["NATGASM"]["spot"] = round(278.50 * (1 + pct / 100.0), 2)
+                    COMMODITY_SPOTS["NATGASM"]["change"] = round(278.50 * (pct / 100.0), 2)
+                    COMMODITY_SPOTS["NATGASM"]["pctChange"] = pct
                 elif sym_key in STOCK_SPOTS:
                     STOCK_SPOTS[sym_key]["spot"] = round(p, 2)
                     STOCK_SPOTS[sym_key]["change"] = diff
