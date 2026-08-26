@@ -152,17 +152,17 @@ const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; l
   'BANKNIFTY': { currency: 'INR', lotSize: 30, lotUnit: 'units', symbol: '₹', name: 'BANK NIFTY Index', tag: 'NSE India', category: 'INDIAN', strikeStep: 100, defaultSpot: 57655.50, exchange: 'NSE' },
   'SENSEX': { currency: 'INR', lotSize: 20, lotUnit: 'units', symbol: '₹', name: 'BSE SENSEX Index', tag: 'BSE India', category: 'INDIAN', strikeStep: 100, defaultSpot: 77315.44, exchange: 'BSE' },
   
-  // NSE Stock Options (F&O Heavyweights)
-  'RELIANCE': { currency: 'INR', lotSize: 250, lotUnit: 'shares', symbol: '₹', name: 'Reliance Industries Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1305.00, exchange: 'NSE' },
-  'TCS': { currency: 'INR', lotSize: 175, lotUnit: 'shares', symbol: '₹', name: 'Tata Consultancy Services', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 50, defaultSpot: 2295.40, exchange: 'NSE' },
-  'INFY': { currency: 'INR', lotSize: 400, lotUnit: 'shares', symbol: '₹', name: 'Infosys Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1137.20, exchange: 'NSE' },
-  'HDFCBANK': { currency: 'INR', lotSize: 550, lotUnit: 'shares', symbol: '₹', name: 'HDFC Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1642.50, exchange: 'NSE' },
-  'ICICIBANK': { currency: 'INR', lotSize: 700, lotUnit: 'shares', symbol: '₹', name: 'ICICI Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1215.10, exchange: 'NSE' },
-  'SBIN': { currency: 'INR', lotSize: 750, lotUnit: 'shares', symbol: '₹', name: 'State Bank of India', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 815.00, exchange: 'NSE' },
-  'TATAMOTORS': { currency: 'INR', lotSize: 575, lotUnit: 'shares', symbol: '₹', name: 'Tata Motors Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 985.00, exchange: 'NSE' },
-  'BHARTIARTL': { currency: 'INR', lotSize: 475, lotUnit: 'shares', symbol: '₹', name: 'Bharti Airtel Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1450.00, exchange: 'NSE' },
-  'ITC': { currency: 'INR', lotSize: 1600, lotUnit: 'shares', symbol: '₹', name: 'ITC Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 5, defaultSpot: 490.00, exchange: 'NSE' },
-  'LT': { currency: 'INR', lotSize: 150, lotUnit: 'shares', symbol: '₹', name: 'Larsen & Toubro Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 50, defaultSpot: 3600.00, exchange: 'NSE' },
+  // NSE Stock Options (F&O Heavyweights - Exact Strike Steps)
+  'RELIANCE': { currency: 'INR', lotSize: 250, lotUnit: 'shares', symbol: '₹', name: 'Reliance Industries Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1298.00, exchange: 'NSE' },
+  'TCS': { currency: 'INR', lotSize: 175, lotUnit: 'shares', symbol: '₹', name: 'Tata Consultancy Services', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 2270.00, exchange: 'NSE' },
+  'INFY': { currency: 'INR', lotSize: 400, lotUnit: 'shares', symbol: '₹', name: 'Infosys Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1120.00, exchange: 'NSE' },
+  'HDFCBANK': { currency: 'INR', lotSize: 550, lotUnit: 'shares', symbol: '₹', name: 'HDFC Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 727.20, exchange: 'NSE' },
+  'ICICIBANK': { currency: 'INR', lotSize: 700, lotUnit: 'shares', symbol: '₹', name: 'ICICI Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1430.00, exchange: 'NSE' },
+  'SBIN': { currency: 'INR', lotSize: 750, lotUnit: 'shares', symbol: '₹', name: 'State Bank of India', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 5, defaultSpot: 1052.00, exchange: 'NSE' },
+  'TATAMOTORS': { currency: 'INR', lotSize: 575, lotUnit: 'shares', symbol: '₹', name: 'Tata Motors Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 985.00, exchange: 'NSE' },
+  'BHARTIARTL': { currency: 'INR', lotSize: 475, lotUnit: 'shares', symbol: '₹', name: 'Bharti Airtel Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1902.10, exchange: 'NSE' },
+  'ITC': { currency: 'INR', lotSize: 1600, lotUnit: 'shares', symbol: '₹', name: 'ITC Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 5, defaultSpot: 270.25, exchange: 'NSE' },
+  'LT': { currency: 'INR', lotSize: 150, lotUnit: 'shares', symbol: '₹', name: 'Larsen & Toubro Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 4038.10, exchange: 'NSE' },
 
   // MCX Commodities & Minis (Real Lot Sizes & Steps)
   'CRUDEOIL': { currency: 'INR', lotSize: 100, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 50, defaultSpot: 8315.0, exchange: 'MCX' },
