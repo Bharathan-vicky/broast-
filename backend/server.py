@@ -225,6 +225,10 @@ def _crypto_chain_poller_thread():
                 CRYPTO_CHAIN_CACHE[asset] = {"expiries": expiries, "chainByExpiry": chain_by_expiry}
             except Exception as e:
                 logger.error(f"Error polling crypto chain for {asset}: {e}")
+        try:
+            te.check_sl_target_triggers()
+        except Exception:
+            pass
         time.sleep(0.3)
 
 
@@ -545,11 +549,29 @@ class TradeLeg(BaseModel):
     side: str
     size: float
     price: float = 0.0
+    stoploss: float = 0.0
+    target: float = 0.0
+    stoploss_type: str = "PRICE"
+    target_type: str = "PRICE"
+    product_type: str = "NRML"
+    order_mode: str = "REGULAR"
+    trigger_price: float = 0.0
 
 class BasketOrder(BaseModel):
     basket_name: str
     legs: List[TradeLeg]
     account_id: int = 1
+
+class PositionModify(BaseModel):
+    position_id: int
+    stoploss: float = 0.0
+    target: float = 0.0
+    stoploss_type: str = "PRICE"
+    target_type: str = "PRICE"
+
+class SinglePositionClose(BaseModel):
+    position_id: int
+    exit_reason: str = "MANUAL"
 
 class AccountUpdate(BaseModel):
     account_id: int
@@ -610,6 +632,26 @@ def place_trade(order: BasketOrder):
         return {"status": "success", "message": message}
     else:
         return {"status": "error", "message": message}
+
+@app.post("/api/trade/modify")
+def modify_trade(req: PositionModify):
+    success, message = te.modify_position_sl_target(
+        req.position_id, 
+        req.stoploss, 
+        req.target, 
+        req.stoploss_type, 
+        req.target_type
+    )
+    if success:
+        return {"status": "success", "message": message}
+    return {"status": "error", "message": message}
+
+@app.post("/api/trade/close_position")
+def close_single_position(req: SinglePositionClose):
+    success, message = te.close_single_position(req.position_id, req.exit_reason)
+    if success:
+        return {"status": "success", "message": message}
+    return {"status": "error", "message": message}
 
 class CloseOrder(BaseModel):
     basket_id: int

@@ -65,9 +65,35 @@ def init_db():
             entry_price REAL NOT NULL,
             close_price REAL,
             status TEXT NOT NULL,      -- 'OPEN' or 'CLOSED'
+            stoploss REAL DEFAULT 0.0,
+            target REAL DEFAULT 0.0,
+            stoploss_type TEXT DEFAULT 'PRICE',
+            target_type TEXT DEFAULT 'PRICE',
+            product_type TEXT DEFAULT 'NRML',
+            order_mode TEXT DEFAULT 'REGULAR',
+            trigger_price REAL DEFAULT 0.0,
             FOREIGN KEY(basket_id) REFERENCES baskets(id)
         )
     ''')
+
+    # Auto-migration: check positions table columns and add any missing ones
+    c.execute("PRAGMA table_info(positions)")
+    pos_cols = [r[1] for r in c.fetchall()]
+    needed_cols = [
+        ("stoploss", "REAL DEFAULT 0.0"),
+        ("target", "REAL DEFAULT 0.0"),
+        ("stoploss_type", "TEXT DEFAULT 'PRICE'"),
+        ("target_type", "TEXT DEFAULT 'PRICE'"),
+        ("product_type", "TEXT DEFAULT 'NRML'"),
+        ("order_mode", "TEXT DEFAULT 'REGULAR'"),
+        ("trigger_price", "REAL DEFAULT 0.0")
+    ]
+    for col_name, col_def in needed_cols:
+        if col_name not in pos_cols:
+            try:
+                c.execute(f"ALTER TABLE positions ADD COLUMN {col_name} {col_def}")
+            except Exception as e:
+                print(f"[DB Migration] Could not add column {col_name}: {e}")
     
     # Trade history for audit
     c.execute('''
@@ -78,9 +104,18 @@ def init_db():
             side TEXT NOT NULL,
             size REAL NOT NULL,
             price REAL NOT NULL,
-            timestamp TEXT NOT NULL
+            timestamp TEXT NOT NULL,
+            exit_reason TEXT DEFAULT 'MANUAL'
         )
     ''')
+
+    c.execute("PRAGMA table_info(trade_history)")
+    th_cols = [r[1] for r in c.fetchall()]
+    if "exit_reason" not in th_cols:
+        try:
+            c.execute("ALTER TABLE trade_history ADD COLUMN exit_reason TEXT DEFAULT 'MANUAL'")
+        except Exception:
+            pass
     
     # Seed 10 Nifty INR Sub-Accounts (INDIAN Market)
     c.execute("SELECT COUNT(*) FROM accounts WHERE market='INDIAN'")

@@ -211,13 +211,33 @@ def place_basket_order(basket_name, legs, account_id=1):
     for leg in legs:
         price = leg.get('price', 0.0)
         c.execute('''
-            INSERT INTO positions (basket_id, symbol, underlying, strike, expiry, option_type, side, size, entry_price, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')
-        ''', (basket_id, leg['symbol'], leg.get('underlying', 'NIFTY' if is_indian else 'BTC'), leg.get('strike', 0), leg.get('expiry', ''), leg.get('option_type', 'CALL'), leg['side'], leg.get('size', 1), price))
+            INSERT INTO positions (
+                basket_id, symbol, underlying, strike, expiry, option_type, side, size, entry_price, status,
+                stoploss, target, stoploss_type, target_type, product_type, order_mode, trigger_price
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            basket_id, 
+            leg['symbol'], 
+            leg.get('underlying', 'NIFTY' if is_indian else 'BTC'), 
+            leg.get('strike', 0), 
+            leg.get('expiry', ''), 
+            leg.get('option_type', 'CALL'), 
+            leg['side'], 
+            leg.get('size', 1), 
+            price,
+            float(leg.get('stoploss', 0.0) or 0.0),
+            float(leg.get('target', 0.0) or 0.0),
+            str(leg.get('stoploss_type', 'PRICE') or 'PRICE'),
+            str(leg.get('target_type', 'PRICE') or 'PRICE'),
+            str(leg.get('product_type', 'NRML') or 'NRML'),
+            str(leg.get('order_mode', 'REGULAR') or 'REGULAR'),
+            float(leg.get('trigger_price', 0.0) or 0.0)
+        ))
         
         c.execute('''
-            INSERT INTO trade_history (basket_id, symbol, side, size, price, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO trade_history (basket_id, symbol, side, size, price, timestamp, exit_reason)
+            VALUES (?, ?, ?, ?, ?, ?, 'ENTRY')
         ''', (basket_id, leg['symbol'], leg['side'], leg.get('size', 1), price, now_str))
     
     conn.commit()
@@ -225,10 +245,11 @@ def place_basket_order(basket_name, legs, account_id=1):
 
     db.update_balance(-total_deduction, account_id)
 
+    order_label = f"AMO '{basket_name}'" if any(leg.get('order_mode') == 'AMO' for leg in legs) else f"'{basket_name}'"
     if is_indian:
-        return True, f"✓ '{basket_name}' executed! Order Margin: ₹{total_margin:,.2f} | Charges: ₹{total_fees:.2f} (Brokerage ₹{charges_info['brokerage']:.2f} + Exch ₹{charges_info['exchange_charges']:.2f} + GST ₹{charges_info['gst']:.2f})"
+        return True, f"✓ {order_label} executed! Order Margin: ₹{total_margin:,.2f} | Charges: ₹{total_fees:.2f}"
     else:
-        return True, f"✓ '{basket_name}' executed! Margin: ${total_margin:,.2f} | Fees: ${total_fees:.2f}"
+        return True, f"✓ {order_label} executed! Margin: ${total_margin:,.2f} | Fees: ${total_fees:.2f}"
 
 
 def calculate_unrealized_pnl(baskets):
@@ -276,6 +297,144 @@ def calculate_unrealized_pnl(baskets):
         total_upnl += b['upnl']
         
     return round(total_upnl, 2)
+
+
+def modify_position_sl_target(position_id: int, stoploss: float, target: float, stoploss_type: str = "PRICE", target_type: str = "PRICE"):
+    """
+    Modifies the Stoploss and Target on an open position.
+    """
+    conn = db.sqlite3.connect(db.DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        UPDATE positions 
+        SET stoploss = ?, target = ?, stoploss_type = ?, target_type = ?
+        WHERE id = ? AND status = 'OPEN'
+    ''', (stoploss, target, stoploss_type, target_type, position_id))
+    rows_affected = c.rowcount
+    conn.commit()
+    conn.close()
+    if rows_affected > 0:
+        return True, "✓ Stoploss & Target updated successfully!"
+    return False, "Position not found or already closed"
+
+
+def close_single_position(position_id: int, exit_reason: str = "MANUAL"):
+    """
+    Closes an individual position leg at live market price.
+    """
+    conn = db.sqlite3.connect(db.DB_PATH)
+    conn.row_factory = db.sqlite3.Row
+    c = conn.cursor()
+
+    c.execute("SELECT p.*, b.account_id FROM positions p JOIN baskets b ON p.basket_id = b.id WHERE p.id = ? AND p.status = 'OPEN'", (position_id,))
+    pos = c.fetchone()
+    if not pos:
+        conn.close()
+        return False, "Position not found or already closed"
+
+    actual_account_id = pos['account_id']
+    basket_id = pos['basket_id']
+    symbol = pos['symbol']
+    entry_price = float(pos['entry_price'] or 0)
+    size = float(pos['size'] or 1)
+    side = pos['side']
+    underlying = pos['underlying'] or 'NIFTY'
+    lot_size = get_lot_size(underlying, symbol)
+
+    close_price = get_current_price(symbol, "SELL" if side == "BUY" else "BUY")
+    if close_price == 0:
+        close_price = entry_price
+
+    if side == "BUY":
+        pnl = (close_price - entry_price) * size * lot_size
+        exit_side = "SELL"
+    else:
+        pnl = (entry_price - close_price) * size * lot_size
+        exit_side = "BUY"
+
+    return_capital = (entry_price * size * lot_size) + pnl
+    c.execute("UPDATE accounts SET balance = balance + ? WHERE id = ?", (return_capital, actual_account_id))
+
+    c.execute('''
+        UPDATE positions 
+        SET status='CLOSED', close_price=? 
+        WHERE id=?
+    ''', (close_price, position_id))
+
+    now_str = datetime.datetime.now().isoformat()
+    c.execute('''
+        INSERT INTO trade_history (basket_id, symbol, side, size, price, timestamp, exit_reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (basket_id, symbol, exit_side, size, close_price, now_str, exit_reason))
+
+    # If all positions in this basket are closed, close the basket
+    c.execute("SELECT COUNT(*) FROM positions WHERE basket_id=? AND status='OPEN'", (basket_id,))
+    if c.fetchone()[0] == 0:
+        c.execute("UPDATE baskets SET status='CLOSED', closed_at=? WHERE id=?", (now_str, basket_id))
+
+    conn.commit()
+    conn.close()
+    return True, f"✓ Position closed! Realized P&L: {pnl:+.2f} ({exit_reason})"
+
+
+def check_sl_target_triggers():
+    """
+    Background automated MTM monitoring loop: checks Stoploss and Target triggers for all open positions.
+    """
+    try:
+        conn = db.sqlite3.connect(db.DB_PATH)
+        conn.row_factory = db.sqlite3.Row
+        c = conn.cursor()
+        c.execute("SELECT id, symbol, side, entry_price, stoploss, target, stoploss_type, target_type FROM positions WHERE status='OPEN'")
+        open_positions = [dict(r) for r in c.fetchall()]
+        conn.close()
+
+        for pos in open_positions:
+            pos_id = pos['id']
+            sym = pos['symbol']
+            side = pos['side']
+            entry_p = float(pos['entry_price'] or 0)
+            sl = float(pos['stoploss'] or 0)
+            tgt = float(pos['target'] or 0)
+            sl_type = pos.get('stoploss_type', 'PRICE')
+            tgt_type = pos.get('target_type', 'PRICE')
+
+            if entry_p <= 0 or (sl <= 0 and tgt <= 0):
+                continue
+
+            current_p = get_current_price(sym, "SELL" if side == "BUY" else "BUY")
+            if current_p <= 0:
+                continue
+
+            # 1. Stoploss Check
+            if sl > 0:
+                if sl_type == 'PERCENT':
+                    sl_thresh = entry_p * (1.0 - (sl / 100.0)) if side == 'BUY' else entry_p * (1.0 + (sl / 100.0))
+                else:
+                    sl_thresh = sl
+
+                if side == 'BUY' and current_p <= sl_thresh:
+                    close_single_position(pos_id, exit_reason=f"STOPLOSS HIT ({sl_thresh:.2f})")
+                    continue
+                elif side == 'SELL' and current_p >= sl_thresh:
+                    close_single_position(pos_id, exit_reason=f"STOPLOSS HIT ({sl_thresh:.2f})")
+                    continue
+
+            # 2. Target Check
+            if tgt > 0:
+                if tgt_type == 'PERCENT':
+                    tgt_thresh = entry_p * (1.0 + (tgt / 100.0)) if side == 'BUY' else entry_p * (1.0 - (tgt / 100.0))
+                else:
+                    tgt_thresh = tgt
+
+                if side == 'BUY' and current_p >= tgt_thresh:
+                    close_single_position(pos_id, exit_reason=f"TARGET REACHED ({tgt_thresh:.2f})")
+                    continue
+                elif side == 'SELL' and current_p <= tgt_thresh:
+                    close_single_position(pos_id, exit_reason=f"TARGET REACHED ({tgt_thresh:.2f})")
+                    continue
+    except Exception:
+        pass
 
 
 def close_basket(basket_id, account_id=None):
@@ -331,8 +490,8 @@ def close_basket(basket_id, account_id=None):
         
         # Log closing trade in trade history
         c.execute('''
-            INSERT INTO trade_history (basket_id, symbol, side, size, price, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO trade_history (basket_id, symbol, side, size, price, timestamp, exit_reason)
+            VALUES (?, ?, ?, ?, ?, ?, 'BASKET EXIT')
         ''', (basket_id, symbol, exit_side, size, close_price, now_str))
         
     c.execute("UPDATE baskets SET status='CLOSED', closed_at=? WHERE id=?", (now_str, basket_id))

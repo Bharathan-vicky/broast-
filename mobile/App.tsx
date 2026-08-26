@@ -127,6 +127,14 @@ interface OptionLeg {
   price: number;
   iv?: number;
   token?: string;
+  stoploss?: number;
+  target?: number;
+  stoploss_type?: 'PRICE' | 'PERCENT';
+  target_type?: 'PRICE' | 'PERCENT';
+  product_type?: 'NRML' | 'MIS';
+  order_mode?: 'REGULAR' | 'AMO';
+  order_type?: 'MARKET' | 'LIMIT' | 'SL' | 'SL-M';
+  trigger_price?: number;
 }
 
 interface Account {
@@ -556,6 +564,32 @@ export default function App() {
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [tradeMessage, setTradeMessage] = useState<string>('');
   const [isTrading, setIsTrading] = useState(false);
+
+  // Order Placement Modal (Zerodha/Delta style)
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [orderModalLeg, setOrderModalLeg] = useState<OptionLeg | null>(null);
+  const [orderMode, setOrderMode] = useState<'REGULAR' | 'AMO'>('REGULAR');
+  const [productType, setProductType] = useState<'NRML' | 'MIS'>('NRML');
+  const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT' | 'SL' | 'SL-M'>('MARKET');
+  const [orderLots, setOrderLots] = useState<number>(1);
+  const [orderLimitPrice, setOrderLimitPrice] = useState<string>('');
+  const [orderTriggerPrice, setOrderTriggerPrice] = useState<string>('');
+  const [hasStoploss, setHasStoploss] = useState(false);
+  const [slMode, setSlMode] = useState<'PRICE' | 'PERCENT'>('PERCENT');
+  const [slValue, setSlValue] = useState<string>('15');
+  const [hasTarget, setHasTarget] = useState(false);
+  const [targetMode, setTargetMode] = useState<'PRICE' | 'PERCENT'>('PERCENT');
+  const [targetValue, setTargetValue] = useState<string>('30');
+
+  // Modify Position Modal State
+  const [showModifyModal, setShowModifyModal] = useState(false);
+  const [selectedModifyPosition, setSelectedModifyPosition] = useState<any>(null);
+  const [modHasStoploss, setModHasStoploss] = useState(false);
+  const [modSlMode, setModSlMode] = useState<'PRICE' | 'PERCENT'>('PERCENT');
+  const [modSlValue, setModSlValue] = useState<string>('15');
+  const [modHasTarget, setModHasTarget] = useState(false);
+  const [modTargetMode, setModTargetMode] = useState<'PRICE' | 'PERCENT'>('PERCENT');
+  const [modTargetValue, setModTargetValue] = useState<string>('30');
 
   const [stratBasket, setStratBasket] = useState<OptionLeg[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -1947,27 +1981,95 @@ export default function App() {
     );
   };
 
+  const openOrderTicket = (leg?: OptionLeg) => {
+    if (leg) {
+      setOrderModalLeg(leg);
+      setOrderLots(leg.size || 1);
+      setOrderLimitPrice(leg.price ? leg.price.toString() : '');
+      const defaultTrig = leg.side === 'BUY' ? (leg.price * 0.95).toFixed(1) : (leg.price * 1.05).toFixed(1);
+      setOrderTriggerPrice(defaultTrig);
+    } else if (stratBasket.length > 0) {
+      setOrderModalLeg(stratBasket[0]);
+      setOrderLots(stratBasket[0].size || 1);
+      setOrderLimitPrice(stratBasket[0].price ? stratBasket[0].price.toString() : '');
+      setOrderTriggerPrice('');
+    }
+    setOrderMode('REGULAR');
+    setProductType('NRML');
+    setOrderType('MARKET');
+    setHasStoploss(false);
+    setHasTarget(false);
+    setSlMode('PERCENT');
+    setSlValue('15');
+    setTargetMode('PERCENT');
+    setTargetValue('30');
+    setShowOrderModal(true);
+  };
+
   const handlePlaceOrder = () => {
     if (!stratBasket.length) return;
+    openOrderTicket();
+  };
+
+  const handleExecuteOrderModal = () => {
+    if (!orderModalLeg && !stratBasket.length) return;
     setIsTrading(true);
-    setTradeMessage('Executing...');
+    setTradeMessage('Executing Order...');
+
+    const parsedSL = hasStoploss ? parseFloat(slValue) || 0 : 0;
+    const parsedTarget = hasTarget ? parseFloat(targetValue) || 0 : 0;
+    const limitP = (orderType === 'LIMIT' || orderType === 'SL') ? parseFloat(orderLimitPrice) || (orderModalLeg?.price || 0) : (orderModalLeg?.price || 0);
+    const triggerP = (orderType === 'SL' || orderType === 'SL-M') ? parseFloat(orderTriggerPrice) || 0 : 0;
+
+    let legsToExecute: OptionLeg[] = [];
+    if (orderModalLeg) {
+      legsToExecute = [{
+        ...orderModalLeg,
+        size: orderLots,
+        price: limitP,
+        stoploss: parsedSL,
+        target: parsedTarget,
+        stoploss_type: slMode,
+        target_type: targetMode,
+        product_type: productType,
+        order_mode: orderMode,
+        order_type: orderType,
+        trigger_price: triggerP
+      }];
+    } else {
+      legsToExecute = stratBasket.map(l => ({
+        ...l,
+        size: orderLots,
+        stoploss: parsedSL,
+        target: parsedTarget,
+        stoploss_type: slMode,
+        target_type: targetMode,
+        product_type: productType,
+        order_mode: orderMode,
+        order_type: orderType,
+        trigger_price: triggerP
+      }));
+    }
+
+    const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} ${orderMode === 'AMO' ? 'AMO' : ''} ${productType}`;
+
     fetch(`${BACKEND_URL}/api/trade`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        basket_name: `${activeAsset} Mobile Strategy`,
-        legs: stratBasket,
-        account_id: activeAccount.id
+        basket_name: orderBasketName,
+        legs: legsToExecute,
+        account_id: activeAccountId || 1
       })
     })
       .then(r => r.json())
       .then(data => {
         if (data.status === 'success') {
-          setTradeMessage('Order Executed Successfully! ⚡');
+          setTradeMessage(data.message || 'Order Executed Successfully! ⚡');
+          setShowOrderModal(false);
           setStratBasket([]);
           setActiveTab('tradelab');
           setTradeLabSubTab('positions');
-          // Parallel refresh
           triggerManualRefresh();
           setTimeout(() => setTradeMessage(''), 4000);
         } else {
@@ -1977,6 +2079,82 @@ export default function App() {
       })
       .catch(() => setTradeMessage('Trade execution failed'))
       .finally(() => setIsTrading(false));
+  };
+
+  const openModifyPositionModal = (pos: any) => {
+    setSelectedModifyPosition(pos);
+    const sl = pos.stoploss || 0;
+    const tgt = pos.target || 0;
+    setModHasStoploss(sl > 0);
+    setModSlValue(sl > 0 ? sl.toString() : '15');
+    setModSlMode(pos.stoplossType || 'PERCENT');
+    setModHasTarget(tgt > 0);
+    setModTargetValue(tgt > 0 ? tgt.toString() : '30');
+    setModTargetMode(pos.targetType || 'PERCENT');
+    setShowModifyModal(true);
+  };
+
+  const handleSaveModifyPosition = () => {
+    if (!selectedModifyPosition) return;
+    const sl = modHasStoploss ? parseFloat(modSlValue) || 0 : 0;
+    const tgt = modHasTarget ? parseFloat(modTargetValue) || 0 : 0;
+
+    fetch(`${BACKEND_URL}/api/trade/modify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        position_id: selectedModifyPosition.positionId,
+        stoploss: sl,
+        target: tgt,
+        stoploss_type: modSlMode,
+        target_type: modTargetMode
+      })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          setTradeMessage(data.message || 'GTT SL & Target Updated! ✓');
+          setShowModifyModal(false);
+          triggerManualRefresh();
+          setTimeout(() => setTradeMessage(''), 3500);
+        } else {
+          setTradeMessage(`Error: ${data.message}`);
+        }
+      })
+      .catch(() => setTradeMessage('Failed to update position'));
+  };
+
+  const handleCloseSinglePosition = (posId: number, symbol: string) => {
+    Alert.alert(
+      "Exit Position",
+      `Are you sure you want to close ${symbol} at live market price?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Exit Now", 
+          style: "destructive",
+          onPress: () => {
+            setTradeMessage('Closing position...');
+            fetch(`${BACKEND_URL}/api/trade/close_position`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ position_id: posId, exit_reason: 'MANUAL EXIT' })
+            })
+              .then(r => r.json())
+              .then(data => {
+                if (data.status === 'success') {
+                  setTradeMessage(data.message || 'Position Closed! ✓');
+                  triggerManualRefresh();
+                  setTimeout(() => setTradeMessage(''), 3500);
+                } else {
+                  setTradeMessage(`Error: ${data.message}`);
+                }
+              })
+              .catch(() => setTradeMessage('Failed to close position'));
+          }
+        }
+      ]
+    );
   };
 
   const modifyPosition = (basket: any) => {
@@ -2065,13 +2243,25 @@ export default function App() {
 
           activePositionsList.push({
             basketId: b.id,
+            positionId: leg.id,
             symbol: leg.symbol || `${legAsset} ${leg.expiry ? new Date(leg.expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase() : ''} ${leg.strike} ${leg.option_type === 'CALL' ? 'CE' : 'PE'}`,
+            underlying: legAsset,
+            strike: leg.strike,
+            expiry: leg.expiry,
+            optionType: leg.option_type,
             qty,
             side: leg.side,
             entry,
             ltp,
             legPnl,
             pctChange,
+            stoploss: leg.stoploss || 0,
+            target: leg.target || 0,
+            stoplossType: leg.stoploss_type || 'PRICE',
+            targetType: leg.target_type || 'PRICE',
+            productType: leg.product_type || 'NRML',
+            orderMode: leg.order_mode || 'REGULAR',
+            triggerPrice: leg.trigger_price || 0,
             status: 'Active',
             currency: isCrypto ? 'USD' : 'INR'
           });
@@ -3374,11 +3564,37 @@ export default function App() {
                 tradeLabStats.activePositionsList.map((pos, idx) => {
                   const posSym = pos.currency === 'USD' ? '$' : '₹';
                   const isCrypto = pos.currency === 'USD';
+                  const isBuy = pos.side === 'BUY';
+                  const hasActiveSL = pos.stoploss > 0;
+                  const hasActiveTgt = pos.target > 0;
+
                   return (
                     <View key={idx} style={styles.tradeLabPositionCard}>
                       <View style={styles.tradeLabPosHeader}>
-                        <Text style={styles.tradeLabContractName}>{pos.symbol}</Text>
-                        <View style={{ alignItems: 'flex-end' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+                          <View style={{
+                            backgroundColor: isBuy ? 'rgba(0, 192, 135, 0.15)' : 'rgba(248, 73, 96, 0.15)',
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 4,
+                            borderWidth: 1,
+                            borderColor: isBuy ? 'rgba(0, 192, 135, 0.4)' : 'rgba(248, 73, 96, 0.4)'
+                          }}>
+                            <Text style={{ color: isBuy ? '#00c087' : '#f84960', fontSize: 10, fontWeight: 'bold' }}>
+                              {pos.side}
+                            </Text>
+                          </View>
+                          <Text style={styles.tradeLabContractName} numberOfLines={1}>{pos.symbol}</Text>
+                          <View style={{ backgroundColor: '#1e293b', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                            <Text style={{ color: '#94a3b8', fontSize: 9.5, fontWeight: 'bold' }}>{pos.productType || 'NRML'}</Text>
+                          </View>
+                          {pos.orderMode === 'AMO' && (
+                            <View style={{ backgroundColor: 'rgba(234, 179, 8, 0.18)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                              <Text style={{ color: '#eab308', fontSize: 9, fontWeight: 'bold' }}>AMO</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
                           <Text style={[styles.tradeLabPosPnl, { color: pos.legPnl >= 0 ? '#00c087' : '#f84960' }]}>
                             {pos.legPnl >= 0 ? `+${posSym}${pos.legPnl.toFixed(isCrypto ? 2 : 0)}` : `-${posSym}${Math.abs(pos.legPnl).toFixed(isCrypto ? 2 : 0)}`}
                           </Text>
@@ -3390,23 +3606,58 @@ export default function App() {
 
                       <View style={styles.tradeLabPosSubRow}>
                         <Text style={styles.tradeLabQtyStatusText}>
-                          {pos.qty} Qty ({pos.side[0]}). <Text style={{ color: '#00c087' }}>{pos.status}</Text>
+                          {pos.qty} Qty • Avg <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{posSym}{pos.entry?.toFixed(isCrypto ? 2 : 0)}</Text>
                         </Text>
                         <Text style={styles.tradeLabLtpText}>
-                          LTP: <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{posSym}{pos.ltp?.toFixed(isCrypto ? 2 : 0)}</Text> ({pos.pctChange >= 0 ? `+${pos.pctChange.toFixed(2)}%` : `${pos.pctChange.toFixed(2)}%`})
+                          LTP: <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{posSym}{pos.ltp?.toFixed(isCrypto ? 2 : 0)}</Text>
                         </Text>
                       </View>
 
-                      <View style={[styles.tradeLabPosSubRow, { marginTop: 6 }]}>
-                        <Text style={styles.tradeLabAvgPriceText}>Avg <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{posSym}{pos.entry?.toFixed(isCrypto ? 2 : 0)}</Text></Text>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          <TouchableOpacity style={styles.tradeLabModifyBtn} onPress={() => modifyPosition(pos.basketId)}>
-                            <Text style={styles.tradeLabModifyBtnText}>Modify</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.tradeLabCloseBtn} onPress={() => handleClosePosition(pos.basketId)}>
-                            <Text style={styles.tradeLabCloseBtnText}>Close & Log ✕</Text>
-                          </TouchableOpacity>
+                      {/* GTT SL & Target Status Row */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#090d16', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, marginTop: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold' }}>GTT:</Text>
+                          {hasActiveSL ? (
+                            <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
+                              <Text style={{ color: '#f87171', fontSize: 9.5, fontWeight: '700' }}>
+                                SL: {pos.stoplossType === 'PERCENT' ? `${pos.stoploss}%` : `${posSym}${pos.stoploss}`}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={{ color: '#475569', fontSize: 9.5, fontStyle: 'italic' }}>No SL</Text>
+                          )}
+                          {hasActiveTgt ? (
+                            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
+                              <Text style={{ color: '#34d399', fontSize: 9.5, fontWeight: '700' }}>
+                                TGT: {pos.targetType === 'PERCENT' ? `${pos.target}%` : `${posSym}${pos.target}`}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={{ color: '#475569', fontSize: 9.5, fontStyle: 'italic' }}>No Target</Text>
+                          )}
                         </View>
+                        <TouchableOpacity 
+                          onPress={() => openModifyPositionModal(pos)}
+                          style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(56, 189, 248, 0.12)' }}
+                          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                        >
+                          <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: '700' }}>Set SL/TGT ⚙️</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <View style={[styles.tradeLabPosSubRow, { marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderColor: '#172033' }]}>
+                        <TouchableOpacity 
+                          style={[styles.tradeLabModifyBtn, { flex: 1, marginRight: 6 }]} 
+                          onPress={() => openModifyPositionModal(pos)}
+                        >
+                          <Text style={styles.tradeLabModifyBtnText}>Modify Order</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.tradeLabCloseBtn, { flex: 1, marginLeft: 6 }]} 
+                          onPress={() => handleCloseSinglePosition(pos.positionId, pos.symbol)}
+                        >
+                          <Text style={styles.tradeLabCloseBtnText}>Exit Position ✕</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   );
@@ -3938,6 +4189,515 @@ export default function App() {
                 );
               })}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      {/* ===================== MODAL: PROFESSIONAL ORDER PLACEMENT (ZERODHA/DELTA STYLE) ===================== */}
+      <Modal visible={showOrderModal} transparent animationType="slide" onRequestClose={() => setShowOrderModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowOrderModal(false)} />
+          <View style={[styles.bottomSheet, { maxHeight: '92%', backgroundColor: '#0b0f19', borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: '#1e293b' }]}>
+            <View style={styles.sheetHandle} />
+
+            {/* Header with Side Badge and Contract Info */}
+            {(() => {
+              const leg = orderModalLeg || (stratBasket.length > 0 ? stratBasket[0] : null);
+              if (!leg) return null;
+
+              const isBuy = leg.side === 'BUY';
+              const legAsset = leg.underlying || activeAsset;
+              const legLotSize = ASSET_CONFIG[legAsset]?.lotSize || (
+                legAsset === 'NIFTY' ? 65 : 
+                (legAsset === 'BANKNIFTY' ? 30 : 
+                (legAsset === 'CRUDEOIL' ? 100 : 
+                (legAsset === 'GOLD' ? 100 : 
+                (legAsset === 'SILVER' ? 30 : 
+                (legAsset === 'BTC' ? 0.001 : 
+                (legAsset === 'ETH' ? 0.01 : 1.0))))))
+              );
+              const totalUnits = (orderLots || 1) * legLotSize;
+              const ltp = leg.price || 0;
+              const posSym = legAsset === 'BTC' || legAsset === 'ETH' || legAsset === 'XAUT' ? '$' : '₹';
+
+              // Projected SL & Target calculations
+              const slNum = hasStoploss ? parseFloat(slValue) || 0 : 0;
+              const tgtNum = hasTarget ? parseFloat(targetValue) || 0 : 0;
+
+              let projectedSlPrice = 0;
+              let projectedSlLoss = 0;
+              if (hasStoploss && slNum > 0 && ltp > 0) {
+                if (slMode === 'PERCENT') {
+                  projectedSlPrice = isBuy ? ltp * (1 - slNum / 100) : ltp * (1 + slNum / 100);
+                  projectedSlLoss = (ltp * (slNum / 100)) * totalUnits;
+                } else {
+                  projectedSlPrice = slNum;
+                  projectedSlLoss = isBuy ? (ltp - slNum) * totalUnits : (slNum - ltp) * totalUnits;
+                }
+              }
+
+              let projectedTgtPrice = 0;
+              let projectedTgtProfit = 0;
+              if (hasTarget && tgtNum > 0 && ltp > 0) {
+                if (targetMode === 'PERCENT') {
+                  projectedTgtPrice = isBuy ? ltp * (1 + tgtNum / 100) : ltp * (1 - tgtNum / 100);
+                  projectedTgtProfit = (ltp * (tgtNum / 100)) * totalUnits;
+                } else {
+                  projectedTgtPrice = tgtNum;
+                  projectedTgtProfit = isBuy ? (tgtNum - ltp) * totalUnits : (ltp - tgtNum) * totalUnits;
+                }
+              }
+
+              const estimatedMargin = isBuy 
+                ? (ltp * totalUnits) 
+                : ((spotPrice || 24200) * totalUnits * 0.12 + ltp * totalUnits);
+
+              return (
+                <ScrollView style={{ marginTop: 4 }} showsVerticalScrollIndicator={false}>
+                  {/* Top Bar */}
+                  <View style={{
+                    backgroundColor: isBuy ? 'rgba(0, 192, 135, 0.12)' : 'rgba(248, 73, 96, 0.12)',
+                    padding: 14,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isBuy ? 'rgba(0, 192, 135, 0.3)' : 'rgba(248, 73, 96, 0.3)',
+                    marginBottom: 12
+                  }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <TouchableOpacity 
+                          onPress={() => setOrderModalLeg(prev => prev ? { ...prev, side: prev.side === 'BUY' ? 'SELL' : 'BUY' } : null)}
+                          style={{
+                            backgroundColor: isBuy ? '#00c087' : '#f84960',
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6
+                          }}
+                        >
+                          <Text style={{ color: 'white', fontWeight: '900', fontSize: 12 }}>{leg.side} ⇄</Text>
+                        </TouchableOpacity>
+                        <Text style={{ color: 'white', fontSize: 14, fontWeight: '800' }}>
+                          {leg.symbol || `${legAsset} ${leg.strike} ${leg.option_type === 'CALL' ? 'CE' : 'PE'}`}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => setShowOrderModal(false)}>
+                        <Text style={{ color: '#94a3b8', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                      <Text style={{ color: '#94a3b8', fontSize: 11 }}>
+                        LTP: <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{posSym}{ltp.toFixed(2)}</Text> • Lot: {legLotSize}
+                      </Text>
+                      <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
+                        Total: {totalUnits} Qty
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Mode Selector: Regular vs AMO */}
+                  <View style={{ flexDirection: 'row', backgroundColor: '#090d16', borderRadius: 8, padding: 3, marginBottom: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => setOrderMode('REGULAR')}
+                      style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6, backgroundColor: orderMode === 'REGULAR' ? '#1e293b' : 'transparent' }}
+                    >
+                      <Text style={{ color: orderMode === 'REGULAR' ? '#38bdf8' : '#64748b', fontSize: 12, fontWeight: 'bold' }}>⚡ Regular</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setOrderMode('AMO')}
+                      style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6, backgroundColor: orderMode === 'AMO' ? 'rgba(234, 179, 8, 0.2)' : 'transparent' }}
+                    >
+                      <Text style={{ color: orderMode === 'AMO' ? '#eab308' : '#64748b', fontSize: 12, fontWeight: 'bold' }}>🌙 AMO (After Market)</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Product Type: Intraday (MIS) vs Overnight (NRML) */}
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: '#64748b', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, marginBottom: 6 }}>PRODUCT TYPE</Text>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <TouchableOpacity
+                        onPress={() => setProductType('MIS')}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 9,
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: productType === 'MIS' ? '#38bdf8' : '#1e293b',
+                          backgroundColor: productType === 'MIS' ? 'rgba(56, 189, 248, 0.12)' : '#0f172a'
+                        }}
+                      >
+                        <Text style={{ color: productType === 'MIS' ? '#38bdf8' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Intraday (MIS)</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setProductType('NRML')}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 9,
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: productType === 'NRML' ? '#38bdf8' : '#1e293b',
+                          backgroundColor: productType === 'NRML' ? 'rgba(56, 189, 248, 0.12)' : '#0f172a'
+                        }}
+                      >
+                        <Text style={{ color: productType === 'NRML' ? '#38bdf8' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Overnight (NRML)</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Order Type: Market | Limit | SL | SL-M */}
+                  <View style={{ marginBottom: 14 }}>
+                    <Text style={{ color: '#64748b', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, marginBottom: 6 }}>ORDER TYPE</Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {(['MARKET', 'LIMIT', 'SL', 'SL-M'] as const).map(type => (
+                        <TouchableOpacity
+                          key={type}
+                          onPress={() => setOrderType(type)}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 7,
+                            alignItems: 'center',
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: orderType === type ? '#00c087' : '#1e293b',
+                            backgroundColor: orderType === type ? 'rgba(0, 192, 135, 0.12)' : '#0f172a'
+                          }}
+                        >
+                          <Text style={{ color: orderType === type ? '#00c087' : '#94a3b8', fontSize: 11, fontWeight: 'bold' }}>{type}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Quantity & Price Grid */}
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                    {/* Lots Stepper */}
+                    <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#1e293b' }}>
+                      <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 6 }}>LOTS ({legLotSize}/lot)</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <TouchableOpacity 
+                          onPress={() => setOrderLots(prev => Math.max(1, prev - 1))}
+                          style={{ backgroundColor: '#1e293b', width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}
+                        >
+                          <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>-</Text>
+                        </TouchableOpacity>
+                        <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: 'bold' }}>{orderLots}</Text>
+                        <TouchableOpacity 
+                          onPress={() => setOrderLots(prev => prev + 1)}
+                          style={{ backgroundColor: '#1e293b', width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}
+                        >
+                          <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Limit Price */}
+                    {(orderType === 'LIMIT' || orderType === 'SL') && (
+                      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#1e293b' }}>
+                        <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>LIMIT PRICE ({posSym})</Text>
+                        <TextInput
+                          value={orderLimitPrice}
+                          onChangeText={setOrderLimitPrice}
+                          keyboardType="decimal-pad"
+                          placeholder={ltp.toFixed(2)}
+                          placeholderTextColor="#475569"
+                          style={{ color: 'white', fontSize: 14, fontWeight: 'bold', paddingVertical: 2 }}
+                        />
+                      </View>
+                    )}
+
+                    {/* Trigger Price */}
+                    {(orderType === 'SL' || orderType === 'SL-M') && (
+                      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#1e293b' }}>
+                        <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>TRIGGER ({posSym})</Text>
+                        <TextInput
+                          value={orderTriggerPrice}
+                          onChangeText={setOrderTriggerPrice}
+                          keyboardType="decimal-pad"
+                          placeholder={(ltp * 0.95).toFixed(2)}
+                          placeholderTextColor="#475569"
+                          style={{ color: 'white', fontSize: 14, fontWeight: 'bold', paddingVertical: 2 }}
+                        />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* ===================== GTT PROTECTION: STOPLOSS & TARGET ===================== */}
+                  <View style={{ backgroundColor: '#0c101b', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#172033', marginBottom: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 13 }}>🛡️</Text>
+                        <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '800' }}>GTT BRACKET PROTECTION</Text>
+                      </View>
+                      <Text style={{ color: '#64748b', fontSize: 10, fontStyle: 'italic' }}>Auto Stoploss & Target</Text>
+                    </View>
+
+                    {/* Stoploss Option */}
+                    <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: hasStoploss ? 'rgba(239, 68, 68, 0.4)' : '#1e293b', marginBottom: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <TouchableOpacity 
+                          onPress={() => setHasStoploss(prev => !prev)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                        >
+                          <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: hasStoploss ? '#ef4444' : '#64748b', backgroundColor: hasStoploss ? '#ef4444' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                            {hasStoploss && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
+                          </View>
+                          <Text style={{ color: hasStoploss ? '#f87171' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Stoploss</Text>
+                        </TouchableOpacity>
+
+                        {hasStoploss && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            {/* Mode Dropdown / Toggle Button */}
+                            <TouchableOpacity 
+                              onPress={() => setSlMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
+                              style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
+                            >
+                              <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
+                                {slMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {/* Input Field */}
+                            <TextInput
+                              value={slValue}
+                              onChangeText={setSlValue}
+                              keyboardType="decimal-pad"
+                              placeholder={slMode === 'PERCENT' ? '15' : (ltp * 0.85).toFixed(1)}
+                              placeholderTextColor="#475569"
+                              style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 65, paddingVertical: 3, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
+                            />
+                          </View>
+                        )}
+                      </View>
+
+                      {hasStoploss && projectedSlPrice > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                          <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                            Trigger: <Text style={{ color: '#f87171', fontWeight: 'bold' }}>{posSym}{projectedSlPrice.toFixed(2)}</Text>
+                          </Text>
+                          <Text style={{ color: '#f87171', fontSize: 10, fontWeight: 'bold' }}>
+                            Max Loss: -{posSym}{projectedSlLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Target Option */}
+                    <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: hasTarget ? 'rgba(16, 185, 129, 0.4)' : '#1e293b' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <TouchableOpacity 
+                          onPress={() => setHasTarget(prev => !prev)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                        >
+                          <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: hasTarget ? '#10b981' : '#64748b', backgroundColor: hasTarget ? '#10b981' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                            {hasTarget && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
+                          </View>
+                          <Text style={{ color: hasTarget ? '#34d399' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Target</Text>
+                        </TouchableOpacity>
+
+                        {hasTarget && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            {/* Mode Dropdown / Toggle Button */}
+                            <TouchableOpacity 
+                              onPress={() => setTargetMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
+                              style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
+                            >
+                              <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
+                                {targetMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {/* Input Field */}
+                            <TextInput
+                              value={targetValue}
+                              onChangeText={setTargetValue}
+                              keyboardType="decimal-pad"
+                              placeholder={targetMode === 'PERCENT' ? '30' : (ltp * 1.3).toFixed(1)}
+                              placeholderTextColor="#475569"
+                              style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 65, paddingVertical: 3, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
+                            />
+                          </View>
+                        )}
+                      </View>
+
+                      {hasTarget && projectedTgtPrice > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                          <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                            Target: <Text style={{ color: '#34d399', fontWeight: 'bold' }}>{posSym}{projectedTgtPrice.toFixed(2)}</Text>
+                          </Text>
+                          <Text style={{ color: '#34d399', fontSize: 10, fontWeight: 'bold' }}>
+                            Profit: +{posSym}{projectedTgtProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Margin & Account Summary */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4, marginBottom: 14 }}>
+                    <View>
+                      <Text style={{ color: '#64748b', fontSize: 11 }}>Margin Required</Text>
+                      <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: 'bold' }}>
+                        {posSym}{estimatedMargin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: '#64748b', fontSize: 11 }}>Available Virtual Margin</Text>
+                      <Text style={{ color: tradeLabStats.availableMargin <= 0 ? '#ef4444' : '#10b981', fontSize: 14, fontWeight: 'bold' }}>
+                        {posSym}{tradeLabStats.availableMargin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Big Execute Action Button */}
+                  <TouchableOpacity
+                    onPress={handleExecuteOrderModal}
+                    disabled={isTrading}
+                    style={{
+                      backgroundColor: isBuy ? '#00c087' : '#f84960',
+                      paddingVertical: 14,
+                      borderRadius: 10,
+                      alignItems: 'center',
+                      marginBottom: 20
+                    }}
+                  >
+                    {isTrading ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Text style={{ color: 'white', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }}>
+                        {isBuy ? 'BUY' : 'SELL'} • {orderLots} {orderLots === 1 ? 'LOT' : 'LOTS'} ({orderMode === 'AMO' ? 'AMO' : productType})
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </ScrollView>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ===================== MODAL: MODIFY POSITION SL & TARGET ===================== */}
+      <Modal visible={showModifyModal} transparent animationType="slide" onRequestClose={() => setShowModifyModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowModifyModal(false)} />
+          <View style={[styles.bottomSheet, { maxHeight: '70%', backgroundColor: '#0b0f19', borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: '#1e293b' }]}>
+            <View style={styles.sheetHandle} />
+
+            {selectedModifyPosition && (() => {
+              const pos = selectedModifyPosition;
+              const posSym = pos.currency === 'USD' ? '$' : '₹';
+              const ltp = pos.ltp || pos.entry || 0;
+              const isBuy = pos.side === 'BUY';
+
+              return (
+                <View style={{ marginTop: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10, borderBottomWidth: 1, borderColor: '#1e293b', marginBottom: 12 }}>
+                    <View>
+                      <Text style={{ color: 'white', fontSize: 15, fontWeight: 'bold' }}>Modify Stoploss & Target</Text>
+                      <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>{pos.symbol}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setShowModifyModal(false)}>
+                      <Text style={{ color: '#94a3b8', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f172a', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+                    <View>
+                      <Text style={{ color: '#64748b', fontSize: 10 }}>Entry Avg</Text>
+                      <Text style={{ color: 'white', fontSize: 13, fontWeight: 'bold' }}>{posSym}{pos.entry?.toFixed(2)}</Text>
+                    </View>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ color: '#64748b', fontSize: 10 }}>Live LTP</Text>
+                      <Text style={{ color: 'white', fontSize: 13, fontWeight: 'bold' }}>{posSym}{ltp.toFixed(2)}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: '#64748b', fontSize: 10 }}>Running P&L</Text>
+                      <Text style={{ color: pos.legPnl >= 0 ? '#00c087' : '#f84960', fontSize: 13, fontWeight: 'bold' }}>
+                        {pos.legPnl >= 0 ? `+${posSym}${pos.legPnl.toFixed(2)}` : `-${posSym}${Math.abs(pos.legPnl).toFixed(2)}`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Stoploss Setting */}
+                  <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: modHasStoploss ? 'rgba(239, 68, 68, 0.4)' : '#1e293b', marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <TouchableOpacity 
+                        onPress={() => setModHasStoploss(prev => !prev)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                      >
+                        <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: modHasStoploss ? '#ef4444' : '#64748b', backgroundColor: modHasStoploss ? '#ef4444' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                          {modHasStoploss && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
+                        </View>
+                        <Text style={{ color: modHasStoploss ? '#f87171' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Stoploss</Text>
+                      </TouchableOpacity>
+
+                      {modHasStoploss && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <TouchableOpacity 
+                            onPress={() => setModSlMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
+                            style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
+                          >
+                            <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
+                              {modSlMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
+                            </Text>
+                          </TouchableOpacity>
+                          <TextInput
+                            value={modSlValue}
+                            onChangeText={setModSlValue}
+                            keyboardType="decimal-pad"
+                            placeholder="15"
+                            placeholderTextColor="#475569"
+                            style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 70, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Target Setting */}
+                  <View style={{ backgroundColor: '#0f172a', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: modHasTarget ? 'rgba(16, 185, 129, 0.4)' : '#1e293b', marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <TouchableOpacity 
+                        onPress={() => setModHasTarget(prev => !prev)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                      >
+                        <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: modHasTarget ? '#10b981' : '#64748b', backgroundColor: modHasTarget ? '#10b981' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                          {modHasTarget && <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>✓</Text>}
+                        </View>
+                        <Text style={{ color: modHasTarget ? '#34d399' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>Target</Text>
+                      </TouchableOpacity>
+
+                      {modHasTarget && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <TouchableOpacity 
+                            onPress={() => setModTargetMode(prev => prev === 'PERCENT' ? 'PRICE' : 'PERCENT')}
+                            style={{ backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: '#334155' }}
+                          >
+                            <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>
+                              {modTargetMode === 'PERCENT' ? '% Percent ▾' : `${posSym} Price ▾`}
+                            </Text>
+                          </TouchableOpacity>
+                          <TextInput
+                            value={modTargetValue}
+                            onChangeText={setModTargetValue}
+                            keyboardType="decimal-pad"
+                            placeholder="30"
+                            placeholderTextColor="#475569"
+                            style={{ backgroundColor: '#1e293b', color: 'white', fontSize: 13, fontWeight: 'bold', width: 70, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 5, textAlign: 'center' }}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={handleSaveModifyPosition}
+                    style={{ backgroundColor: '#0284c7', paddingVertical: 13, borderRadius: 10, alignItems: 'center', marginBottom: 12 }}
+                  >
+                    <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>Save & Update GTT Protection</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
           </View>
         </View>
       </Modal>
