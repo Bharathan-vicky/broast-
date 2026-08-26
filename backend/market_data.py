@@ -39,10 +39,17 @@ def fetch_options_chain(underlying_asset="BTC"):
             for product in data:
                 if product.get("contract_type") in ["call_options", "put_options"]:
                     und = product.get("underlying_asset", {}).get("symbol", "")
+                    sym = product.get("symbol", "")
+                    if not und:
+                        if "XAUT" in sym:
+                            und = "XAUT"
+                        elif "BTC" in sym:
+                            und = "BTC"
+                        elif "ETH" in sym:
+                            und = "ETH"
                     if und not in PRODUCTS_CACHE:
                         PRODUCTS_CACHE[und] = []
                     PRODUCTS_CACHE[und].append(product)
-                    sym = product.get("symbol")
                     if sym:
                         SUBSCRIBED_SYMBOLS.add(sym)
                     

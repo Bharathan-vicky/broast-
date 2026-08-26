@@ -68,7 +68,7 @@ export async function fetchDirectDeltaTickers(): Promise<Record<string, DeltaSpo
 /**
  * Fetch live Option Chain for BTC/ETH directly from Delta Exchange public API.
  */
-export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH'): Promise<{
+export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH' | 'XAUT'): Promise<{
   expiries: string[];
   chainByExpiry: Record<string, any[]>;
 }> {
@@ -86,8 +86,8 @@ export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH'): Promise
 
       for (const p of products) {
         if (!p.contract_type || (p.contract_type !== 'call_options' && p.contract_type !== 'put_options')) continue;
-        const und = p.underlying_asset?.symbol;
-        if (und !== asset) continue;
+        const und = p.underlying_asset?.symbol || (p.symbol?.includes('XAUT') ? 'XAUT' : (p.symbol?.includes('BTC') ? 'BTC' : (p.symbol?.includes('ETH') ? 'ETH' : '')));
+        if (und !== asset && !p.symbol?.includes(`-${asset}-`)) continue;
 
         const strike = parseFloat(p.strike_price);
         const expiry = p.settlement_time ? p.settlement_time.split('T')[0] : '';

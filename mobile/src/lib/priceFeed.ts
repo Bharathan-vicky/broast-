@@ -254,8 +254,8 @@ export function usePriceFeed(asset: string): PriceFeedResult {
               }));
             }
 
-            if (asset === 'BTC' || asset === 'ETH') {
-              const directChain = await fetchDirectDeltaOptionChain(asset);
+            if (asset === 'BTC' || asset === 'ETH' || asset === 'XAUT') {
+              const directChain = await fetchDirectDeltaOptionChain(asset as 'BTC' | 'ETH' | 'XAUT');
               if (cancelled) return;
               if (directChain.expiries.length > 0) {
                 setChain((prev) => {

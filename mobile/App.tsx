@@ -169,7 +169,7 @@ const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; l
   // Crypto Derivatives
   'BTC': { currency: 'USD', lotSize: 0.001, lotUnit: 'BTC', symbol: '$', name: 'Bitcoin Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 1000, defaultSpot: 60000.0, exchange: 'DELTA', settlementCurrency: 'INR' },
   'ETH': { currency: 'USD', lotSize: 0.01, lotUnit: 'ETH', symbol: '$', name: 'Ethereum Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 50, defaultSpot: 2500.0, exchange: 'DELTA', settlementCurrency: 'INR' },
-  'XAUT': { currency: 'USD', lotSize: 1, lotUnit: 'oz', symbol: '$', name: 'Gold Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 20, defaultSpot: 2500.0, exchange: 'DELTA', settlementCurrency: 'USD' }
+  'XAUT': { currency: 'USD', lotSize: 1, lotUnit: 'oz', symbol: '$', name: 'Tether Gold (XAUT) Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 10, defaultSpot: 4592.69, exchange: 'DELTA', settlementCurrency: 'USD' }
 };
 
 interface StrategyTemplate {

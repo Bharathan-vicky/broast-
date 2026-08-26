@@ -105,9 +105,9 @@ DEFAULT_SPOT_FALLBACKS = {
         "percent_change": _float_env("DEFAULT_ETH_PCT", 4.78),
     },
     "XAUT": {
-        "spot_price": _float_env("DEFAULT_XAUT_SPOT", 2521.80),
-        "change": _float_env("DEFAULT_XAUT_CHANGE", 12.40),
-        "percent_change": _float_env("DEFAULT_XAUT_PCT", 0.49),
+        "spot_price": _float_env("DEFAULT_XAUT_SPOT", 4592.69),
+        "change": _float_env("DEFAULT_XAUT_CHANGE", -35.10),
+        "percent_change": _float_env("DEFAULT_XAUT_PCT", -0.76),
     },
 }
 
