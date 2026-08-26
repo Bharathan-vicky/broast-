@@ -2188,8 +2188,62 @@ export default function App() {
     );
   };
 
+  const executeDirectCryptoTrade = (legs: OptionLeg[]) => {
+    if (!legs || legs.length === 0) return;
+    setIsTrading(true);
+    setTradeMessage(`Placing 24/7 Crypto Order (${legs[0]?.symbol || activeAsset})...`);
+
+    const legsToExecute = legs.map(l => ({
+      ...l,
+      size: l.size || 1,
+      price: l.price || 0,
+      product_type: 'NRML',
+      order_mode: 'REGULAR',
+      order_type: 'MARKET',
+      leverage: cryptoLeverage || 100
+    }));
+
+    const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} 24/7 LIVE`;
+
+    fetch(`${BACKEND_URL}/api/trade`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        basket_name: orderBasketName,
+        legs: legsToExecute,
+        account_id: activeAccountId || 101
+      })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          setTradeMessage(data.message || 'Crypto Order Executed Directly! ⚡');
+          setShowOrderModal(false);
+          setStratBasket([]);
+          if (data.portfolio) setPortfolio(data.portfolio);
+          setActiveTab('tradelab');
+          setTradeLabSubTab('positions');
+          triggerManualRefresh();
+          setTimeout(() => setTradeMessage(''), 4000);
+        } else {
+          setTradeMessage(`Error: ${data.message}`);
+          setTimeout(() => setTradeMessage(''), 4000);
+        }
+      })
+      .catch(() => setTradeMessage('Crypto trade execution failed'))
+      .finally(() => setIsTrading(false));
+  };
+
   const openOrderTicket = (leg?: OptionLeg) => {
-    const isAssetCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
+    const isAssetCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT' || selectedMarket === 'CRYPTO';
+    if (isAssetCrypto) {
+      const legs = leg ? [leg] : (stratBasket.length > 0 ? stratBasket : []);
+      if (legs.length > 0) {
+        executeDirectCryptoTrade(legs);
+        return;
+      }
+    }
+
     const isIndianMarketClosed = !isAssetCrypto && !marketOpen;
 
     if (leg) {
@@ -2218,7 +2272,12 @@ export default function App() {
 
   const handlePlaceOrder = () => {
     if (!stratBasket.length) return;
-    openOrderTicket();
+    const isAssetCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT' || selectedMarket === 'CRYPTO';
+    if (isAssetCrypto) {
+      executeDirectCryptoTrade(stratBasket);
+    } else {
+      openOrderTicket();
+    }
   };
 
   const handleExecuteOrderModal = () => {
@@ -3212,14 +3271,16 @@ export default function App() {
                 <TouchableOpacity 
                   style={[
                     styles.prominentPlaceOrderBtn,
-                    !isAssetMarketOpen(activeAsset, marketOpen) && { backgroundColor: '#d97706', borderColor: '#f59e0b', borderWidth: 1 },
+                    (selectedMarket !== 'CRYPTO' && activeAsset !== 'BTC' && activeAsset !== 'ETH' && activeAsset !== 'XAUT' && !isAssetMarketOpen(activeAsset, marketOpen)) && { backgroundColor: '#d97706', borderColor: '#f59e0b', borderWidth: 1 },
                     orderMargin > tradeLabStats.availableMargin && styles.prominentPlaceOrderBtnDisabled
                   ]} 
                   onPress={handlePlaceOrder}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.prominentPlaceOrderBtnText}>
-                    {!isAssetMarketOpen(activeAsset, marketOpen) ? `PLACE AMO ORDER (${stratBasket.length}) 🌙` : `PLACE ORDER (${stratBasket.length}) ⚡`}
+                    {selectedMarket === 'CRYPTO' || activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT'
+                      ? `⚡ PLACE LIVE ORDER (${stratBasket.length})`
+                      : (!isAssetMarketOpen(activeAsset, marketOpen) ? `PLACE AMO ORDER (${stratBasket.length}) 🌙` : `PLACE ORDER (${stratBasket.length}) ⚡`)}
                   </Text>
                 </TouchableOpacity>
               </View>
