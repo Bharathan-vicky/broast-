@@ -53,8 +53,13 @@ LOT_SIZES = {
     'BANKNIFTY': 30,
     'SENSEX': 20,
     'CRUDEOIL': 100,
+    'CRUDEOILM': 10,
     'GOLD': 100,
+    'GOLDM': 10,
     'SILVER': 30,
+    'SILVERM': 5,
+    'NATURALGAS': 1250,
+    'NATGASM': 250,
     # NSE F&O Stock Options
     'RELIANCE': 250,
     'TCS': 175,

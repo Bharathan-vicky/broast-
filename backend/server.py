@@ -252,7 +252,7 @@ def health_check():
 def get_chain_for_ws(asset: str):
     """Returns the cached option chain payload for the given asset, ready to push over WS."""
     asset_u = (asset or "NIFTY").upper()
-    is_angel = asset_u in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "GOLD", "SILVER"] or asset_u in angel_one.STOCK_TOKENS
+    is_angel = asset_u in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"] or asset_u in angel_one.STOCK_TOKENS or asset_u in angel_one.STOCK_STRIKE_STEPS
     if is_angel:
         chain = angel_one.get_options_chain(asset=asset_u)
         if isinstance(chain, dict):
@@ -266,8 +266,9 @@ def get_chain_for_ws(asset: str):
 
 @app.get("/api/spot")
 def get_spot(asset: str = Query("BTC")):
-    if asset in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "GOLD", "SILVER"]:
-        return angel_one.get_spot_info(asset=asset)
+    asset_u = (asset or "BTC").upper()
+    if asset_u in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"] or asset_u in angel_one.STOCK_TOKENS or asset_u in angel_one.STOCK_STRIKE_STEPS:
+        return angel_one.get_spot_info(asset=asset_u)
     
     # Prioritize CRYPTO_SPOT_CACHE (updated by poller) over md.CRYPTO_SPOT_MAP (static fallbacks)
     if asset in CRYPTO_SPOT_CACHE and CRYPTO_SPOT_CACHE[asset].get("spot_price", 0) > 0:
@@ -297,8 +298,13 @@ async def websocket_live_endpoint(websocket: WebSocket):
             banknifty_spot = angel_one.get_nifty_spot(asset="BANKNIFTY")
             sensex_spot = angel_one.get_spot_info(asset="SENSEX")
             crude_spot = angel_one.get_spot_info(asset="CRUDEOIL")
+            crudem_spot = angel_one.get_spot_info(asset="CRUDEOILM")
             gold_spot = angel_one.get_spot_info(asset="GOLD")
+            goldm_spot = angel_one.get_spot_info(asset="GOLDM")
             silver_spot = angel_one.get_spot_info(asset="SILVER")
+            silverm_spot = angel_one.get_spot_info(asset="SILVERM")
+            natgas_spot = angel_one.get_spot_info(asset="NATURALGAS")
+            natgasm_spot = angel_one.get_spot_info(asset="NATGASM")
             btc_p = get_spot("BTC")
             eth_p = get_spot("ETH")
             xaut_p = get_spot("XAUT")
@@ -324,15 +330,40 @@ async def websocket_live_endpoint(websocket: WebSocket):
                     "change": float(crude_spot.get("change", _DEFAULT_SPOT_FALLBACKS["CRUDEOIL"]["change"])),
                     "pctChange": float(crude_spot.get("percent_change", _DEFAULT_SPOT_FALLBACKS["CRUDEOIL"]["percent_change"]))
                 },
+                "CRUDEOILM": {
+                    "spot": float(crudem_spot.get("spot_price", _DEFAULT_SPOT_FALLBACKS.get("CRUDEOILM", {}).get("spot_price", 8315.0))),
+                    "change": float(crudem_spot.get("change", 0.0)),
+                    "pctChange": float(crudem_spot.get("percent_change", 0.0))
+                },
                 "GOLD": {
                     "spot": float(gold_spot.get("spot_price", _DEFAULT_SPOT_FALLBACKS["GOLD"]["spot_price"])),
                     "change": float(gold_spot.get("change", _DEFAULT_SPOT_FALLBACKS["GOLD"]["change"])),
                     "pctChange": float(gold_spot.get("percent_change", _DEFAULT_SPOT_FALLBACKS["GOLD"]["percent_change"]))
                 },
+                "GOLDM": {
+                    "spot": float(goldm_spot.get("spot_price", _DEFAULT_SPOT_FALLBACKS.get("GOLDM", {}).get("spot_price", 161690.0))),
+                    "change": float(goldm_spot.get("change", 0.0)),
+                    "pctChange": float(goldm_spot.get("percent_change", 0.0))
+                },
                 "SILVER": {
                     "spot": float(silver_spot.get("spot_price", _DEFAULT_SPOT_FALLBACKS["SILVER"]["spot_price"])),
                     "change": float(silver_spot.get("change", _DEFAULT_SPOT_FALLBACKS["SILVER"]["change"])),
                     "pctChange": float(silver_spot.get("percent_change", _DEFAULT_SPOT_FALLBACKS["SILVER"]["percent_change"]))
+                },
+                "SILVERM": {
+                    "spot": float(silverm_spot.get("spot_price", _DEFAULT_SPOT_FALLBACKS.get("SILVERM", {}).get("spot_price", 246274.0))),
+                    "change": float(silverm_spot.get("change", 0.0)),
+                    "pctChange": float(silverm_spot.get("percent_change", 0.0))
+                },
+                "NATURALGAS": {
+                    "spot": float(natgas_spot.get("spot_price", 240.50)),
+                    "change": float(natgas_spot.get("change", 2.10)),
+                    "pctChange": float(natgas_spot.get("percent_change", 0.88))
+                },
+                "NATGASM": {
+                    "spot": float(natgasm_spot.get("spot_price", 240.50)),
+                    "change": float(natgasm_spot.get("change", 2.10)),
+                    "pctChange": float(natgasm_spot.get("percent_change", 0.88))
                 },
                 "BTC": {
                     "spot": float(btc_p.get("spot_price", _DEFAULT_SPOT_FALLBACKS["BTC"]["spot_price"])),
@@ -419,15 +450,40 @@ def get_live_sync(asset: str = Query("NIFTY"), account_id: int = Query(1)):
             "change": float(crude_spot.get("change", _DEFAULT_SPOT_FALLBACKS["CRUDEOIL"]["change"])),
             "pctChange": float(crude_spot.get("percent_change", _DEFAULT_SPOT_FALLBACKS["CRUDEOIL"]["percent_change"]))
         },
+        "CRUDEOILM": {
+            "spot": float(angel_one.get_spot_info("CRUDEOILM").get("spot_price", 8315.0)),
+            "change": float(angel_one.get_spot_info("CRUDEOILM").get("change", 0.0)),
+            "pctChange": float(angel_one.get_spot_info("CRUDEOILM").get("percent_change", 0.0))
+        },
         "GOLD": {
             "spot": float(gold_spot.get("spot_price", _DEFAULT_SPOT_FALLBACKS["GOLD"]["spot_price"])),
             "change": float(gold_spot.get("change", _DEFAULT_SPOT_FALLBACKS["GOLD"]["change"])),
             "pctChange": float(gold_spot.get("percent_change", _DEFAULT_SPOT_FALLBACKS["GOLD"]["percent_change"]))
         },
+        "GOLDM": {
+            "spot": float(angel_one.get_spot_info("GOLDM").get("spot_price", 161690.0)),
+            "change": float(angel_one.get_spot_info("GOLDM").get("change", 0.0)),
+            "pctChange": float(angel_one.get_spot_info("GOLDM").get("percent_change", 0.0))
+        },
         "SILVER": {
             "spot": float(silver_spot.get("spot_price", _DEFAULT_SPOT_FALLBACKS["SILVER"]["spot_price"])),
             "change": float(silver_spot.get("change", _DEFAULT_SPOT_FALLBACKS["SILVER"]["change"])),
             "pctChange": float(silver_spot.get("percent_change", _DEFAULT_SPOT_FALLBACKS["SILVER"]["percent_change"]))
+        },
+        "SILVERM": {
+            "spot": float(angel_one.get_spot_info("SILVERM").get("spot_price", 246274.0)),
+            "change": float(angel_one.get_spot_info("SILVERM").get("change", 0.0)),
+            "pctChange": float(angel_one.get_spot_info("SILVERM").get("percent_change", 0.0))
+        },
+        "NATURALGAS": {
+            "spot": float(angel_one.get_spot_info("NATURALGAS").get("spot_price", 240.50)),
+            "change": float(angel_one.get_spot_info("NATURALGAS").get("change", 2.10)),
+            "pctChange": float(angel_one.get_spot_info("NATURALGAS").get("percent_change", 0.88))
+        },
+        "NATGASM": {
+            "spot": float(angel_one.get_spot_info("NATGASM").get("spot_price", 240.50)),
+            "change": float(angel_one.get_spot_info("NATGASM").get("change", 2.10)),
+            "pctChange": float(angel_one.get_spot_info("NATGASM").get("percent_change", 0.88))
         },
         "BTC": {
             "spot": float(btc_p.get("spot_price", _DEFAULT_SPOT_FALLBACKS["BTC"]["spot_price"])),
@@ -457,7 +513,7 @@ def get_live_sync(asset: str = Query("NIFTY"), account_id: int = Query(1)):
 
     # 2. Fetch Active Chain for current asset
     asset_u = asset.upper()
-    is_angel = asset_u in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "GOLD", "SILVER"] or asset_u in angel_one.STOCK_TOKENS
+    is_angel = asset_u in ["NIFTY", "BANKNIFTY", "SENSEX", "CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"] or asset_u in angel_one.STOCK_TOKENS or asset_u in angel_one.STOCK_STRIKE_STEPS
     if is_angel:
         chain = angel_one.get_options_chain(asset=asset_u)
     else:

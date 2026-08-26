@@ -90,6 +90,17 @@ STOCK_STRIKE_STEPS = {
     "LT": 50
 }
 
+COMMODITY_STRIKE_STEPS = {
+    "CRUDEOIL": 50,
+    "CRUDEOILM": 50,
+    "GOLD": 100,
+    "GOLDM": 100,
+    "SILVER": 500,
+    "SILVERM": 500,
+    "NATURALGAS": 5,
+    "NATGASM": 5
+}
+
 STOCK_SPOTS = {
     "RELIANCE": {"spot": 1305.00, "change": -11.0, "pctChange": -0.84},
     "TCS": {"spot": 2295.40, "change": -6.6, "pctChange": -0.29},
@@ -599,12 +610,14 @@ def get_spot_info(asset="NIFTY"):
         return {"spot_price": SENSEX_SPOT, "change": SENSEX_SPOT_CHANGE, "percent_change": SENSEX_SPOT_PCT, "symbol": "SENSEX", "is_live": True}
     elif asset_u == "BANKNIFTY":
         return {"spot_price": BANKNIFTY_SPOT, "change": BANKNIFTY_SPOT_CHANGE, "percent_change": BANKNIFTY_SPOT_PCT, "symbol": "BANKNIFTY", "is_live": True}
-    elif asset_u == "CRUDEOIL":
-        return {"spot_price": CRUDEOIL_SPOT, "change": CRUDEOIL_SPOT_CHANGE, "percent_change": CRUDEOIL_SPOT_PCT, "symbol": "CRUDEOIL", "is_live": True}
-    elif asset_u == "GOLD":
-        return {"spot_price": GOLD_SPOT, "change": GOLD_SPOT_CHANGE, "percent_change": GOLD_SPOT_PCT, "symbol": "GOLD", "is_live": True}
-    elif asset_u == "SILVER":
-        return {"spot_price": SILVER_SPOT, "change": SILVER_SPOT_CHANGE, "percent_change": SILVER_SPOT_PCT, "symbol": "SILVER", "is_live": True}
+    elif asset_u in ["CRUDEOIL", "CRUDEOILM"]:
+        return {"spot_price": CRUDEOIL_SPOT, "change": CRUDEOIL_SPOT_CHANGE, "percent_change": CRUDEOIL_SPOT_PCT, "symbol": asset_u, "is_live": True}
+    elif asset_u in ["GOLD", "GOLDM"]:
+        return {"spot_price": GOLD_SPOT, "change": GOLD_SPOT_CHANGE, "percent_change": GOLD_SPOT_PCT, "symbol": asset_u, "is_live": True}
+    elif asset_u in ["SILVER", "SILVERM"]:
+        return {"spot_price": SILVER_SPOT, "change": SILVER_SPOT_CHANGE, "percent_change": SILVER_SPOT_PCT, "symbol": asset_u, "is_live": True}
+    elif asset_u in ["NATURALGAS", "NATGASM"]:
+        return {"spot_price": 240.50, "change": 2.10, "percent_change": 0.88, "symbol": asset_u, "is_live": True}
     return {"spot_price": NIFTY_SPOT, "change": NIFTY_SPOT_CHANGE, "percent_change": NIFTY_SPOT_PCT, "symbol": "NIFTY", "is_live": True}
 
 
@@ -856,26 +869,43 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
     now_ts = time.time()
     if asset_u in STOCK_STRIKE_STEPS:
         strike_step = STOCK_STRIKE_STEPS[asset_u]
-    elif asset_u in ["BANKNIFTY", "SENSEX", "GOLD"]:
+    elif asset_u in COMMODITY_STRIKE_STEPS:
+        strike_step = COMMODITY_STRIKE_STEPS[asset_u]
+    elif asset_u in ["BANKNIFTY", "SENSEX"]:
         strike_step = 100
-    elif asset_u == "SILVER":
-        strike_step = 500
     else:
         strike_step = 50
 
     atm_center = int(round(spot_price / float(strike_step)) * strike_step)
-    strikes = [atm_center + (i * strike_step) for i in range(-20, 21)]
+    strikes = [atm_center + (i * strike_step) for i in range(-15, 16)]
+
+    # Realistic Market IV mapping
+    if asset_u in ["CRUDEOIL", "CRUDEOILM"]:
+        iv = 0.35
+    elif asset_u in ["NATURALGAS", "NATGASM"]:
+        iv = 0.45
+    elif asset_u in ["GOLD", "GOLDM"]:
+        iv = 0.14
+    elif asset_u in ["SILVER", "SILVERM"]:
+        iv = 0.19
+    elif asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS:
+        iv = 0.25
+    elif asset_u == "BANKNIFTY":
+        iv = 0.155
+    elif asset_u == "SENSEX":
+        iv = 0.145
+    else:
+        iv = 0.135
 
     for exp_iso in expiries:
         exp_dt = datetime.datetime.strptime(exp_iso, "%Y-%m-%dT12:00:00Z")
-        T = max((exp_dt.timestamp() - now_ts) / (365.25 * 24 * 3600), 0.001)
+        T = max((exp_dt.timestamp() - now_ts) / (365.25 * 24 * 3600), 0.002)
         exp_label = exp_dt.strftime("%d%b%y").upper()
         chain_data = []
 
         for strike in strikes:
             diff = abs(strike - spot_price)
-            base_oi = int(max(5000, 80000 - diff * (20 if asset_u in STOCK_TOKENS else 80)))
-            iv = 0.22 if asset_u in STOCK_TOKENS else (0.145 if asset_u == "SENSEX" else (0.155 if asset_u == "BANKNIFTY" else 0.135))
+            base_oi = int(max(5000, 80000 - diff * (20 if (asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS) else 80)))
             c_bs, c_delta, c_gamma, c_theta, c_vega = _bs_greeks(spot_price, strike, T, 0.065, iv, "C")
             p_bs, p_delta, p_gamma, p_theta, p_vega = _bs_greeks(spot_price, strike, T, 0.065, iv, "P")
 
