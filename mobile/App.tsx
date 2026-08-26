@@ -2337,7 +2337,7 @@ export default function App() {
       .catch(() => setTradeMessage('Failed to update position'));
   };
 
-  const handleCloseSinglePosition = (posId: number, symbol: string) => {
+  const handleCloseSinglePosition = (posId: number, symbol: string, basketId?: number) => {
     Alert.alert(
       "Exit Position",
       `Are you sure you want to close ${symbol} at live market price?`,
@@ -2348,10 +2348,11 @@ export default function App() {
           style: "destructive",
           onPress: () => {
             setTradeMessage('Closing position...');
+            const targetId = posId || basketId || 1;
             fetch(`${BACKEND_URL}/api/trade/close_position`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ position_id: posId, exit_reason: 'MANUAL EXIT' })
+              body: JSON.stringify({ position_id: targetId, exit_reason: 'MANUAL EXIT' })
             })
               .then(r => r.json())
               .then(data => {
@@ -2359,11 +2360,44 @@ export default function App() {
                   setTradeMessage(data.message || 'Position Closed! ✓');
                   triggerManualRefresh();
                   setTimeout(() => setTradeMessage(''), 3500);
+                } else if (basketId) {
+                  handleClosePosition(basketId);
                 } else {
                   setTradeMessage(`Error: ${data.message}`);
                 }
               })
-              .catch(() => setTradeMessage('Failed to close position'));
+              .catch(() => {
+                if (basketId) {
+                  handleClosePosition(basketId);
+                } else {
+                  setTradeMessage('Failed to close position');
+                }
+              });
+          }
+        }
+      ]
+    );
+  };
+
+  const handleResetTradeHistory = () => {
+    Alert.alert(
+      "Reset Trade Journal",
+      "Are you sure you want to clear all trade history and start fresh?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: () => {
+            fetch(`${BACKEND_URL}/api/trade/reset`, { method: 'POST' })
+              .then(r => r.json())
+              .then(() => {
+                setOrderHistory([]);
+                triggerManualRefresh();
+                setTradeMessage('Trade Journal Reset! 🗑️');
+                setTimeout(() => setTradeMessage(''), 3000);
+              })
+              .catch(() => setTradeMessage('Reset failed'));
           }
         }
       ]
@@ -3811,7 +3845,7 @@ export default function App() {
                         </TouchableOpacity>
                         <TouchableOpacity 
                           style={[styles.tradeLabCloseBtn, { flex: 1, marginLeft: 6 }]} 
-                          onPress={() => handleCloseSinglePosition(pos.positionId, pos.symbol)}
+                          onPress={() => handleCloseSinglePosition(pos.positionId, pos.symbol, pos.basketId)}
                         >
                           <Text style={styles.tradeLabCloseBtnText}>Exit Position ✕</Text>
                         </TouchableOpacity>
@@ -3857,9 +3891,20 @@ export default function App() {
               {renderJournalEquityCurve()}
               {renderJournalCalendarHeatmap()}
 
-              <Text style={[styles.sectionHeader, { marginTop: 16, fontSize: 13 }]}>
-                📓 Logged Closed Positions ({orderHistory.length})
-              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 8 }}>
+                <Text style={[styles.sectionHeader, { marginTop: 0, fontSize: 13 }]}>
+                  📓 Logged Closed Positions ({orderHistory.length})
+                </Text>
+                {orderHistory.length > 0 && (
+                  <TouchableOpacity 
+                    onPress={handleResetTradeHistory}
+                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.35)' }}
+                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  >
+                    <Text style={{ color: '#f87171', fontSize: 10.5, fontWeight: 'bold' }}>Clear History 🗑️</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
 
               {orderHistory.length > 0 ? (
                 orderHistory.map((item: any, idx: number) => {
@@ -4521,25 +4566,30 @@ export default function App() {
                     </View>
                   </View>
 
-                  {/* Order Type: Market | Limit | SL | SL-M */}
+                  {/* Order Type: Market | Limit */}
                   <View style={{ marginBottom: 14 }}>
                     <Text style={{ color: '#64748b', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, marginBottom: 6 }}>ORDER TYPE</Text>
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      {(['MARKET', 'LIMIT', 'SL', 'SL-M'] as const).map(type => (
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {(['MARKET', 'LIMIT'] as const).map(type => (
                         <TouchableOpacity
                           key={type}
-                          onPress={() => setOrderType(type)}
+                          onPress={() => {
+                            setOrderType(type);
+                            if (type === 'LIMIT' && !orderLimitPrice) {
+                              setOrderLimitPrice(ltp.toFixed(2));
+                            }
+                          }}
                           style={{
                             flex: 1,
-                            paddingVertical: 7,
+                            paddingVertical: 9,
                             alignItems: 'center',
-                            borderRadius: 6,
+                            borderRadius: 8,
                             borderWidth: 1,
                             borderColor: orderType === type ? '#00c087' : '#1e293b',
                             backgroundColor: orderType === type ? 'rgba(0, 192, 135, 0.12)' : '#0f172a'
                           }}
                         >
-                          <Text style={{ color: orderType === type ? '#00c087' : '#94a3b8', fontSize: 11, fontWeight: 'bold' }}>{type}</Text>
+                          <Text style={{ color: orderType === type ? '#00c087' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>{type}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -4568,7 +4618,7 @@ export default function App() {
                     </View>
 
                     {/* Limit Price */}
-                    {(orderType === 'LIMIT' || orderType === 'SL') && (
+                    {orderType === 'LIMIT' && (
                       <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#1e293b' }}>
                         <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>LIMIT PRICE ({posSym})</Text>
                         <TextInput
@@ -4581,31 +4631,15 @@ export default function App() {
                         />
                       </View>
                     )}
-
-                    {/* Trigger Price */}
-                    {(orderType === 'SL' || orderType === 'SL-M') && (
-                      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#1e293b' }}>
-                        <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>TRIGGER ({posSym})</Text>
-                        <TextInput
-                          value={orderTriggerPrice}
-                          onChangeText={setOrderTriggerPrice}
-                          keyboardType="decimal-pad"
-                          placeholder={(ltp * 0.95).toFixed(2)}
-                          placeholderTextColor="#475569"
-                          style={{ color: 'white', fontSize: 14, fontWeight: 'bold', paddingVertical: 2 }}
-                        />
-                      </View>
-                    )}
                   </View>
 
-                  {/* ===================== GTT PROTECTION: STOPLOSS & TARGET ===================== */}
+                  {/* ===================== STOPLOSS & TARGET (BASED ON ENTRY PRICE) ===================== */}
                   <View style={{ backgroundColor: '#0c101b', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#172033', marginBottom: 14 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ fontSize: 13 }}>🛡️</Text>
-                        <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '800' }}>GTT BRACKET PROTECTION</Text>
+                        <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '800' }}>STOPLOSS & TARGET</Text>
                       </View>
-                      <Text style={{ color: '#64748b', fontSize: 10, fontStyle: 'italic' }}>Auto Stoploss & Target</Text>
+                      <Text style={{ color: '#64748b', fontSize: 10, fontStyle: 'italic' }}>Based on Entry Price</Text>
                     </View>
 
                     {/* Stoploss Option */}

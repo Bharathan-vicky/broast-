@@ -668,5 +668,10 @@ def close_trade(req: CloseOrder):
 def get_history(account_id: int = Query(1)):
     return db.get_trade_history(account_id)
 
+@app.post("/api/trade/reset")
+def reset_trades(account_id: int = Query(None)):
+    db.clear_all_trade_data(account_id)
+    return {"status": "success", "message": "All trade history & open positions cleared!"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

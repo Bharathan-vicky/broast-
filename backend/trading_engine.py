@@ -326,11 +326,11 @@ def close_single_position(position_id: int, exit_reason: str = "MANUAL"):
     conn.row_factory = db.sqlite3.Row
     c = conn.cursor()
 
-    c.execute("SELECT p.*, b.account_id FROM positions p JOIN baskets b ON p.basket_id = b.id WHERE p.id = ? AND p.status = 'OPEN'", (position_id,))
+    c.execute("SELECT p.*, b.account_id FROM positions p JOIN baskets b ON p.basket_id = b.id WHERE (p.id = ? OR p.basket_id = ?) AND p.status = 'OPEN'", (position_id, position_id))
     pos = c.fetchone()
     if not pos:
         conn.close()
-        return False, "Position not found or already closed"
+        return close_basket(position_id)
 
     actual_account_id = pos['account_id']
     basket_id = pos['basket_id']

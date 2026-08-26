@@ -371,6 +371,22 @@ def get_trade_history(account_id: int = 1):
     conn.close()
     return journal
 
+def clear_all_trade_data(account_id: int = None):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    if account_id:
+        c.execute("DELETE FROM trade_history WHERE basket_id IN (SELECT id FROM baskets WHERE account_id=?)", (account_id,))
+        c.execute("DELETE FROM positions WHERE basket_id IN (SELECT id FROM baskets WHERE account_id=?)", (account_id,))
+        c.execute("DELETE FROM baskets WHERE account_id=?", (account_id,))
+        c.execute("UPDATE accounts SET balance = CASE WHEN market='CRYPTO' THEN 100000.0 ELSE 2500000.0 END WHERE id=?", (account_id,))
+    else:
+        c.execute("DELETE FROM trade_history")
+        c.execute("DELETE FROM positions")
+        c.execute("DELETE FROM baskets")
+        c.execute("UPDATE accounts SET balance = CASE WHEN market='CRYPTO' THEN 100000.0 ELSE 2500000.0 END")
+    conn.commit()
+    conn.close()
+
 if __name__ == "__main__":
     init_db()
     print(f"Database initialized. Virtual balance: {get_balance()} USDT")
