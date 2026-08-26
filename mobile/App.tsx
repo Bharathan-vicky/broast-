@@ -38,9 +38,8 @@ const getBackendUrl = () => {
       return `http://${host}:8000`;
     }
   }
-  // 3. Standalone APK/Production build - use your LAN IP
-  //    Change this IP if your router assigns a different address
-  return 'http://192.168.31.125:8000';
+  // 3. Standalone APK/Production build - default to Render cloud backend
+  return 'https://broast.onrender.com';
 };
 
 const BACKEND_URL = getBackendUrl();
