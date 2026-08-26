@@ -827,7 +827,7 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
     today = datetime.date.today()
     asset_u = asset.upper()
     
-    if asset_u in STOCK_TOKENS:
+    if asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS:
         # Stock Options have monthly expiries on the last Thursday of each month
         import calendar
         def _get_last_thursday(year, month):
@@ -847,22 +847,37 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
                 expiries_dates.append(datetime.datetime.combine(thurs, datetime.time(15, 30, 0)))
         expiries_dt = expiries_dates[:3]
         expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
+    elif asset_u in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:
+        # MCX Commodities have monthly contract expiries
+        expiries_dates = []
+        cur_y = today.year
+        cur_m = today.month
+        for i in range(5):
+            m = ((cur_m - 1 + i) % 12) + 1
+            y = cur_y + ((cur_m - 1 + i) // 12)
+            exp_day = 19 if "CRUDE" in asset_u else (25 if "NAT" in asset_u else 5)
+            exp_d = datetime.date(y, m, exp_day)
+            if exp_d >= today:
+                expiries_dates.append(datetime.datetime.combine(exp_d, datetime.time(23, 30, 0)))
+        if not expiries_dates:
+            expiries_dates = [datetime.datetime.combine(today + datetime.timedelta(days=14), datetime.time(23, 30, 0))]
+        expiries_dt = expiries_dates[:3]
+        expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
     else:
-        # SENSEX = Thursday (3), BANKNIFTY = Wednesday (2), NIFTY = Thursday (3), MCX = Friday (4)
+        # Indices: SENSEX = Thursday (3), BANKNIFTY = Wednesday (2), NIFTY = Thursday (3)
         if asset_u == "SENSEX":
-            target_weekday = 3  # Thursday Expiry
+            target_weekday = 3
         elif asset_u == "BANKNIFTY":
-            target_weekday = 2  # Wednesday Expiry
-        elif asset_u in ["CRUDEOIL", "GOLD", "SILVER"]:
-            target_weekday = 4  # Friday (MCX Standard)
+            target_weekday = 2
         else:
-            target_weekday = 3  # Thursday (NSE NIFTY Standard)
+            target_weekday = 3
 
         days_ahead = (target_weekday - today.weekday()) % 7
         if days_ahead == 0 and (datetime.datetime.now().hour > 15 or (datetime.datetime.now().hour == 15 and datetime.datetime.now().minute >= 30)):
             days_ahead = 7
         next_exp = today + datetime.timedelta(days=days_ahead)
         expiries_dt = [datetime.datetime.combine(next_exp + datetime.timedelta(weeks=i), datetime.time(15, 30, 0)) for i in range(5)]
+        expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
         expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
 
     chain_by_expiry = {}
@@ -982,8 +997,8 @@ CACHED_MCX_CHAINS = {}
 
 def get_nifty_chain(asset="NIFTY", expiry_filter=None):
     global CACHED_CHAIN, CACHED_BANKNIFTY_CHAIN, CACHED_SENSEX_CHAIN, CACHED_STOCK_CHAINS, CACHED_MCX_CHAINS
-    asset_u = asset.upper()
-    if asset_u in STOCK_TOKENS:
+    asset_u = (asset or "NIFTY").upper()
+    if asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS:
         if asset_u not in CACHED_STOCK_CHAINS:
             CACHED_STOCK_CHAINS[asset_u] = _build_nifty_chain_internal(expiry_filter, asset=asset_u)
         return CACHED_STOCK_CHAINS[asset_u]
@@ -995,7 +1010,7 @@ def get_nifty_chain(asset="NIFTY", expiry_filter=None):
         if CACHED_SENSEX_CHAIN is None:
             CACHED_SENSEX_CHAIN = _build_nifty_chain_internal(expiry_filter, asset="SENSEX")
         return CACHED_SENSEX_CHAIN
-    elif asset_u in ["CRUDEOIL", "GOLD", "SILVER"]:
+    elif asset_u in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:
         if asset_u not in CACHED_MCX_CHAINS:
             CACHED_MCX_CHAINS[asset_u] = _build_nifty_chain_internal(expiry_filter, asset=asset_u)
         return CACHED_MCX_CHAINS[asset_u]
@@ -1085,10 +1100,10 @@ def _cache_refresher_loop():
             new_banknifty = _build_nifty_chain_internal(asset="BANKNIFTY")
             new_sensex = _build_nifty_chain_internal(asset="SENSEX")
             new_stock_chains = {}
-            for stk_sym in STOCK_TOKENS.keys():
+            for stk_sym in list(STOCK_TOKENS.keys()) + list(STOCK_STRIKE_STEPS.keys()):
                 new_stock_chains[stk_sym] = _build_nifty_chain_internal(asset=stk_sym)
             new_mcx_chains = {}
-            for mcx_sym in ["CRUDEOIL", "GOLD", "SILVER"]:
+            for mcx_sym in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:
                 new_mcx_chains[mcx_sym] = _build_nifty_chain_internal(asset=mcx_sym)
                 
             with _LOCK:

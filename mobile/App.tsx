@@ -959,11 +959,11 @@ export default function App() {
     fetchAccounts();
   }, [fetchAccounts]);
 
-  // Synchronize selectedMarket when activeAsset changes (if a market is chosen)
+  // Synchronize selectedMarket & activeExpiry when activeAsset changes
   useEffect(() => {
-    if (selectedMarket === null) return;
+    setActiveExpiry('');
     const config = ASSET_CONFIG[activeAsset];
-    if (config && config.category && selectedMarket !== config.category) {
+    if (config && config.category && selectedMarket !== config.category && selectedMarket !== null) {
       setSelectedMarket(config.category);
     }
   }, [activeAsset]);
@@ -4283,7 +4283,7 @@ export default function App() {
                 const catTitle = 
                   marketCat === 'INDIAN' ? '🇮🇳 INDIAN BENCHMARK INDICES (NSE & BSE)' : 
                   marketCat === 'STOCKS' ? '📈 NSE STOCK OPTIONS (F&O HEAVYWEIGHTS)' : 
-                  marketCat === 'COMMODITY' ? '🛢️ MCX COMMODITIES' : '⚡ CRYPTO DERIVATIVES';
+                  marketCat === 'COMMODITY' ? '🛢️ MCX COMMODITIES (STANDARD & MINI)' : '⚡ CRYPTO DERIVATIVES';
                 return (
                   <View key={marketCat} style={{ marginBottom: 16 }}>
                     <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 8, paddingHorizontal: 4 }}>
@@ -4294,6 +4294,7 @@ export default function App() {
                       const isSelected = activeAsset === assetKey;
                       const live = liveMarketPrices[assetKey] || { spot: 0, change: 0, pctChange: 0 };
                       const isUp = live.change >= 0;
+                      const isMini = conf.tag.includes('Mini');
                       return (
                         <TouchableOpacity
                           key={assetKey}
@@ -4306,11 +4307,11 @@ export default function App() {
                           <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                               <Text style={[styles.sheetOptionText, isSelected && { color: '#38bdf8' }]}>{assetKey}</Text>
-                              <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                                <Text style={{ color: '#94a3b8', fontSize: 9.5, fontWeight: 'bold' }}>{conf.exchange}</Text>
+                              <View style={{ backgroundColor: isMini ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                                <Text style={{ color: isMini ? '#eab308' : '#94a3b8', fontSize: 9.5, fontWeight: 'bold' }}>{conf.tag}</Text>
                               </View>
                             </View>
-                            <Text style={styles.sheetOptionSubText}>{conf.name} • Lot: {conf.lotSize} {conf.lotUnit}</Text>
+                            <Text style={styles.sheetOptionSubText}>{conf.name} • Lot: {conf.lotSize} {conf.lotUnit} • Step: ₹{conf.strikeStep}</Text>
                           </View>
                           <View style={{ alignItems: 'flex-end', marginRight: isSelected ? 8 : 0 }}>
                             <Text style={{ color: isUp ? '#00c087' : '#f84960', fontSize: 13, fontWeight: 'bold' }}>
