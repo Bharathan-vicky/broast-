@@ -303,10 +303,10 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       }
     }, 20000);
 
-    // Direct Device periodic poll every 500ms for active asset live ticks
+    // Direct Device periodic poll every 400ms for active asset live ticks
     directPollerTimer.current = setInterval(() => {
       runDirectDevicePoll();
-    }, 500);
+    }, 400);
 
     // Active second-to-second live micro-tick engine (Zerodha/Groww style)
     const microTickTimer = setInterval(() => {
@@ -346,7 +346,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
           }
         };
       });
-    }, 800);
+    }, 600);
 
     // Fallback REST polling if WebSocket is offline
     restFallbackTimer.current = setInterval(() => {
