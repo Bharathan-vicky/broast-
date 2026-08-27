@@ -332,8 +332,8 @@ export function fuseLiveOptionChain(
     const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL', tickSize);
     const putRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'PUT', tickSize);
 
-    const callPrice = row.callMark && row.callMark > 0 ? row.callMark : (row.callLtp && row.callLtp > 0 ? row.callLtp : callRes.price);
-    const putPrice = row.putMark && row.putMark > 0 ? row.putMark : (row.putLtp && row.putLtp > 0 ? row.putLtp : putRes.price);
+    const callPrice = (isCrypto && row.callMark && row.callMark > 0) ? row.callMark : callRes.price;
+    const putPrice = (isCrypto && row.putMark && row.putMark > 0) ? row.putMark : putRes.price;
 
     const callBid = row.callBid && row.callBid > 0 ? row.callBid : roundToTick(Math.max(tickSize, callPrice - tickSize), tickSize);
     const callAsk = row.callAsk && row.callAsk > 0 ? row.callAsk : roundToTick(callPrice + tickSize, tickSize);

@@ -300,8 +300,17 @@ export function usePriceFeed(asset: string): PriceFeedResult {
         const curQuote = s.spots[currentAsset];
         if (!curQuote || curQuote.spot <= 0) return s;
 
-        // Sub-second micro-tick jitter (+/- 0.05 to 0.15) quantized to exchange tick
-        const tickDelta = (Math.random() > 0.48 ? 0.05 : -0.05) * (Math.random() > 0.6 ? 2 : 1);
+        // Scale micro-tick jitter realistically according to asset index scale
+        const baseJitter = 
+          currentAsset === 'NIFTY' ? 0.50 :
+          currentAsset === 'BANKNIFTY' ? 1.50 :
+          currentAsset === 'SENSEX' ? 2.50 :
+          currentAsset === 'BTC' ? 5.00 :
+          currentAsset === 'ETH' ? 0.50 :
+          (currentAsset === 'CRUDEOIL' || currentAsset === 'GOLD' || currentAsset === 'SILVER') ? 1.00 :
+          0.10;
+
+        const tickDelta = (Math.random() > 0.48 ? baseJitter : -baseJitter) * (Math.random() > 0.6 ? 2 : 1);
         const newSpot = Math.round((curQuote.spot + tickDelta) * 100) / 100;
         const newChange = Math.round(((curQuote.change || 0) + tickDelta) * 100) / 100;
         const prevClose = newSpot - newChange;
