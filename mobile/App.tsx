@@ -999,7 +999,7 @@ export default function App() {
   useEffect(() => {
     const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
     const isStock = currConfig?.category === 'STOCKS';
-    const defaultExps = generateDefaultExpiries(isCrypto, isStock);
+    const defaultExps = generateDefaultExpiries(isCrypto, isStock, activeAsset);
     setExpiries(prev => (prev.length === defaultExps.length && prev[0] === defaultExps[0] ? prev : defaultExps));
     setActiveExpiry(prev => (prev && defaultExps.includes(prev) ? prev : defaultExps[0]));
 
@@ -1191,7 +1191,7 @@ export default function App() {
 
     const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
     const isStock = currConfig?.category === 'STOCKS';
-    const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock)[0];
+    const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock, activeAsset)[0];
     const sp = spotPrice || currConfig.defaultSpot;
 
     if (rows && rows.length > 0) {
@@ -3146,7 +3146,7 @@ export default function App() {
                     {(() => {
                       const isCrypto = selectedMarket === 'CRYPTO' || activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
                       const isStock = currConfig?.category === 'STOCKS';
-                      const activeExp = activeExpiry || (expiries.length > 0 ? expiries[0] : generateDefaultExpiries(isCrypto, isStock)[0]);
+                      const activeExp = activeExpiry || (expiries.length > 0 ? expiries[0] : generateDefaultExpiries(isCrypto, isStock, activeAsset)[0]);
                       return new Date(activeExp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                     })()}
                   </Text>
@@ -3155,7 +3155,7 @@ export default function App() {
                       <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: 'bold' }}>
                         {(() => {
                           const isStock = currConfig?.category === 'STOCKS';
-                          const activeExp = activeExpiry || (expiries.length > 0 ? expiries[0] : generateDefaultExpiries(false, isStock)[0]);
+                          const activeExp = activeExpiry || (expiries.length > 0 ? expiries[0] : generateDefaultExpiries(false, isStock, activeAsset)[0]);
                           return getDteLabel(activeExp);
                         })()}
                       </Text>

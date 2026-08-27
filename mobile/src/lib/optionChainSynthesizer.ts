@@ -97,11 +97,12 @@ export function calculateBSPrice(
   // Market Volatility Smile / Skew calibration
   const diff = (strike - spot) / spot;
   const effectiveIv = type === 'CALL' 
-    ? Math.max(0.10, iv - 0.16 * diff)
-    : Math.max(0.10, iv - 0.22 * diff);
+    ? Math.max(0.06, iv - 0.15 * diff)
+    : Math.max(0.06, iv - 0.25 * diff);
 
+  const F = spot * Math.exp(rate * timeToExpiryYears);
   const sqrtT = Math.sqrt(timeToExpiryYears);
-  const d1 = (Math.log(spot / strike) + (rate + 0.5 * effectiveIv * effectiveIv) * timeToExpiryYears) / (effectiveIv * sqrtT);
+  const d1 = (Math.log(F / strike) + (0.5 * effectiveIv * effectiveIv) * timeToExpiryYears) / (effectiveIv * sqrtT);
   const d2 = d1 - effectiveIv * sqrtT;
 
   const nd1 = normalCdf(d1);
@@ -116,11 +117,11 @@ export function calculateBSPrice(
   let theta = 0;
 
   if (type === 'CALL') {
-    rawPrice = (spot * nd1) - (strike * exp_rT * nd2);
+    rawPrice = exp_rT * (F * nd1 - strike * nd2);
     delta = nd1;
     theta = (-(spot * npd1 * effectiveIv) / (2 * sqrtT) - rate * strike * exp_rT * nd2) / 365.0;
   } else {
-    rawPrice = (strike * exp_rT * n_minus_d2) - (spot * n_minus_d1);
+    rawPrice = exp_rT * (strike * n_minus_d2 - F * n_minus_d1);
     delta = nd1 - 1.0;
     theta = (-(spot * npd1 * effectiveIv) / (2 * sqrtT) + rate * strike * exp_rT * n_minus_d2) / 365.0;
   }
@@ -149,7 +150,7 @@ function formatDateIso(d: Date): string {
 /**
  * Generate standard weekly & monthly expiries for any asset
  */
-export function generateDefaultExpiries(isCrypto: boolean = false, isStock: boolean = false): string[] {
+export function generateDefaultExpiries(isCrypto: boolean = false, isStock: boolean = false, asset: string = 'NIFTY'): string[] {
   const now = new Date();
   const expiries: string[] = [];
 
@@ -190,17 +191,30 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
       }
       if (expiries.length >= 3) break;
     }
-  } else {
-    // Indian Weekly Expiries (Thursday)
-    const today = now.getDay();
-    let daysToThursday = (4 - today + 7) % 7;
-    if (daysToThursday === 0 && now.getHours() >= 15 && now.getMinutes() >= 30) {
-      daysToThursday = 7;
+  } else if (asset === 'SENSEX') {
+    // SENSEX weekly expiry: Thursday (includes today 27 Aug if before 15:30)
+    const todayIso = formatDateIso(now);
+    if (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30)) {
+      expiries.push(todayIso);
     }
+    for (let w = 1; w <= 3; w++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + (w * 7));
+      const iso = formatDateIso(d);
+      if (!expiries.includes(iso)) expiries.push(iso);
+    }
+  } else {
+    // NIFTY & BANK NIFTY: Near weekly (Tuesday 01 Sep / Thursday 03 Sep)
+    const today = now.getDay();
+    let daysToNextExp = (2 - today + 7) % 7;
+    if (daysToNextExp === 0 && (now.getHours() > 15 || (now.getHours() === 15 && now.getMinutes() > 30))) {
+      daysToNextExp = 7;
+    }
+    if (daysToNextExp === 0) daysToNextExp = 5; // Near Tuesday (01 Sep 2026)
 
     for (let w = 0; w < 4; w++) {
       const d = new Date(now);
-      d.setDate(now.getDate() + daysToThursday + (w * 7));
+      d.setDate(now.getDate() + daysToNextExp + (w * 7));
       const iso = formatDateIso(d);
       if (!expiries.includes(iso)) expiries.push(iso);
     }
