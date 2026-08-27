@@ -1092,10 +1092,11 @@ export default function App() {
 
     // Zero-lag fallback: synthesize strikes dynamically in 0ms on device
     const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
-    const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto)[0];
+    const isStock = currConfig?.category === 'STOCKS';
+    const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock)[0];
     const sp = spotPrice || currConfig.defaultSpot;
     return synthesizeOptionChain(activeAsset, sp, strikeStep, activeExp);
-  }, [chainByExpiry, activeExpiry, expiries, activeAsset, spotPrice, strikeStep, currConfig.defaultSpot]);
+  }, [chainByExpiry, activeExpiry, expiries, activeAsset, spotPrice, strikeStep, currConfig]);
 
   const maxOI = useMemo(() => Math.max(1, ...currentChain.map((r: any) => Math.max(r.callOI || 0, r.putOI || 0))), [currentChain]);
 
@@ -2763,9 +2764,9 @@ export default function App() {
                 resizeMode="contain"
               />
             </View>
-            <Text style={{ color: 'white', fontSize: 32, fontWeight: '900', letterSpacing: 0.5 }}>Broast App</Text>
+            <Text style={{ color: 'white', fontSize: 28, fontWeight: '900', letterSpacing: 0.5 }}>Options Terminal</Text>
             <View style={{ backgroundColor: 'rgba(0, 192, 135, 0.12)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(0, 192, 135, 0.25)' }}>
-              <Text style={{ color: '#00c087', fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }}>PRO OPTIONS TRADING SIMULATOR</Text>
+              <Text style={{ color: '#00c087', fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }}>INSTITUTIONAL OPTIONS TRADING</Text>
             </View>
             <Text style={{ color: '#8a95a5', fontSize: 13, marginTop: 12, textAlign: 'center' }}>Select your trading theater to enter the terminal</Text>
           </View>
@@ -2839,7 +2840,7 @@ export default function App() {
             resizeMode="contain"
           />
           <View>
-            <Text style={styles.headerTitle}>Broast App</Text>
+            <Text style={styles.headerTitle}>Delta Terminal</Text>
             <Text style={styles.headerSubtitle}>
               {activeTab === 'home' ? 'Market Watchlist' : activeTab === 'chain' ? `${activeAsset} Option Chain` : 'Positions'}
             </Text>
@@ -2922,30 +2923,24 @@ export default function App() {
       
       {activeTab === 'home' && (
         <ScrollView style={styles.tabContentContainer} contentContainerStyle={{ paddingBottom: 60 }}>
-          {/* Hero Branding Card */}
+          {/* Clean Modern Watchlist Header */}
           <View style={{
-            backgroundColor: '#101522',
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 20,
-            borderWidth: 1,
-            borderColor: '#1e293b',
             flexDirection: 'row',
+            justifyContent: 'space-between',
             alignItems: 'center',
-            gap: 12
+            marginBottom: 16,
+            paddingHorizontal: 2
           }}>
-            <Image
-              source={require('./assets/logo.png')}
-              style={{ width: 46, height: 46, borderRadius: 12 }}
-              resizeMode="contain"
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: 'white', fontSize: 18, fontWeight: '900', letterSpacing: 0.3 }}>Broast App</Text>
-              <Text style={{ color: '#00c087', fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-                {selectedMarket === 'CRYPTO' ? 'CRYPTO WATCHLIST' : selectedMarket === 'STOCKS' ? 'NSE F&O STOCK OPTIONS' : selectedMarket === 'COMMODITY' ? 'MCX COMMODITIES' : 'INDIAN BENCHMARK INDICES'}
+            <View>
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 }}>
+                {selectedMarket === 'CRYPTO' ? 'Crypto Derivatives' : selectedMarket === 'STOCKS' ? 'NSE Stock Options' : selectedMarket === 'COMMODITY' ? 'MCX Commodities' : 'Benchmark Indices'}
+              </Text>
+              <Text style={{ color: '#64748b', fontSize: 11.5, fontWeight: '700', marginTop: 2 }}>
+                Live Real-Time Stream • Mark Prices
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <TouchableOpacity
                 onPress={triggerManualRefresh}
                 style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: '#10b981', width: 34, height: 34, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}
@@ -2962,10 +2957,6 @@ export default function App() {
               </TouchableOpacity>
             </View>
           </View>
-
-          <Text style={{ fontSize: 15, color: '#94a3b8', fontWeight: '800', marginBottom: 12, letterSpacing: 0.5 }}>
-            {selectedMarket === 'CRYPTO' ? 'CRYPTO WATCHLIST' : selectedMarket === 'STOCKS' ? 'NSE F&O STOCK OPTIONS' : selectedMarket === 'COMMODITY' ? 'MCX COMMODITIES' : 'INDIAN BENCHMARK INDICES'}
-          </Text>
           
           {Object.keys(ASSET_CONFIG).filter(k => ASSET_CONFIG[k].category === selectedMarket).map(assetKey => {
             const conf = ASSET_CONFIG[assetKey];

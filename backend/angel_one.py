@@ -1007,28 +1007,8 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
 CACHED_MCX_CHAINS = {}
 
 def get_nifty_chain(asset="NIFTY", expiry_filter=None):
-    global CACHED_CHAIN, CACHED_BANKNIFTY_CHAIN, CACHED_SENSEX_CHAIN, CACHED_STOCK_CHAINS, CACHED_MCX_CHAINS
     asset_u = (asset or "NIFTY").upper()
-    if asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS:
-        if asset_u not in CACHED_STOCK_CHAINS:
-            CACHED_STOCK_CHAINS[asset_u] = _build_nifty_chain_internal(expiry_filter, asset=asset_u)
-        return CACHED_STOCK_CHAINS[asset_u]
-    elif asset_u == "BANKNIFTY":
-        if CACHED_BANKNIFTY_CHAIN is None:
-            CACHED_BANKNIFTY_CHAIN = _build_nifty_chain_internal(expiry_filter, asset="BANKNIFTY")
-        return CACHED_BANKNIFTY_CHAIN
-    elif asset_u == "SENSEX":
-        if CACHED_SENSEX_CHAIN is None:
-            CACHED_SENSEX_CHAIN = _build_nifty_chain_internal(expiry_filter, asset="SENSEX")
-        return CACHED_SENSEX_CHAIN
-    elif asset_u in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:
-        if asset_u not in CACHED_MCX_CHAINS:
-            CACHED_MCX_CHAINS[asset_u] = _build_nifty_chain_internal(expiry_filter, asset=asset_u)
-        return CACHED_MCX_CHAINS[asset_u]
-
-    if CACHED_CHAIN is None:
-        CACHED_CHAIN = _build_nifty_chain_internal(expiry_filter, asset="NIFTY")
-    return CACHED_CHAIN
+    return _build_nifty_chain_internal(expiry_filter, asset=asset_u)
 
 
 def get_options_chain(asset="NIFTY", expiry_filter=None):

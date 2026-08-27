@@ -96,7 +96,7 @@ export function calculateBSPrice(
 /**
  * Generate standard weekly & monthly expiries for any asset
  */
-export function generateDefaultExpiries(isCrypto: boolean = false): string[] {
+export function generateDefaultExpiries(isCrypto: boolean = false, isStock: boolean = false): string[] {
   const now = new Date();
   const expiries: string[] = [];
 
@@ -107,6 +107,26 @@ export function generateDefaultExpiries(isCrypto: boolean = false): string[] {
       d.setDate(now.getDate() + i);
       const iso = d.toISOString().split('T')[0];
       if (!expiries.includes(iso)) expiries.push(iso);
+    }
+  } else if (isStock) {
+    // Stock Options: Last Thursday of next 3 months
+    for (let m = 0; m < 3; m++) {
+      const year = now.getFullYear();
+      const month = now.getMonth() + m;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      let lastThurs = 0;
+      for (let day = lastDay; day >= lastDay - 7; day--) {
+        const checkD = new Date(year, month, day);
+        if (checkD.getDay() === 4) {
+          lastThurs = day;
+          break;
+        }
+      }
+      const expDate = new Date(year, month, lastThurs);
+      if (expDate >= now || m > 0) {
+        const iso = expDate.toISOString().split('T')[0];
+        if (!expiries.includes(iso)) expiries.push(iso);
+      }
     }
   } else {
     // Indian Weekly Expiries (Thursday)
@@ -124,7 +144,7 @@ export function generateDefaultExpiries(isCrypto: boolean = false): string[] {
     }
   }
 
-  return expiries;
+  return expiries.length > 0 ? expiries : [now.toISOString().split('T')[0]];
 }
 
 /**
