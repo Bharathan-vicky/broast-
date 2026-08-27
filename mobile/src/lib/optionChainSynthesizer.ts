@@ -210,9 +210,9 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
 }
 
 const ASSET_IV_MAP: Record<string, number> = {
-  'NIFTY': 0.135,
-  'BANKNIFTY': 0.155,
-  'SENSEX': 0.138,
+  'NIFTY': 0.105,
+  'BANKNIFTY': 0.128,
+  'SENSEX': 0.115,
   'RELIANCE': 0.225,
   'TCS': 0.245,
   'INFY': 0.240,
