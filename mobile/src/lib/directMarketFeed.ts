@@ -15,16 +15,6 @@ const YAHOO_SYMBOLS: Record<string, string> = {
   'NIFTY': '^NSEI',
   'BANKNIFTY': '^NSEBANK',
   'SENSEX': '^BSESN',
-  'RELIANCE': 'RELIANCE.NS',
-  'TCS': 'TCS.NS',
-  'INFY': 'INFY.NS',
-  'HDFCBANK': 'HDFCBANK.NS',
-  'ICICIBANK': 'ICICIBANK.NS',
-  'SBIN': 'SBIN.NS',
-  'TATAMOTORS': 'TATAMOTORS.NS',
-  'BHARTIARTL': 'BHARTIARTL.NS',
-  'ITC': 'ITC.NS',
-  'LT': 'LT.NS',
 };
 
 export interface DirectSpotQuote {
@@ -40,9 +30,10 @@ export async function fetchDirectYahooSpot(assetKey: string): Promise<DirectSpot
   const yahooSym = YAHOO_SYMBOLS[assetKey];
   if (!yahooSym) return null;
 
+  const t = Date.now();
   const endpoints = [
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d`
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&_t=${t}`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&_t=${t}`
   ];
 
   for (const url of endpoints) {

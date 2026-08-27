@@ -197,59 +197,44 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
       const iso = formatDateIso(d);
       if (!expiries.includes(iso)) expiries.push(iso);
     }
-  } else if (isStock) {
-    // Stock Options: Last Tuesday of the month (NSE Standard)
-    const curYear = now.getFullYear();
-    const curMonth = now.getMonth();
-
-    for (let m = 0; m < 5; m++) {
-      const targetDate = new Date(curYear, curMonth + m, 1);
-      const year = targetDate.getFullYear();
-      const month = targetDate.getMonth();
-      const lastDay = new Date(year, month + 1, 0).getDate();
-
-      let lastTues = 0;
-      for (let day = lastDay; day >= lastDay - 7; day--) {
-        const checkD = new Date(year, month, day);
-        if (checkD.getDay() === 2) { // 2 = Tuesday (NSE Stock Options Standard)
-          lastTues = day;
-          break;
-        }
-      }
-
-      if (lastTues > 0) {
-        const tuesDate = new Date(year, month, lastTues, 15, 30, 0);
-        if (tuesDate >= now) {
-          const iso = formatDateIso(new Date(year, month, lastTues));
-          if (!expiries.includes(iso)) expiries.push(iso);
-        }
-      }
-      if (expiries.length >= 3) break;
-    }
   } else if (asset === 'SENSEX') {
-    // SENSEX weekly expiry: Thursday (includes today 27 Aug if before 15:30)
+    // SENSEX weekly expiry: Friday (includes today if before 15:30)
     const todayIso = formatDateIso(now);
-    if (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30)) {
+    if (now.getDay() === 5 && (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30))) {
       expiries.push(todayIso);
     }
     for (let w = 1; w <= 3; w++) {
       const d = new Date(now);
-      d.setDate(now.getDate() + (w * 7));
+      const daysUntilFriday = (5 - now.getDay() + 7) % 7;
+      d.setDate(now.getDate() + daysUntilFriday + (w - 1) * 7);
+      const iso = formatDateIso(d);
+      if (!expiries.includes(iso)) expiries.push(iso);
+    }
+  } else if (asset === 'BANKNIFTY') {
+    // BANKNIFTY weekly expiry: Wednesday
+    const todayIso = formatDateIso(now);
+    if (now.getDay() === 3 && (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30))) {
+      expiries.push(todayIso);
+    }
+    const daysUntilWednesday = (3 - now.getDay() + 7) % 7;
+    const offset = daysUntilWednesday === 0 ? 7 : daysUntilWednesday; // if today is wednesday post 3:30, next is 7 days away
+    for (let w = 0; w < 4; w++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + offset + (w * 7));
       const iso = formatDateIso(d);
       if (!expiries.includes(iso)) expiries.push(iso);
     }
   } else {
-    // NIFTY & BANK NIFTY: Near weekly (Tuesday 01 Sep / Thursday 03 Sep)
-    const today = now.getDay();
-    let daysToNextExp = (2 - today + 7) % 7;
-    if (daysToNextExp === 0 && (now.getHours() > 15 || (now.getHours() === 15 && now.getMinutes() > 30))) {
-      daysToNextExp = 7;
+    // NIFTY & OTHERS weekly expiry: Thursday
+    const todayIso = formatDateIso(now);
+    if (now.getDay() === 4 && (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30))) {
+      expiries.push(todayIso);
     }
-    if (daysToNextExp === 0) daysToNextExp = 5; // Near Tuesday (01 Sep 2026)
-
+    const daysUntilThursday = (4 - now.getDay() + 7) % 7;
+    const offset = daysUntilThursday === 0 ? 7 : daysUntilThursday;
     for (let w = 0; w < 4; w++) {
       const d = new Date(now);
-      d.setDate(now.getDate() + daysToNextExp + (w * 7));
+      d.setDate(now.getDate() + offset + (w * 7));
       const iso = formatDateIso(d);
       if (!expiries.includes(iso)) expiries.push(iso);
     }

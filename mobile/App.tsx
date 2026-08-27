@@ -146,16 +146,7 @@ const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; l
   'SENSEX': { currency: 'INR', lotSize: 20, lotUnit: 'units', symbol: '₹', name: 'BSE SENSEX Index', tag: 'BSE India', category: 'INDIAN', strikeStep: 100, defaultSpot: 77315.44, exchange: 'BSE' },
   
   // NSE Stock Options (F&O Heavyweights - Exact Strike Steps)
-  'RELIANCE': { currency: 'INR', lotSize: 250, lotUnit: 'shares', symbol: '₹', name: 'Reliance Industries Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1298.00, exchange: 'NSE' },
-  'TCS': { currency: 'INR', lotSize: 225, lotUnit: 'shares', symbol: '₹', name: 'Tata Consultancy Services', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 2250.40, exchange: 'NSE' },
-  'INFY': { currency: 'INR', lotSize: 400, lotUnit: 'shares', symbol: '₹', name: 'Infosys Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1120.00, exchange: 'NSE' },
-  'HDFCBANK': { currency: 'INR', lotSize: 550, lotUnit: 'shares', symbol: '₹', name: 'HDFC Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 727.20, exchange: 'NSE' },
-  'ICICIBANK': { currency: 'INR', lotSize: 700, lotUnit: 'shares', symbol: '₹', name: 'ICICI Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1430.00, exchange: 'NSE' },
-  'SBIN': { currency: 'INR', lotSize: 750, lotUnit: 'shares', symbol: '₹', name: 'State Bank of India', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 5, defaultSpot: 1052.00, exchange: 'NSE' },
-  'TATAMOTORS': { currency: 'INR', lotSize: 575, lotUnit: 'shares', symbol: '₹', name: 'Tata Motors Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 985.00, exchange: 'NSE' },
-  'BHARTIARTL': { currency: 'INR', lotSize: 475, lotUnit: 'shares', symbol: '₹', name: 'Bharti Airtel Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1902.10, exchange: 'NSE' },
-  'ITC': { currency: 'INR', lotSize: 1600, lotUnit: 'shares', symbol: '₹', name: 'ITC Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 5, defaultSpot: 270.25, exchange: 'NSE' },
-  'LT': { currency: 'INR', lotSize: 150, lotUnit: 'shares', symbol: '₹', name: 'Larsen & Toubro Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 4038.10, exchange: 'NSE' },
+
 
   // MCX Commodities & Minis (Exact Groww MCX Prices & Steps)
   'CRUDEOIL': { currency: 'INR', lotSize: 100, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 50, defaultSpot: 7850.0, exchange: 'MCX' },
@@ -2890,20 +2881,6 @@ export default function App() {
 
           <TouchableOpacity 
             style={{ backgroundColor: '#131926', padding: 18, borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#222f46', flexDirection: 'row', alignItems: 'center' }}
-            onPress={() => { setSelectedMarket('STOCKS'); setActiveAsset('RELIANCE'); setActiveTab('home'); }}
-          >
-            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(168, 85, 247, 0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-              <Text style={{ fontSize: 22 }}>📈</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#c084fc', fontSize: 17, fontWeight: 'bold' }}>NSE Stock Options</Text>
-              <Text style={{ color: '#8a95a5', fontSize: 12, marginTop: 2 }}>RELIANCE, TCS, INFY, HDFC & F&O Heavyweights</Text>
-            </View>
-            <Text style={{ color: '#4b5563', fontSize: 20 }}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={{ backgroundColor: '#131926', padding: 18, borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#222f46', flexDirection: 'row', alignItems: 'center' }}
             onPress={() => { setSelectedMarket('COMMODITY'); setActiveAsset('CRUDEOIL'); setActiveTab('home'); }}
           >
             <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(234, 179, 8, 0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
@@ -4441,12 +4418,11 @@ export default function App() {
               </TouchableOpacity>
             </View>
             <ScrollView style={{ marginTop: 8 }}>
-              {(selectedMarket ? [selectedMarket] : ['INDIAN', 'STOCKS', 'COMMODITY', 'CRYPTO']).map(marketCat => {
+              {(selectedMarket ? [selectedMarket] : ['INDIAN', 'COMMODITY', 'CRYPTO']).map(marketCat => {
                 const assetsInCat = Object.keys(ASSET_CONFIG).filter(k => ASSET_CONFIG[k].category === marketCat);
                 if (!assetsInCat.length) return null;
                 const catTitle = 
                   marketCat === 'INDIAN' ? '🇮🇳 INDIAN BENCHMARK INDICES (NSE & BSE)' : 
-                  marketCat === 'STOCKS' ? '📈 NSE STOCK OPTIONS (F&O HEAVYWEIGHTS)' : 
                   marketCat === 'COMMODITY' ? '🛢️ MCX COMMODITIES (STANDARD & MINI)' : '🌐 CRYPTO DERIVATIVES';
                 return (
                   <View key={marketCat} style={{ marginBottom: 16 }}>
