@@ -247,14 +247,15 @@ export function synthesizeOptionChain(
 ): OptionRowData[] {
   if (spot <= 0 || strikeStep <= 0) return [];
 
-  const now = new Date();
-  const expDate = new Date(expiry || now);
-  const diffDays = Math.max(0.2, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const T = diffDays / 365.0;
-
   const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
+  const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
   const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
   const rate = isCrypto ? 0.04 : 0.05;
+
+  const now = new Date();
+  const expDate = expiry.includes('T') ? new Date(expiry) : (isCrypto ? new Date(`${expiry}T08:00:00Z`) : new Date(`${expiry}T15:30:00`));
+  const diffDays = Math.max(0.4, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const T = Math.max(0.003, diffDays / 365.0);
 
   const atmCenter = Math.round(spot / strikeStep) * strikeStep;
   const rows: OptionRowData[] = [];
@@ -262,8 +263,8 @@ export function synthesizeOptionChain(
 
   for (let i = -12; i <= 12; i++) {
     const strike = atmCenter + (i * strikeStep);
-    const callRes = calculateBSPrice(spot, strike, T, rate, iv, 'CALL', 0.05);
-    const putRes = calculateBSPrice(spot, strike, T, rate, iv, 'PUT', 0.05);
+    const callRes = calculateBSPrice(spot, strike, T, rate, iv, 'CALL', tickSize);
+    const putRes = calculateBSPrice(spot, strike, T, rate, iv, 'PUT', tickSize);
 
     const diff = Math.abs(strike - spot);
     const baseOI = Math.max(5000, Math.round(100000 - (diff / strikeStep) * 6000));
@@ -276,10 +277,10 @@ export function synthesizeOptionChain(
       putMark: putRes.price,
       callLtp: callRes.price,
       putLtp: putRes.price,
-      callBid: roundToTick(Math.max(0.05, callRes.price - 0.05), 0.05),
-      callAsk: roundToTick(callRes.price + 0.05, 0.05),
-      putBid: roundToTick(Math.max(0.05, putRes.price - 0.05), 0.05),
-      putAsk: roundToTick(putRes.price + 0.05, 0.05),
+      callBid: roundToTick(Math.max(tickSize, callRes.price - tickSize), tickSize),
+      callAsk: roundToTick(callRes.price + tickSize, tickSize),
+      putBid: roundToTick(Math.max(tickSize, putRes.price - tickSize), tickSize),
+      putAsk: roundToTick(putRes.price + tickSize, tickSize),
       callPchange: 0.0,
       putPchange: 0.0,
       callOI: baseOI,
@@ -317,21 +318,27 @@ export function fuseLiveOptionChain(
   }
   if (currentSpot <= 0) return existingRows;
 
-  const now = new Date();
-  const expDate = new Date(expiry || now);
-  const diffDays = Math.max(0.2, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const T = diffDays / 365.0;
-
   const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
+  const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
   const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
   const rate = isCrypto ? 0.04 : 0.05;
 
-  return existingRows.map((row: any) => {
-    const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL', 0.05);
-    const putRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'PUT', 0.05);
+  const now = new Date();
+  const expDate = expiry.includes('T') ? new Date(expiry) : (isCrypto ? new Date(`${expiry}T08:00:00Z`) : new Date(`${expiry}T15:30:00`));
+  const diffDays = Math.max(0.4, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const T = Math.max(0.003, diffDays / 365.0);
 
-    const callPrice = row.callLtp && row.callLtp > 0 ? row.callLtp : callRes.price;
-    const putPrice = row.putLtp && row.putLtp > 0 ? row.putLtp : putRes.price;
+  return existingRows.map((row: any) => {
+    const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL', tickSize);
+    const putRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'PUT', tickSize);
+
+    const callPrice = row.callMark && row.callMark > 0 ? row.callMark : (row.callLtp && row.callLtp > 0 ? row.callLtp : callRes.price);
+    const putPrice = row.putMark && row.putMark > 0 ? row.putMark : (row.putLtp && row.putLtp > 0 ? row.putLtp : putRes.price);
+
+    const callBid = row.callBid && row.callBid > 0 ? row.callBid : roundToTick(Math.max(tickSize, callPrice - tickSize), tickSize);
+    const callAsk = row.callAsk && row.callAsk > 0 ? row.callAsk : roundToTick(callPrice + tickSize, tickSize);
+    const putBid = row.putBid && row.putBid > 0 ? row.putBid : roundToTick(Math.max(tickSize, putPrice - tickSize), tickSize);
+    const putAsk = row.putAsk && row.putAsk > 0 ? row.putAsk : roundToTick(putPrice + tickSize, tickSize);
 
     return {
       ...row,
@@ -339,10 +346,10 @@ export function fuseLiveOptionChain(
       putMark: putPrice,
       callLtp: callPrice,
       putLtp: putPrice,
-      callBid: roundToTick(Math.max(0.05, callPrice - 0.05), 0.05),
-      callAsk: roundToTick(callPrice + 0.05, 0.05),
-      putBid: roundToTick(Math.max(0.05, putPrice - 0.05), 0.05),
-      putAsk: roundToTick(putPrice + 0.05, 0.05),
+      callBid,
+      callAsk,
+      putBid,
+      putAsk,
       callDelta: callRes.delta,
       putDelta: putRes.delta,
       gamma: callRes.gamma,

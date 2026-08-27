@@ -72,26 +72,38 @@ export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH' | 'XAUT')
   expiries: string[];
   chainByExpiry: Record<string, any[]>;
 }> {
+  const assetKey = asset === 'XAUT' ? 'XAUT' : (asset === 'ETH' ? 'ETH' : 'BTC');
+  const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : 0.1);
+
   for (const baseUrl of DELTA_REST_URLS) {
     try {
-      const resp = await fetch(`${baseUrl}/v2/products`, {
+      const resp = await fetch(`${baseUrl}/v2/tickers`, {
         headers: { 'Accept': 'application/json' },
       });
       if (!resp.ok) continue;
       const json = await resp.json();
-      const products = json.result || [];
+      const tickers = json.result || [];
 
       const expiriesSet = new Set<string>();
       const rawRowsByExpiry: Record<string, Record<number, any>> = {};
 
-      for (const p of products) {
-        if (!p.contract_type || (p.contract_type !== 'call_options' && p.contract_type !== 'put_options')) continue;
-        const und = p.underlying_asset?.symbol || (p.symbol?.includes('XAUT') ? 'XAUT' : (p.symbol?.includes('BTC') ? 'BTC' : (p.symbol?.includes('ETH') ? 'ETH' : '')));
-        if (und !== asset && !p.symbol?.includes(`-${asset}-`)) continue;
+      for (const t of tickers) {
+        const sym = t.symbol || '';
+        if (!sym.startsWith(`C-${assetKey}-`) && !sym.startsWith(`P-${assetKey}-`)) continue;
 
-        const strike = parseFloat(p.strike_price);
-        const expiry = p.settlement_time ? p.settlement_time.split('T')[0] : '';
-        if (!expiry || isNaN(strike)) continue;
+        const parts = sym.split('-');
+        if (parts.length < 4) continue;
+
+        const isCall = parts[0] === 'C';
+        const strike = parseFloat(parts[2]);
+        const rawExp = parts[3];
+        if (isNaN(strike) || !rawExp || rawExp.length !== 6) continue;
+
+        // Parse DDMMYY -> YYYY-MM-DD
+        const day = rawExp.slice(0, 2);
+        const month = rawExp.slice(2, 4);
+        const year = '20' + rawExp.slice(4, 6);
+        const expiry = `${year}-${month}-${day}`;
 
         expiriesSet.add(expiry);
         if (!rawRowsByExpiry[expiry]) rawRowsByExpiry[expiry] = {};
@@ -100,6 +112,10 @@ export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH' | 'XAUT')
             strike,
             callMark: 0,
             putMark: 0,
+            callBid: 0,
+            callAsk: 0,
+            putBid: 0,
+            putAsk: 0,
             callOI: 0,
             putOI: 0,
             callSym: '',
@@ -107,18 +123,23 @@ export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH' | 'XAUT')
           };
         }
 
-        const isCall = p.contract_type === 'call_options';
-        const mark = parseFloat(p.mark_price || p.quotes?.mark_price || 0);
-        const oi = parseFloat(p.open_interest || 0);
+        const mark = parseFloat(t.mark_price || t.close || 0);
+        const bestBid = parseFloat(t.best_bid || 0);
+        const bestAsk = parseFloat(t.best_ask || 0);
+        const oi = parseFloat(t.open_interest || 0);
 
         if (isCall) {
           rawRowsByExpiry[expiry][strike].callMark = mark;
+          rawRowsByExpiry[expiry][strike].callBid = bestBid > 0 ? bestBid : (mark > 0 ? Math.max(tickSize, mark - tickSize) : 0);
+          rawRowsByExpiry[expiry][strike].callAsk = bestAsk > 0 ? bestAsk : (mark > 0 ? mark + tickSize : 0);
           rawRowsByExpiry[expiry][strike].callOI = oi;
-          rawRowsByExpiry[expiry][strike].callSym = p.symbol;
+          rawRowsByExpiry[expiry][strike].callSym = sym;
         } else {
           rawRowsByExpiry[expiry][strike].putMark = mark;
+          rawRowsByExpiry[expiry][strike].putBid = bestBid > 0 ? bestBid : (mark > 0 ? Math.max(tickSize, mark - tickSize) : 0);
+          rawRowsByExpiry[expiry][strike].putAsk = bestAsk > 0 ? bestAsk : (mark > 0 ? mark + tickSize : 0);
           rawRowsByExpiry[expiry][strike].putOI = oi;
-          rawRowsByExpiry[expiry][strike].putSym = p.symbol;
+          rawRowsByExpiry[expiry][strike].putSym = sym;
         }
       }
 
