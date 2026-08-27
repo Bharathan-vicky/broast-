@@ -147,7 +147,7 @@ const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; l
   
   // NSE Stock Options (F&O Heavyweights - Exact Strike Steps)
   'RELIANCE': { currency: 'INR', lotSize: 250, lotUnit: 'shares', symbol: '₹', name: 'Reliance Industries Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1298.00, exchange: 'NSE' },
-  'TCS': { currency: 'INR', lotSize: 175, lotUnit: 'shares', symbol: '₹', name: 'Tata Consultancy Services', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 2270.00, exchange: 'NSE' },
+  'TCS': { currency: 'INR', lotSize: 225, lotUnit: 'shares', symbol: '₹', name: 'Tata Consultancy Services', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 2250.40, exchange: 'NSE' },
   'INFY': { currency: 'INR', lotSize: 400, lotUnit: 'shares', symbol: '₹', name: 'Infosys Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 20, defaultSpot: 1120.00, exchange: 'NSE' },
   'HDFCBANK': { currency: 'INR', lotSize: 550, lotUnit: 'shares', symbol: '₹', name: 'HDFC Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 727.20, exchange: 'NSE' },
   'ICICIBANK': { currency: 'INR', lotSize: 700, lotUnit: 'shares', symbol: '₹', name: 'ICICI Bank Ltd', tag: 'NSE F&O', category: 'STOCKS', strikeStep: 10, defaultSpot: 1430.00, exchange: 'NSE' },
@@ -3511,7 +3511,9 @@ export default function App() {
                           }}
                         />
                       ) : (
-                        <Text style={{ color: 'white', fontWeight: 'bold', width: 20, textAlign: 'center', fontSize: 11 }}>{leg.size || 1}</Text>
+                        <Text style={{ color: '#34d399', fontWeight: 'bold', minWidth: 32, textAlign: 'center', fontSize: 11, paddingHorizontal: 2 }}>
+                          {(leg.size || 1) * (ASSET_CONFIG[leg.underlying || activeAsset]?.lotSize || lotSize)}
+                        </Text>
                       )}
 
                       <TouchableOpacity 
