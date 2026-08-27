@@ -39,6 +39,10 @@ export interface OptionRowData {
 
 // Normal Cumulative Distribution Function (Phi)
 function normalCdf(x: number): number {
+  if (!isFinite(x)) return x > 0 ? 1.0 : 0.0;
+  // Clamp extreme values to avoid overflow
+  if (x > 8) return 1.0;
+  if (x < -8) return 0.0;
   const b1 = 0.319381530;
   const b2 = -0.356563782;
   const b3 = 1.781477937;
@@ -60,6 +64,7 @@ function normalCdf(x: number): number {
 
 // Standard Normal Probability Density Function
 function normalPdf(x: number): number {
+  if (!isFinite(x) || Math.abs(x) > 30) return 0;
   return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
 }
 
@@ -67,7 +72,8 @@ function normalPdf(x: number): number {
  * Quantize price to exchange minimum tick size (₹0.05 for NSE)
  */
 export function roundToTick(price: number, tick: number = 0.05): number {
-  if (price <= tick) return tick;
+  if (!isFinite(price) || price <= tick) return tick;
+  if (!isFinite(tick) || tick <= 0) return Math.max(0.05, Math.round(price * 100) / 100);
   return Math.round((Math.round(price / tick) * tick) * 100) / 100;
 }
 
@@ -124,8 +130,14 @@ export function calculateBSPrice(
   const effectiveIv = Math.max(0.06, iv + skewTilt + wingBoost);
 
   const sqrtT = Math.sqrt(timeToExpiryYears);
-  const d1 = (Math.log(F / strike) + (0.5 * effectiveIv * effectiveIv) * timeToExpiryYears) / (effectiveIv * sqrtT);
-  const d2 = d1 - effectiveIv * sqrtT;
+  const logFS = Math.log(F / strike);
+  const ivSqrtT = effectiveIv * sqrtT;
+  if (!isFinite(logFS) || ivSqrtT <= 0) {
+    const intrinsic = type === 'CALL' ? Math.max(tickSize, spot - strike) : Math.max(tickSize, strike - spot);
+    return { price: roundToTick(intrinsic, tickSize), delta: type === 'CALL' ? 0.5 : -0.5, gamma: 0.001, theta: -0.01, vega: 0.01 };
+  }
+  const d1 = (logFS + (0.5 * effectiveIv * effectiveIv) * timeToExpiryYears) / ivSqrtT;
+  const d2 = d1 - ivSqrtT;
 
   const nd1 = normalCdf(d1);
   const nd2 = normalCdf(d2);
@@ -151,14 +163,15 @@ export function calculateBSPrice(
   const gamma = npd1 / (spot * effectiveIv * sqrtT);
   const vega = (spot * sqrtT * npd1) / 100.0;
 
-  const price = roundToTick(Math.max(tickSize, rawPrice), tickSize);
+  const safeRaw = isFinite(rawPrice) ? rawPrice : 0;
+  const price = roundToTick(Math.max(tickSize, safeRaw), tickSize);
 
   return {
     price,
-    delta: Math.round(delta * 1000) / 1000,
-    gamma: Math.round(gamma * 10000) / 10000,
-    theta: Math.round(theta * 100) / 100,
-    vega: Math.round(vega * 100) / 100
+    delta: isFinite(delta) ? Math.round(delta * 1000) / 1000 : (type === 'CALL' ? 0.5 : -0.5),
+    gamma: isFinite(gamma) ? Math.round(gamma * 10000) / 10000 : 0.001,
+    theta: isFinite(theta) ? Math.round(theta * 100) / 100 : -0.01,
+    vega: isFinite(vega) ? Math.round(vega * 100) / 100 : 0.01
   };
 }
 
@@ -273,7 +286,8 @@ const ASSET_IV_MAP: Record<string, number> = {
 };
 
 /**
- * Synthesize a full Option Chain for any asset in 0ms on device
+ * Synthesize a full Option Chain for any asset in 0ms on device.
+ * HARDENED: Never throws — always returns a valid (possibly empty) chain.
  */
 export function synthesizeOptionChain(
   asset: string,
@@ -281,66 +295,79 @@ export function synthesizeOptionChain(
   strikeStep: number,
   expiry: string
 ): OptionRowData[] {
-  if (spot <= 0 || strikeStep <= 0) return [];
+  try {
+    if (!isFinite(spot) || spot <= 0 || !isFinite(strikeStep) || strikeStep <= 0) return [];
 
-  const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
-  const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
-  const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
-  const rate = isCrypto ? 0.04 : 0.05;
+    const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
+    const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
+    const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
+    const rate = isCrypto ? 0.04 : 0.05;
 
-  const now = new Date();
-  const expDate = expiry.includes('T') ? new Date(expiry) : (isCrypto ? new Date(`${expiry}T08:00:00Z`) : new Date(`${expiry}T15:30:00`));
-  const diffDays = Math.max(0.4, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const T = Math.max(0.003, diffDays / 365.0);
+    const now = new Date();
+    let expDate: Date;
+    try {
+      expDate = expiry.includes('T') ? new Date(expiry) : (isCrypto ? new Date(`${expiry}T08:00:00Z`) : new Date(`${expiry}T15:30:00`));
+      if (isNaN(expDate.getTime())) expDate = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+    } catch {
+      expDate = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+    }
+    const diffDays = Math.max(0.4, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const T = Math.max(0.003, diffDays / 365.0);
 
-  const atmCenter = Math.round(spot / strikeStep) * strikeStep;
-  const rows: OptionRowData[] = [];
-  const expLabel = expiry.replace(/-/g, '').slice(2);
+    const atmCenter = Math.round(spot / strikeStep) * strikeStep;
+    const rows: OptionRowData[] = [];
+    const expLabel = (expiry || '').replace(/-/g, '').slice(2);
 
-  for (let i = -12; i <= 12; i++) {
-    const strike = atmCenter + (i * strikeStep);
-    const callRes = calculateBSPrice(spot, strike, T, rate, iv, 'CALL', tickSize);
-    const putRes = calculateBSPrice(spot, strike, T, rate, iv, 'PUT', tickSize);
+    for (let i = -12; i <= 12; i++) {
+      const strike = atmCenter + (i * strikeStep);
+      if (!isFinite(strike) || strike <= 0) continue;
 
-    const diff = Math.abs(strike - spot);
-    const baseOI = Math.max(5000, Math.round(100000 - (diff / strikeStep) * 6000));
+      const callRes = calculateBSPrice(spot, strike, T, rate, iv, 'CALL', tickSize);
+      const putRes = calculateBSPrice(spot, strike, T, rate, iv, 'PUT', tickSize);
 
-    rows.push({
-      strike,
-      callSym: `C-${asset}-${strike}-${expLabel}`,
-      putSym: `P-${asset}-${strike}-${expLabel}`,
-      callMark: callRes.price,
-      putMark: putRes.price,
-      callLtp: callRes.price,
-      putLtp: putRes.price,
-      callBid: roundToTick(Math.max(tickSize, callRes.price - tickSize), tickSize),
-      callAsk: roundToTick(callRes.price + tickSize, tickSize),
-      putBid: roundToTick(Math.max(tickSize, putRes.price - tickSize), tickSize),
-      putAsk: roundToTick(putRes.price + tickSize, tickSize),
-      callPchange: 0.0,
-      putPchange: 0.0,
-      callOI: baseOI,
-      putOI: baseOI,
-      callOiChange: 0.0,
-      putOiChange: 0.0,
-      callIV: Math.round(iv * 100),
-      putIV: Math.round(iv * 100),
-      callIv: Math.round(iv * 100),
-      putIv: Math.round(iv * 100),
-      callDelta: callRes.delta,
-      putDelta: putRes.delta,
-      gamma: callRes.gamma,
-      vega: callRes.vega,
-      theta: callRes.theta
-    });
+      const diff = Math.abs(strike - spot);
+      const baseOI = Math.max(5000, Math.round(100000 - (diff / strikeStep) * 6000));
+
+      rows.push({
+        strike,
+        callSym: `C-${asset}-${strike}-${expLabel}`,
+        putSym: `P-${asset}-${strike}-${expLabel}`,
+        callMark: callRes.price,
+        putMark: putRes.price,
+        callLtp: callRes.price,
+        putLtp: putRes.price,
+        callBid: roundToTick(Math.max(tickSize, callRes.price - tickSize), tickSize),
+        callAsk: roundToTick(callRes.price + tickSize, tickSize),
+        putBid: roundToTick(Math.max(tickSize, putRes.price - tickSize), tickSize),
+        putAsk: roundToTick(putRes.price + tickSize, tickSize),
+        callPchange: 0.0,
+        putPchange: 0.0,
+        callOI: baseOI,
+        putOI: baseOI,
+        callOiChange: 0.0,
+        putOiChange: 0.0,
+        callIV: Math.round(iv * 100),
+        putIV: Math.round(iv * 100),
+        callIv: Math.round(iv * 100),
+        putIv: Math.round(iv * 100),
+        callDelta: callRes.delta,
+        putDelta: putRes.delta,
+        gamma: callRes.gamma,
+        vega: callRes.vega,
+        theta: callRes.theta
+      });
+    }
+
+    return rows;
+  } catch {
+    return [];
   }
-
-  return rows;
 }
 
 /**
  * Dynamically fuses live spot price ticks with existing chain rows,
  * guaranteeing 0ms latency updates whenever the spot price ticks.
+ * HARDENED: Never throws — always returns a valid chain.
  */
 export function fuseLiveOptionChain(
   existingRows: any[],
@@ -349,52 +376,71 @@ export function fuseLiveOptionChain(
   expiry: string,
   asset: string
 ): OptionRowData[] {
-  if (!existingRows || existingRows.length === 0) {
-    return synthesizeOptionChain(asset, currentSpot, strikeStep, expiry);
+  try {
+    if (!existingRows || existingRows.length === 0) {
+      return synthesizeOptionChain(asset || 'NIFTY', currentSpot || 24000, strikeStep || 50, expiry || '2026-12-31');
+    }
+    if (!isFinite(currentSpot) || currentSpot <= 0) return existingRows;
+
+    const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
+    const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
+    const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
+    const rate = 0; // Dynamic rate is handled inside calculateBSPrice
+
+    const now = new Date();
+    let expDate: Date;
+    try {
+      expDate = expiry.includes('T') ? new Date(expiry) : (isCrypto ? new Date(`${expiry}T08:00:00Z`) : new Date(`${expiry}T15:30:00`));
+      if (isNaN(expDate.getTime())) expDate = new Date(now.getTime() + 7 * 24 * 3600 * 1000); // fallback: 7 days from now
+    } catch {
+      expDate = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+    }
+    const diffDays = Math.max(isCrypto ? 0.02 : 0.15, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const T = Math.max(0.0005, diffDays / 365.0);
+
+    return existingRows.map((row: any) => {
+      try {
+        const strike = Number(row.strike);
+        if (!isFinite(strike) || strike <= 0) return row;
+
+        const callRes = calculateBSPrice(currentSpot, strike, T, rate, iv, 'CALL', tickSize);
+        const putRes = calculateBSPrice(currentSpot, strike, T, rate, iv, 'PUT', tickSize);
+
+        const callPrice = (isCrypto && row.callMark && row.callMark > 0) ? row.callMark : callRes.price;
+        const putPrice = (isCrypto && row.putMark && row.putMark > 0) ? row.putMark : putRes.price;
+
+        const callBid = row.callBid && row.callBid > 0 ? row.callBid : roundToTick(Math.max(tickSize, callPrice - tickSize), tickSize);
+        const callAsk = row.callAsk && row.callAsk > 0 ? row.callAsk : roundToTick(callPrice + tickSize, tickSize);
+        const putBid = row.putBid && row.putBid > 0 ? row.putBid : roundToTick(Math.max(tickSize, putPrice - tickSize), tickSize);
+        const putAsk = row.putAsk && row.putAsk > 0 ? row.putAsk : roundToTick(putPrice + tickSize, tickSize);
+
+        return {
+          ...row,
+          callMark: callPrice,
+          putMark: putPrice,
+          callLtp: callPrice,
+          putLtp: putPrice,
+          callBid,
+          callAsk,
+          putBid,
+          putAsk,
+          callDelta: callRes.delta,
+          putDelta: putRes.delta,
+          gamma: callRes.gamma,
+          vega: callRes.vega,
+          theta: callRes.theta,
+          callIV: Math.round(iv * 100),
+          putIV: Math.round(iv * 100),
+          callIv: Math.round(iv * 100),
+          putIv: Math.round(iv * 100)
+        };
+      } catch {
+        return row; // If any single row fails, return it unchanged
+      }
+    });
+  } catch {
+    // Ultimate fallback: return whatever we have
+    return existingRows || [];
   }
-  if (currentSpot <= 0) return existingRows;
-
-  const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
-  const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
-  const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
-  const rate = 0; // Dynamic rate is handled inside calculateBSPrice
-
-  const now = new Date();
-  const expDate = expiry.includes('T') ? new Date(expiry) : (isCrypto ? new Date(`${expiry}T08:00:00Z`) : new Date(`${expiry}T15:30:00`));
-  const diffDays = Math.max(isCrypto ? 0.02 : 0.15, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const T = Math.max(0.0005, diffDays / 365.0);
-
-  return existingRows.map((row: any) => {
-    const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL', tickSize);
-    const putRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'PUT', tickSize);
-
-    const callPrice = (isCrypto && row.callMark && row.callMark > 0) ? row.callMark : callRes.price;
-    const putPrice = (isCrypto && row.putMark && row.putMark > 0) ? row.putMark : putRes.price;
-
-    const callBid = row.callBid && row.callBid > 0 ? row.callBid : roundToTick(Math.max(tickSize, callPrice - tickSize), tickSize);
-    const callAsk = row.callAsk && row.callAsk > 0 ? row.callAsk : roundToTick(callPrice + tickSize, tickSize);
-    const putBid = row.putBid && row.putBid > 0 ? row.putBid : roundToTick(Math.max(tickSize, putPrice - tickSize), tickSize);
-    const putAsk = row.putAsk && row.putAsk > 0 ? row.putAsk : roundToTick(putPrice + tickSize, tickSize);
-
-    return {
-      ...row,
-      callMark: callPrice,
-      putMark: putPrice,
-      callLtp: callPrice,
-      putLtp: putPrice,
-      callBid,
-      callAsk,
-      putBid,
-      putAsk,
-      callDelta: callRes.delta,
-      putDelta: putRes.delta,
-      gamma: callRes.gamma,
-      vega: callRes.vega,
-      theta: callRes.theta,
-      callIV: Math.round(iv * 100),
-      putIV: Math.round(iv * 100),
-      callIv: Math.round(iv * 100),
-      putIv: Math.round(iv * 100)
-    };
-  });
 }
+

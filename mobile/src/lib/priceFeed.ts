@@ -38,42 +38,52 @@ export interface PriceFeedResult extends PriceFeedState {
 const EMPTY_CHAIN: ChainPayload = { expiries: [], chainByExpiry: {} };
 
 function areSpotsDifferent(prev: Record<string, Spot>, next: Record<string, Spot>): boolean {
-  const nextKeys = Object.keys(next);
-  if (nextKeys.length === 0) return false;
-  for (const k of nextKeys) {
-    const p = prev[k];
-    const n = next[k];
-    if (!p || !n) return true;
-    if (Math.abs(p.spot - n.spot) > 0.001 || Math.abs(p.change - n.change) > 0.001) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function areChainsDifferent(prev: ChainPayload, nextExpiries: string[], nextChainByExp: Record<string, any[]>): boolean {
-  if (!nextExpiries || nextExpiries.length === 0) return false;
-  if (prev.expiries.length === 0) return true;
-  if (prev.expiries[0] !== nextExpiries[0]) return true;
-  
-  const prevExpKeys = Object.keys(prev.chainByExpiry);
-  const nextExpKeys = Object.keys(nextChainByExp);
-  if (prevExpKeys.length !== nextExpKeys.length) return true;
-  
-  // Compare ATM and near strikes across rows
-  if (nextExpKeys.length > 0) {
-    const exp = nextExpKeys[0];
-    const pRows = prev.chainByExpiry[exp] || [];
-    const nRows = nextChainByExp[exp] || [];
-    if (pRows.length !== nRows.length) return true;
-    for (let i = 0; i < nRows.length; i++) {
-      if (Math.abs((pRows[i]?.callMark || 0) - (nRows[i]?.callMark || 0)) > 0.001 ||
-          Math.abs((pRows[i]?.putMark || 0) - (nRows[i]?.putMark || 0)) > 0.001) {
+  try {
+    if (!prev || !next) return true;
+    const nextKeys = Object.keys(next);
+    if (nextKeys.length === 0) return false;
+    for (const k of nextKeys) {
+      const p = prev[k];
+      const n = next[k];
+      if (!p || !n) return true;
+      if (Math.abs((p.spot || 0) - (n.spot || 0)) > 0.001 || Math.abs((p.change || 0) - (n.change || 0)) > 0.001) {
         return true;
       }
     }
+    return false;
+  } catch {
+    return true; // if error, assume different to force update
   }
-  return false;
+}
+
+function areChainsDifferent(prev: ChainPayload, nextExpiries: string[], nextChainByExp: Record<string, any[]>): boolean {
+  try {
+    if (!prev || !nextExpiries || !nextChainByExp) return true;
+    if (nextExpiries.length === 0) return false;
+    if (!prev.expiries || prev.expiries.length === 0) return true;
+    if (prev.expiries[0] !== nextExpiries[0]) return true;
+    
+    const prevExpKeys = Object.keys(prev.chainByExpiry || {});
+    const nextExpKeys = Object.keys(nextChainByExp || {});
+    if (prevExpKeys.length !== nextExpKeys.length) return true;
+    
+    // Compare ATM and near strikes across rows
+    if (nextExpKeys.length > 0) {
+      const exp = nextExpKeys[0];
+      const pRows = prev.chainByExpiry[exp] || [];
+      const nRows = nextChainByExp[exp] || [];
+      if (pRows.length !== nRows.length) return true;
+      for (let i = 0; i < nRows.length; i++) {
+        if (Math.abs((pRows[i]?.callMark || 0) - (nRows[i]?.callMark || 0)) > 0.001 ||
+            Math.abs((pRows[i]?.putMark || 0) - (nRows[i]?.putMark || 0)) > 0.001) {
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch {
+    return true; // if error, assume different to force update
+  }
 }
 
 export function usePriceFeed(asset: string): PriceFeedResult {
