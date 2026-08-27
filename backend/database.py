@@ -177,6 +177,11 @@ def init_db():
         ]
         c.executemany("INSERT INTO accounts (id, name, margin_type, balance, currency, market) VALUES (?, ?, ?, ?, ?, ?)", commodity_presets)
 
+    # High-Performance Database Indices (Zerodha-grade fast lookups)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_baskets_account_status ON baskets(account_id, status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_positions_basket_status ON positions(basket_id, status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_trade_history_basket ON trade_history(basket_id)")
+
     conn.commit()
     conn.close()
 
