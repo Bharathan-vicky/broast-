@@ -225,7 +225,7 @@ def place_basket_order(basket_name, legs, account_id=1):
         db.update_balance(shortfall, account_id)
         balance += shortfall
 
-    conn = db.sqlite3.connect(db.DB_PATH)
+    conn = db.get_db_connection()
     c = conn.cursor()
     
     c.execute("INSERT INTO baskets (account_id, name, status, created_at) VALUES (?, ?, 'OPEN', ?)", (account_id, basket_name, now_str))
@@ -334,7 +334,7 @@ def modify_position_sl_target(position_id: int, stoploss: float, target: float, 
     """
     Modifies the Stoploss and Target on an open position.
     """
-    conn = db.sqlite3.connect(db.DB_PATH)
+    conn = db.get_db_connection()
     c = conn.cursor()
     c.execute('''
         UPDATE positions 
@@ -353,7 +353,7 @@ def close_single_position(position_id: int, exit_reason: str = "MANUAL"):
     """
     Closes an individual position leg at live market price.
     """
-    conn = db.sqlite3.connect(db.DB_PATH)
+    conn = db.get_db_connection()
     conn.row_factory = db.sqlite3.Row
     c = conn.cursor()
 
@@ -413,7 +413,7 @@ def check_sl_target_triggers():
     Background automated MTM monitoring loop: checks Stoploss and Target triggers for all open positions.
     """
     try:
-        conn = db.sqlite3.connect(db.DB_PATH)
+        conn = db.get_db_connection()
         conn.row_factory = db.sqlite3.Row
         c = conn.cursor()
         c.execute("SELECT id, symbol, side, entry_price, stoploss, target, stoploss_type, target_type FROM positions WHERE status='OPEN'")
@@ -469,7 +469,7 @@ def check_sl_target_triggers():
 
 
 def close_basket(basket_id, account_id=None):
-    conn = db.sqlite3.connect(db.DB_PATH)
+    conn = db.get_db_connection()
     conn.row_factory = db.sqlite3.Row
     c = conn.cursor()
     

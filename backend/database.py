@@ -15,8 +15,17 @@ if _db_dir and not os.path.exists(_db_dir):
     except OSError as e:
         print(f"[DB] Could not create DB directory {_db_dir}: {e}")
 
+def get_db_connection():
+    """Returns an ultra-fast optimized SQLite connection configured with WAL mode and 64MB cache."""
+    conn = sqlite3.connect(DB_PATH, timeout=10.0, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA cache_size=-64000;")
+    conn.execute("PRAGMA busy_timeout=5000;")
+    return conn
+
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     
     # Auto-migration check: If accounts table exists but lacks market column, drop it
@@ -172,7 +181,7 @@ def init_db():
     conn.close()
 
 def get_accounts(market=None, currency=None):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     if market:
@@ -186,7 +195,7 @@ def get_accounts(market=None, currency=None):
     return accounts
 
 def create_account(name: str, balance: float, margin_type: str = 'Cross', currency: str = 'INR', market: str = 'INDIAN'):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     
     # Check limit of 10 accounts per market category
@@ -203,7 +212,7 @@ def create_account(name: str, balance: float, margin_type: str = 'Cross', curren
     return {"status": "success", "account": {"id": acc_id, "name": name, "margin_type": margin_type, "balance": balance, "currency": currency, "market": market}}
 
 def update_account(account_id: int, name: str = None, balance: float = None, margin_type: str = None):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     fields = []
     values = []
@@ -224,7 +233,7 @@ def update_account(account_id: int, name: str = None, balance: float = None, mar
     return {"status": "success", "account_id": account_id}
 
 def delete_account(account_id: int):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     # Check if this is the only account
     c.execute("SELECT currency FROM accounts WHERE id = ?", (account_id,))
@@ -245,14 +254,14 @@ def delete_account(account_id: int):
     return {"status": "success", "deleted_id": account_id}
 
 def update_account_balance(account_id: int, new_balance: float):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("UPDATE accounts SET balance = ? WHERE id = ?", (new_balance, account_id))
     conn.commit()
     conn.close()
 
 def get_balance(account_id: int = 1):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT balance FROM accounts WHERE id = ?", (account_id,))
     row = c.fetchone()
@@ -260,7 +269,7 @@ def get_balance(account_id: int = 1):
     return row[0] if row else 100000.0
 
 def update_balance(amount_change: float, account_id: int = 1):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("UPDATE accounts SET balance = balance + ? WHERE id = ?", (amount_change, account_id))
     conn.commit()
@@ -270,7 +279,7 @@ def set_balance(new_balance: float, account_id: int = 1):
     update_account_balance(account_id, new_balance)
 
 def get_open_baskets(account_id: int = 1):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("SELECT * FROM baskets WHERE status='OPEN' AND account_id=?", (account_id,))
@@ -283,7 +292,7 @@ def get_open_baskets(account_id: int = 1):
     return baskets
 
 def get_trade_history(account_id: int = 1):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
@@ -372,7 +381,7 @@ def get_trade_history(account_id: int = 1):
     return journal
 
 def clear_all_trade_data(account_id: int = None):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     if account_id:
         c.execute("DELETE FROM trade_history WHERE basket_id IN (SELECT id FROM baskets WHERE account_id=?)", (account_id,))

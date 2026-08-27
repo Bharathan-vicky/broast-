@@ -39,7 +39,7 @@ _DEFAULT_SPOT_FALLBACKS = config.DEFAULT_SPOT_FALLBACKS
 @app.on_event("startup")
 def startup_event():
     db.init_db()
-    conn = db.sqlite3.connect(db.DB_PATH)
+    conn = db.get_db_connection()
     c = conn.cursor()
     c.execute("SELECT COUNT(*) FROM accounts")
     if c.fetchone()[0] == 0:
