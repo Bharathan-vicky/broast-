@@ -40,40 +40,46 @@ export async function fetchDirectYahooSpot(assetKey: string): Promise<DirectSpot
   const yahooSym = YAHOO_SYMBOLS[assetKey];
   if (!yahooSym) return null;
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d`;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+  const endpoints = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d`
+  ];
 
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 13)',
+  for (const url of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const json = await res.json();
+        const result = json?.chart?.result?.[0];
+        const meta = result?.meta;
+        if (meta) {
+          const spot = Number(meta.regularMarketPrice) || 0;
+          const prevClose = Number(meta.chartPreviousClose || meta.previousClose) || spot;
+          const change = spot - prevClose;
+          const pctChange = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+          if (spot > 0) {
+            return {
+              spot: Math.round(spot * 100) / 100,
+              change: Math.round(change * 100) / 100,
+              pctChange: Math.round(pctChange * 100) / 100
+            };
+          }
+        }
       }
-    });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) return null;
-    const json = await res.json();
-    const result = json?.chart?.result?.[0];
-    const meta = result?.meta;
-    if (!meta) return null;
-
-    const spot = Number(meta.regularMarketPrice) || 0;
-    const prevClose = Number(meta.chartPreviousClose || meta.previousClose) || spot;
-    const change = spot - prevClose;
-    const pctChange = prevClose > 0 ? (change / prevClose) * 100 : 0;
-
-    if (spot > 0) {
-      return {
-        spot: Math.round(spot * 100) / 100,
-        change: Math.round(change * 100) / 100,
-        pctChange: Math.round(pctChange * 100) / 100
-      };
+    } catch {
+      /* try next endpoint */
     }
-  } catch {
-    /* ignore fallback errors */
   }
   return null;
 }
