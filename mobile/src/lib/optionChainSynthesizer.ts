@@ -99,6 +99,13 @@ export function calculateBSPrice(
   return { price, delta, gamma: 0.002, theta: -0.05, vega: 0.1 };
 }
 
+function formatDateIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /**
  * Generate standard weekly & monthly expiries for any asset
  */
@@ -111,28 +118,37 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
     for (let i = 0; i < 5; i++) {
       const d = new Date(now);
       d.setDate(now.getDate() + i);
-      const iso = d.toISOString().split('T')[0];
+      const iso = formatDateIso(d);
       if (!expiries.includes(iso)) expiries.push(iso);
     }
   } else if (isStock) {
-    // Stock Options: Last Thursday of next 3 months
-    for (let m = 0; m < 3; m++) {
-      const year = now.getFullYear();
-      const month = now.getMonth() + m;
+    // Stock Options: Last Thursday of current and next 2 months (NSE F&O Rule)
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+
+    for (let m = 0; m < 5; m++) {
+      const targetDate = new Date(curYear, curMonth + m, 1);
+      const year = targetDate.getFullYear();
+      const month = targetDate.getMonth();
       const lastDay = new Date(year, month + 1, 0).getDate();
+
       let lastThurs = 0;
       for (let day = lastDay; day >= lastDay - 7; day--) {
         const checkD = new Date(year, month, day);
-        if (checkD.getDay() === 4) {
+        if (checkD.getDay() === 4) { // Thursday
           lastThurs = day;
           break;
         }
       }
-      const expDate = new Date(year, month, lastThurs);
-      if (expDate >= now || m > 0) {
-        const iso = expDate.toISOString().split('T')[0];
-        if (!expiries.includes(iso)) expiries.push(iso);
+
+      if (lastThurs > 0) {
+        const thursDate = new Date(year, month, lastThurs, 15, 30, 0);
+        if (thursDate >= now) {
+          const iso = formatDateIso(new Date(year, month, lastThurs));
+          if (!expiries.includes(iso)) expiries.push(iso);
+        }
       }
+      if (expiries.length >= 3) break;
     }
   } else {
     // Indian Weekly Expiries (Thursday)
@@ -145,12 +161,12 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
     for (let w = 0; w < 4; w++) {
       const d = new Date(now);
       d.setDate(now.getDate() + daysToThursday + (w * 7));
-      const iso = d.toISOString().split('T')[0];
+      const iso = formatDateIso(d);
       if (!expiries.includes(iso)) expiries.push(iso);
     }
   }
 
-  return expiries.length > 0 ? expiries : [now.toISOString().split('T')[0]];
+  return expiries.length > 0 ? expiries : [formatDateIso(now)];
 }
 
 /**
