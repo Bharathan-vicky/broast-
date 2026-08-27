@@ -94,9 +94,15 @@ export function calculateBSPrice(
     };
   }
 
+  // Market Volatility Smile / Skew calibration
+  const diff = (strike - spot) / spot;
+  const effectiveIv = type === 'CALL' 
+    ? Math.max(0.10, iv - 0.16 * diff)
+    : Math.max(0.10, iv - 0.22 * diff);
+
   const sqrtT = Math.sqrt(timeToExpiryYears);
-  const d1 = (Math.log(spot / strike) + (rate + 0.5 * iv * iv) * timeToExpiryYears) / (iv * sqrtT);
-  const d2 = d1 - iv * sqrtT;
+  const d1 = (Math.log(spot / strike) + (rate + 0.5 * effectiveIv * effectiveIv) * timeToExpiryYears) / (effectiveIv * sqrtT);
+  const d2 = d1 - effectiveIv * sqrtT;
 
   const nd1 = normalCdf(d1);
   const nd2 = normalCdf(d2);
@@ -112,14 +118,14 @@ export function calculateBSPrice(
   if (type === 'CALL') {
     rawPrice = (spot * nd1) - (strike * exp_rT * nd2);
     delta = nd1;
-    theta = (-(spot * npd1 * iv) / (2 * sqrtT) - rate * strike * exp_rT * nd2) / 365.0;
+    theta = (-(spot * npd1 * effectiveIv) / (2 * sqrtT) - rate * strike * exp_rT * nd2) / 365.0;
   } else {
     rawPrice = (strike * exp_rT * n_minus_d2) - (spot * n_minus_d1);
     delta = nd1 - 1.0;
-    theta = (-(spot * npd1 * iv) / (2 * sqrtT) + rate * strike * exp_rT * n_minus_d2) / 365.0;
+    theta = (-(spot * npd1 * effectiveIv) / (2 * sqrtT) + rate * strike * exp_rT * n_minus_d2) / 365.0;
   }
 
-  const gamma = npd1 / (spot * iv * sqrtT);
+  const gamma = npd1 / (spot * effectiveIv * sqrtT);
   const vega = (spot * sqrtT * npd1) / 100.0;
 
   const price = roundToTick(Math.max(tickSize, rawPrice), tickSize);
@@ -207,16 +213,16 @@ const ASSET_IV_MAP: Record<string, number> = {
   'NIFTY': 0.135,
   'BANKNIFTY': 0.155,
   'SENSEX': 0.138,
-  'RELIANCE': 0.188,
-  'TCS': 0.192,
-  'INFY': 0.215,
-  'HDFCBANK': 0.185,
-  'ICICIBANK': 0.190,
-  'SBIN': 0.220,
-  'TATAMOTORS': 0.245,
-  'BHARTIARTL': 0.195,
-  'ITC': 0.165,
-  'LT': 0.198,
+  'RELIANCE': 0.225,
+  'TCS': 0.245,
+  'INFY': 0.240,
+  'HDFCBANK': 0.210,
+  'ICICIBANK': 0.215,
+  'SBIN': 0.235,
+  'TATAMOTORS': 0.265,
+  'BHARTIARTL': 0.220,
+  'ITC': 0.185,
+  'LT': 0.215,
   'CRUDEOIL': 0.320,
   'CRUDEOILM': 0.320,
   'GOLD': 0.145,
