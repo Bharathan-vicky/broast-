@@ -839,12 +839,12 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
     asset_u = asset.upper()
     
     if asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS:
-        # Stock Options have monthly expiries on the last Thursday of each month
+        # Stock Options have monthly expiries on the last Tuesday of each month (NSE Standard)
         import calendar
-        def _get_last_thursday(year, month):
+        def _get_last_tuesday(year, month):
             last_day = calendar.monthrange(year, month)[1]
             d = datetime.date(year, month, last_day)
-            offset = (d.weekday() - 3) % 7
+            offset = (d.weekday() - 1) % 7 # 1 = Tuesday
             return d - datetime.timedelta(days=offset)
         
         expiries_dates = []
@@ -854,10 +854,10 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
         for i in range(5):
             m = ((cur_m - 1 + i) % 12) + 1
             y = cur_y + ((cur_m - 1 + i) // 12)
-            thurs = _get_last_thursday(y, m)
-            thurs_dt = datetime.datetime.combine(thurs, datetime.time(15, 30, 0))
-            if thurs_dt >= now_dt:
-                expiries_dates.append(thurs_dt)
+            tues = _get_last_tuesday(y, m)
+            tues_dt = datetime.datetime.combine(tues, datetime.time(15, 30, 0))
+            if tues_dt >= now_dt:
+                expiries_dates.append(tues_dt)
         expiries_dt = expiries_dates[:3]
         expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
     elif asset_u in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:

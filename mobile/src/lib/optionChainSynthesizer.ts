@@ -122,7 +122,7 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
       if (!expiries.includes(iso)) expiries.push(iso);
     }
   } else if (isStock) {
-    // Stock Options: Last Thursday of current and next 2 months (NSE F&O Rule)
+    // Stock Options: Last Tuesday of the month (NSE Standard)
     const curYear = now.getFullYear();
     const curMonth = now.getMonth();
 
@@ -132,19 +132,19 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
       const month = targetDate.getMonth();
       const lastDay = new Date(year, month + 1, 0).getDate();
 
-      let lastThurs = 0;
+      let lastTues = 0;
       for (let day = lastDay; day >= lastDay - 7; day--) {
         const checkD = new Date(year, month, day);
-        if (checkD.getDay() === 4) { // Thursday
-          lastThurs = day;
+        if (checkD.getDay() === 2) { // 2 = Tuesday (NSE Stock Options Standard)
+          lastTues = day;
           break;
         }
       }
 
-      if (lastThurs > 0) {
-        const thursDate = new Date(year, month, lastThurs, 15, 30, 0);
-        if (thursDate >= now) {
-          const iso = formatDateIso(new Date(year, month, lastThurs));
+      if (lastTues > 0) {
+        const tuesDate = new Date(year, month, lastTues, 15, 30, 0);
+        if (tuesDate >= now) {
+          const iso = formatDateIso(new Date(year, month, lastTues));
           if (!expiries.includes(iso)) expiries.push(iso);
         }
       }
