@@ -22,6 +22,7 @@ import {
 import Svg, { Path, Line as SvgLine, Text as SvgText, Circle, Rect, G, Defs, ClipPath, LinearGradient, Stop } from 'react-native-svg';
 import Constants from 'expo-constants';
 import { usePriceFeed } from './src/lib/priceFeed';
+import { synthesizeOptionChain, generateDefaultExpiries } from './src/lib/optionChainSynthesizer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -1075,11 +1076,23 @@ export default function App() {
   }, [activeAsset, activeAccountId, priceFeed.connected, priceFeed.stale]);
 
   const currentChain = useMemo(() => {
+    let rows: any[] = [];
     if (!activeExpiry && expiries.length > 0) {
-      return chainByExpiry[expiries[0]] || [];
+      rows = chainByExpiry[expiries[0]] || [];
+    } else if (activeExpiry) {
+      rows = chainByExpiry[activeExpiry] || [];
     }
-    return chainByExpiry[activeExpiry] || [];
-  }, [chainByExpiry, activeExpiry, expiries]);
+
+    if (rows && rows.length > 0) {
+      return rows;
+    }
+
+    // Zero-lag fallback: synthesize strikes dynamically in 0ms on device
+    const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
+    const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto)[0];
+    const sp = spotPrice || currConfig.defaultSpot;
+    return synthesizeOptionChain(activeAsset, sp, strikeStep, activeExp);
+  }, [chainByExpiry, activeExpiry, expiries, activeAsset, spotPrice, strikeStep, currConfig.defaultSpot]);
 
   const maxOI = useMemo(() => Math.max(1, ...currentChain.map((r: any) => Math.max(r.callOI || 0, r.putOI || 0))), [currentChain]);
 
@@ -2205,9 +2218,13 @@ export default function App() {
 
     const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} 24/7 LIVE`;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     fetch(`${BACKEND_URL}/api/trade`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         basket_name: orderBasketName,
         legs: legsToExecute,
@@ -2216,6 +2233,7 @@ export default function App() {
     })
       .then(r => r.json())
       .then(data => {
+        clearTimeout(timeoutId);
         if (data.status === 'success') {
           setTradeMessage(data.message || 'Crypto Order Executed Directly! ⚡');
           setShowOrderModal(false);
@@ -2226,11 +2244,16 @@ export default function App() {
           triggerManualRefresh();
           setTimeout(() => setTradeMessage(''), 4000);
         } else {
+          Alert.alert('Order Error', data.message || 'Could not execute order');
           setTradeMessage(`Error: ${data.message}`);
           setTimeout(() => setTradeMessage(''), 4000);
         }
       })
-      .catch(() => setTradeMessage('Crypto trade execution failed'))
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        Alert.alert('Network Error', 'Connecting to cloud backend. Please retry in 2 seconds.');
+        setTradeMessage('Crypto trade execution timed out');
+      })
       .finally(() => setIsTrading(false));
   };
 
@@ -2322,9 +2345,13 @@ export default function App() {
 
     const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} ${orderMode === 'AMO' ? 'AMO' : ''} ${productType}`;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     fetch(`${BACKEND_URL}/api/trade`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         basket_name: orderBasketName,
         legs: legsToExecute,
@@ -2333,6 +2360,7 @@ export default function App() {
     })
       .then(r => r.json())
       .then(data => {
+        clearTimeout(timeoutId);
         if (data.status === 'success') {
           setTradeMessage(data.message || 'Order Executed Successfully! ⚡');
           setShowOrderModal(false);
@@ -2343,11 +2371,16 @@ export default function App() {
           triggerManualRefresh();
           setTimeout(() => setTradeMessage(''), 4000);
         } else {
+          Alert.alert('Order Error', data.message || 'Could not execute order');
           setTradeMessage(`Error: ${data.message}`);
           setTimeout(() => setTradeMessage(''), 4000);
         }
       })
-      .catch(() => setTradeMessage('Trade execution failed'))
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        Alert.alert('Network Error', 'Connecting to cloud backend. Please retry in 2 seconds.');
+        setTradeMessage('Trade execution timed out');
+      })
       .finally(() => setIsTrading(false));
   };
 
