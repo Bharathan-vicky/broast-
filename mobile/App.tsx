@@ -3965,14 +3965,6 @@ export default function App() {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                             <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }}>{pos.symbol}</Text>
-                            <View style={{
-                                backgroundColor: isBuy ? 'rgba(0, 192, 135, 0.15)' : 'rgba(248, 73, 96, 0.15)',
-                                paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4
-                              }}>
-                              <Text style={{ color: isBuy ? '#00c087' : '#f84960', fontSize: 10, fontWeight: 'bold' }}>
-                                {isBuy ? 'Long' : 'Short'}
-                              </Text>
-                            </View>
                           </View>
                           {pos.orderMode === 'AMO' && (
                              <View style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
