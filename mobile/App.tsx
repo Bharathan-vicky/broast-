@@ -291,25 +291,25 @@ const STRATEGY_GLOSSARY: Record<string, { view: string; purpose: string; strike:
     usage: 'Sell ATM body + Buy OTM wings. Safest income strategy with capped maximum loss.'
   },
   'Long Straddle': {
-    view: 'Highly Volatile ⚡',
+    view: 'High Volatility',
     purpose: 'Profit from massive explosive breakout in either direction.',
     strike: 'Buy ATM Call + Buy ATM Put.',
     usage: 'Buy ATM CE and PE. Profits if price moves significantly higher or lower. Loses on theta decay.'
   },
   'Long Strangle': {
-    view: 'Highly Volatile ⚡',
+    view: 'High Volatility',
     purpose: 'Low-cost speculative play on an expected huge breakout.',
     strike: 'Buy OTM Call + Buy OTM Put.',
     usage: 'Buy OTM CE and PE. Cheaper entry cost than Straddle, but requires a much stronger price move.'
   },
   'Long Iron Butterfly': {
-    view: 'Highly Volatile ⚡',
+    view: 'High Volatility',
     purpose: 'Defined-risk breakout structure profit on big moves.',
     strike: 'Buy 1 ATM Put, Sell 1 OTM Put, Sell 1 OTM Call, Buy 1 ATM Call.',
     usage: 'Defined-risk volatility play. Profits when price moves outside the middle range.'
   },
   'Long Iron Condor': {
-    view: 'Highly Volatile ⚡',
+    view: 'High Volatility',
     purpose: 'Defined-risk play on range breakdown.',
     strike: 'Buy OTM Put + Sell slightly OTM Put + Sell slightly OTM Call + Buy OTM Call.',
     usage: 'Designed to profit if asset breaks out of range with capped maximum loss.'
@@ -532,6 +532,131 @@ const isAssetMarketOpen = (asset: string, serverMarketOpen: boolean): boolean =>
   } catch {
     return serverMarketOpen;
   }
+};
+
+interface SwipeOrderSliderProps {
+  isBuy: boolean;
+  orderLots: number;
+  totalUnits: number;
+  lotUnit: string;
+  isTrading: boolean;
+  onSwipeComplete: () => void;
+}
+
+const SwipeOrderSlider: React.FC<SwipeOrderSliderProps> = ({
+  isBuy,
+  orderLots,
+  totalUnits,
+  lotUnit,
+  isTrading,
+  onSwipeComplete
+}) => {
+  const panX = useRef(new Animated.Value(0)).current;
+  const [sliderWidth, setSliderWidth] = useState(320);
+  const buttonWidth = 56;
+  const maxDrag = Math.max(100, sliderWidth - buttonWidth - 8);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !isTrading,
+      onMoveShouldSetPanResponder: (_, gesture) => !isTrading && Math.abs(gesture.dx) > 5,
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dx > 0) {
+          panX.setValue(Math.min(maxDrag, gesture.dx));
+        }
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx >= maxDrag * 0.65) {
+          Animated.timing(panX, {
+            toValue: maxDrag,
+            duration: 120,
+            useNativeDriver: false
+          }).start(() => {
+            onSwipeComplete();
+            setTimeout(() => {
+              Animated.spring(panX, {
+                toValue: 0,
+                friction: 6,
+                useNativeDriver: false
+              }).start();
+            }, 600);
+          });
+        } else {
+          Animated.spring(panX, {
+            toValue: 0,
+            friction: 5,
+            useNativeDriver: false
+          }).start();
+        }
+      }
+    })
+  ).current;
+
+  const trackBg = isBuy ? '#00c087' : '#f84960';
+  const actionLabel = isBuy ? `SWIPE TO BUY (${orderLots} LOT)` : `SWIPE TO SELL (${orderLots} LOT)`;
+
+  return (
+    <View
+      onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
+      style={{
+        height: 52,
+        backgroundColor: '#0c101d',
+        borderRadius: 26,
+        borderWidth: 1.5,
+        borderColor: isBuy ? 'rgba(0, 192, 135, 0.6)' : 'rgba(248, 73, 96, 0.6)',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+        position: 'relative',
+        overflow: 'hidden',
+        marginBottom: 20
+      }}
+    >
+      {/* Background fill track */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: Animated.add(panX, buttonWidth + 8),
+          backgroundColor: isBuy ? 'rgba(0, 192, 135, 0.25)' : 'rgba(248, 73, 96, 0.25)',
+          borderRadius: 26
+        }}
+      />
+
+      {/* Centered Action Text */}
+      <View style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: isBuy ? '#34d399' : '#f87171', fontSize: 12.5, fontWeight: '800', letterSpacing: 1 }}>
+          {actionLabel}  ›››
+        </Text>
+      </View>
+
+      {/* Draggable Knob */}
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={{
+          transform: [{ translateX: panX }],
+          width: buttonWidth,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: trackBg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          elevation: 5,
+          shadowColor: trackBg,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.5,
+          shadowRadius: 4
+        }}
+      >
+        {isTrading ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>➔</Text>
+        )}
+      </Animated.View>
+    </View>
+  );
 };
 
 interface OptionRowProps {
@@ -907,7 +1032,7 @@ export default function App() {
           if (data.chain.chainByExpiry) setChainByExpiry(data.chain.chainByExpiry);
         }
         if (data.portfolio) setPortfolio(data.portfolio);
-        setTradeMessage('Live Prices Updated! ⚡');
+        setTradeMessage('Live Prices Updated');
         setTimeout(() => setTradeMessage(''), 2500);
       })
       .catch(() => {})
@@ -2263,7 +2388,7 @@ export default function App() {
       .then(data => {
         clearTimeout(timeoutId);
         if (data.status === 'success') {
-          setTradeMessage(data.message || 'Crypto Order Executed Directly! ⚡');
+          setTradeMessage(data.message || 'Crypto Order Executed Successfully');
           setShowOrderModal(false);
           setStratBasket([]);
           if (data.portfolio) setPortfolio(data.portfolio);
@@ -2390,7 +2515,7 @@ export default function App() {
       .then(data => {
         clearTimeout(timeoutId);
         if (data.status === 'success') {
-          setTradeMessage(data.message || 'Order Executed Successfully! ⚡');
+          setTradeMessage(data.message || 'Order Executed Successfully');
           setShowOrderModal(false);
           setStratBasket([]);
           if (data.portfolio) setPortfolio(data.portfolio);
@@ -2890,7 +3015,7 @@ export default function App() {
           </TouchableOpacity>
           {activeTab === 'chain' && (
             <TouchableOpacity style={styles.readyBtnHeader} onPress={() => setShowReadyModal(true)}>
-              <Text style={styles.readyBtnHeaderText}>⚡ Ready Strats</Text>
+              <Text style={styles.readyBtnHeaderText}>Ready Strategies</Text>
             </TouchableOpacity>
           )}
           {activeTab !== 'home' && (
@@ -3169,7 +3294,7 @@ export default function App() {
                   </Text>
                 </View>
                 <View style={{ backgroundColor: 'rgba(234, 179, 8, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                  <Text style={{ color: '#fef08a', fontSize: 9.5, fontWeight: 'bold' }}>AMO Mode ⚡</Text>
+                  <Text style={{ color: '#fef08a', fontSize: 9.5, fontWeight: 'bold' }}>AMO Mode</Text>
                 </View>
               </View>
             )}
@@ -3339,8 +3464,8 @@ export default function App() {
                 >
                   <Text style={styles.prominentPlaceOrderBtnText}>
                     {selectedMarket === 'CRYPTO' || activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT'
-                      ? `⚡ PLACE LIVE ORDER (${stratBasket.length})`
-                      : (!isAssetMarketOpen(activeAsset, marketOpen) ? `PLACE AMO ORDER (${stratBasket.length}) 🌙` : `PLACE ORDER (${stratBasket.length}) ⚡`)}
+                      ? `PLACE LIVE ORDER (${stratBasket.length})`
+                      : (!isAssetMarketOpen(activeAsset, marketOpen) ? `PLACE AMO ORDER (${stratBasket.length})` : `PLACE ORDER (${stratBasket.length})`)}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -3631,7 +3756,7 @@ export default function App() {
                 }}
               >
                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>
-                  {!isAssetMarketOpen(activeAsset, marketOpen) ? `Place AMO Order (${stratBasket.length}) 🌙` : `Place Order (${stratBasket.length}) ⚡`}
+                  {!isAssetMarketOpen(activeAsset, marketOpen) ? `Place AMO Order (${stratBasket.length})` : `Place Order (${stratBasket.length})`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -4399,7 +4524,7 @@ export default function App() {
                 const catTitle = 
                   marketCat === 'INDIAN' ? '🇮🇳 INDIAN BENCHMARK INDICES (NSE & BSE)' : 
                   marketCat === 'STOCKS' ? '📈 NSE STOCK OPTIONS (F&O HEAVYWEIGHTS)' : 
-                  marketCat === 'COMMODITY' ? '🛢️ MCX COMMODITIES (STANDARD & MINI)' : '⚡ CRYPTO DERIVATIVES';
+                  marketCat === 'COMMODITY' ? '🛢️ MCX COMMODITIES (STANDARD & MINI)' : '🌐 CRYPTO DERIVATIVES';
                 return (
                   <View key={marketCat} style={{ marginBottom: 16 }}>
                     <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 8, paddingHorizontal: 4 }}>
@@ -4769,26 +4894,15 @@ export default function App() {
                     </View>
                   </View>
 
-                  {/* Clean Big Execute Action Button */}
-                  <TouchableOpacity
-                    onPress={handleExecuteOrderModal}
-                    disabled={isTrading}
-                    style={{
-                      backgroundColor: isBuy ? '#00c087' : '#f84960',
-                      paddingVertical: 14,
-                      borderRadius: 10,
-                      alignItems: 'center',
-                      marginBottom: 20
-                    }}
-                  >
-                    {isTrading ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text style={{ color: 'white', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }}>
-                        {isBuy ? 'BUY' : 'SELL'} • {orderLots} {orderLots === 1 ? 'LOT' : 'LOTS'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+                  {/* Interactive Swipe to Buy / Swipe to Sell Slider */}
+                  <SwipeOrderSlider
+                    isBuy={isBuy}
+                    orderLots={orderLots}
+                    totalUnits={totalUnits}
+                    lotUnit={ASSET_CONFIG[legAsset]?.lotUnit || 'shares'}
+                    isTrading={isTrading}
+                    onSwipeComplete={handleExecuteOrderModal}
+                  />
                 </ScrollView>
               );
             })()}
