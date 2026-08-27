@@ -105,6 +105,23 @@ export function usePriceFeed(asset: string): PriceFeedResult {
     const runDirectDevicePoll = async () => {
       if (cancelled) return;
       try {
+        const currentAsset = assetRef.current || 'NIFTY';
+        
+        // Priority 1: Instant priority fetch for current active asset
+        if (!isCryptoAsset) {
+          const directQuote = await fetchDirectYahooSpot(currentAsset);
+          if (directQuote && directQuote.spot > 0 && !cancelled) {
+            lastMsgTs.current = Date.now();
+            setState(s => ({
+              ...s,
+              connected: true,
+              stale: false,
+              spots: { ...s.spots, [currentAsset]: directQuote }
+            }));
+          }
+        }
+
+        // Priority 2: Ingest all watchlist assets
         const directSpots = await fetchAllDirectSpots();
         if (cancelled) return;
         if (Object.keys(directSpots).length > 0) {

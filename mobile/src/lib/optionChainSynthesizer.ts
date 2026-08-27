@@ -169,6 +169,33 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
   return expiries.length > 0 ? expiries : [formatDateIso(now)];
 }
 
+const ASSET_IV_MAP: Record<string, number> = {
+  'NIFTY': 0.135,
+  'BANKNIFTY': 0.155,
+  'SENSEX': 0.138,
+  'RELIANCE': 0.188,
+  'TCS': 0.192,
+  'INFY': 0.215,
+  'HDFCBANK': 0.185,
+  'ICICIBANK': 0.190,
+  'SBIN': 0.220,
+  'TATAMOTORS': 0.245,
+  'BHARTIARTL': 0.195,
+  'ITC': 0.165,
+  'LT': 0.198,
+  'CRUDEOIL': 0.320,
+  'CRUDEOILM': 0.320,
+  'GOLD': 0.145,
+  'GOLDM': 0.145,
+  'SILVER': 0.235,
+  'SILVERM': 0.235,
+  'NATURALGAS': 0.450,
+  'NATGASM': 0.450,
+  'BTC': 0.480,
+  'ETH': 0.550,
+  'XAUT': 0.220
+};
+
 /**
  * Synthesize a full Option Chain for any asset in 0ms on device
  */
@@ -186,8 +213,8 @@ export function synthesizeOptionChain(
   const T = diffDays / 365.0;
 
   const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
-  const iv = isCrypto ? (asset === 'BTC' ? 0.48 : (asset === 'ETH' ? 0.55 : 0.22)) : 0.14;
-  const rate = isCrypto ? 0.04 : 0.065;
+  const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
+  const rate = isCrypto ? 0.04 : 0.05;
 
   const atmCenter = Math.round(spot / strikeStep) * strikeStep;
   const rows: OptionRowData[] = [];
@@ -256,8 +283,8 @@ export function fuseLiveOptionChain(
   const T = diffDays / 365.0;
 
   const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
-  const iv = isCrypto ? (asset === 'BTC' ? 0.48 : (asset === 'ETH' ? 0.55 : 0.22)) : 0.14;
-  const rate = isCrypto ? 0.04 : 0.065;
+  const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
+  const rate = isCrypto ? 0.04 : 0.05;
 
   return existingRows.map((row: any) => {
     const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL');
