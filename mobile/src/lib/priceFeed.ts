@@ -52,25 +52,24 @@ function areSpotsDifferent(prev: Record<string, Spot>, next: Record<string, Spot
 }
 
 function areChainsDifferent(prev: ChainPayload, nextExpiries: string[], nextChainByExp: Record<string, any[]>): boolean {
-  if (prev.expiries.length !== nextExpiries.length) return true;
-  if (prev.expiries.length > 0 && prev.expiries[0] !== nextExpiries[0]) return true;
+  if (!nextExpiries || nextExpiries.length === 0) return false;
+  if (prev.expiries.length === 0) return true;
+  if (prev.expiries[0] !== nextExpiries[0]) return true;
   
   const prevExpKeys = Object.keys(prev.chainByExpiry);
   const nextExpKeys = Object.keys(nextChainByExp);
   if (prevExpKeys.length !== nextExpKeys.length) return true;
   
-  if (prevExpKeys.length > 0) {
-    const firstExp = prevExpKeys[0];
-    const pRows = prev.chainByExpiry[firstExp] || [];
-    const nRows = nextChainByExp[firstExp] || [];
+  // Compare ATM and near strikes across rows
+  if (nextExpKeys.length > 0) {
+    const exp = nextExpKeys[0];
+    const pRows = prev.chainByExpiry[exp] || [];
+    const nRows = nextChainByExp[exp] || [];
     if (pRows.length !== nRows.length) return true;
-    if (pRows.length > 0 && nRows.length > 0) {
-      const pMid = pRows[Math.floor(pRows.length / 2)];
-      const nMid = nRows[Math.floor(nRows.length / 2)];
-      if (pMid && nMid) {
-        if (Math.abs((pMid.callMark || 0) - (nMid.callMark || 0)) > 0.01 || Math.abs((pMid.putMark || 0) - (nMid.putMark || 0)) > 0.01) {
-          return true;
-        }
+    for (let i = 0; i < nRows.length; i++) {
+      if (Math.abs((pRows[i]?.callMark || 0) - (nRows[i]?.callMark || 0)) > 0.001 ||
+          Math.abs((pRows[i]?.putMark || 0) - (nRows[i]?.putMark || 0)) > 0.001) {
+        return true;
       }
     }
   }
@@ -271,10 +270,10 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       }
     }, 20000);
 
-    // Direct Device periodic poll every 1.5s
+    // Direct Device periodic poll every 800ms for second-to-second live ticks
     directPollerTimer.current = setInterval(() => {
       runDirectDevicePoll();
-    }, 1500);
+    }, 800);
 
     // Fallback REST polling if WebSocket is offline
     restFallbackTimer.current = setInterval(() => {

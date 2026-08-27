@@ -12,6 +12,8 @@ export interface OptionRowData {
   putSym: string;
   callMark: number;
   putMark: number;
+  callLtp?: number;
+  putLtp?: number;
   callBid: number;
   callAsk: number;
   putBid: number;
@@ -24,11 +26,15 @@ export interface OptionRowData {
   putOiChange: number;
   callIV: number;
   putIV: number;
+  callIv?: number;
+  putIv?: number;
   callDelta: number;
   putDelta: number;
   gamma: number;
   vega: number;
   theta: number;
+  callToken?: string;
+  putToken?: string;
 }
 
 // Normal Cumulative Distribution Function (Phi)
@@ -185,6 +191,8 @@ export function synthesizeOptionChain(
       putSym: `P-${asset}-${strike}-${expLabel}`,
       callMark: callRes.price,
       putMark: putRes.price,
+      callLtp: callRes.price,
+      putLtp: putRes.price,
       callBid: Math.round(callRes.price * 0.99 * 100) / 100,
       callAsk: Math.round(callRes.price * 1.01 * 100) / 100,
       putBid: Math.round(putRes.price * 0.99 * 100) / 100,
@@ -197,6 +205,8 @@ export function synthesizeOptionChain(
       putOiChange: 0.0,
       callIV: Math.round(iv * 100),
       putIV: Math.round(iv * 100),
+      callIv: Math.round(iv * 100),
+      putIv: Math.round(iv * 100),
       callDelta: Math.round(callRes.delta * 100) / 100,
       putDelta: Math.round(putRes.delta * 100) / 100,
       gamma: 0.002,
@@ -206,4 +216,53 @@ export function synthesizeOptionChain(
   }
 
   return rows;
+}
+
+/**
+ * Dynamically fuses live spot price ticks with existing chain rows,
+ * guaranteeing 0ms latency updates whenever the spot price ticks.
+ */
+export function fuseLiveOptionChain(
+  existingRows: any[],
+  currentSpot: number,
+  strikeStep: number,
+  expiry: string,
+  asset: string
+): OptionRowData[] {
+  if (!existingRows || existingRows.length === 0) {
+    return synthesizeOptionChain(asset, currentSpot, strikeStep, expiry);
+  }
+  if (currentSpot <= 0) return existingRows;
+
+  const now = new Date();
+  const expDate = new Date(expiry || now);
+  const diffDays = Math.max(0.2, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const T = diffDays / 365.0;
+
+  const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
+  const iv = isCrypto ? (asset === 'BTC' ? 0.48 : (asset === 'ETH' ? 0.55 : 0.22)) : 0.14;
+  const rate = isCrypto ? 0.04 : 0.065;
+
+  return existingRows.map((row: any) => {
+    const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL');
+    const putRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'PUT');
+
+    return {
+      ...row,
+      callMark: callRes.price,
+      putMark: putRes.price,
+      callLtp: callRes.price,
+      putLtp: putRes.price,
+      callBid: Math.max(0.05, Math.round(callRes.price * 0.99 * 100) / 100),
+      callAsk: Math.max(0.05, Math.round(callRes.price * 1.01 * 100) / 100),
+      putBid: Math.max(0.05, Math.round(putRes.price * 0.99 * 100) / 100),
+      putAsk: Math.max(0.05, Math.round(putRes.price * 1.01 * 100) / 100),
+      callDelta: Math.round(callRes.delta * 100) / 100,
+      putDelta: Math.round(putRes.delta * 100) / 100,
+      callIV: Math.round(iv * 100),
+      putIV: Math.round(iv * 100),
+      callIv: Math.round(iv * 100),
+      putIv: Math.round(iv * 100)
+    };
+  });
 }

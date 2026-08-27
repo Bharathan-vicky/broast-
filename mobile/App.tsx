@@ -22,7 +22,7 @@ import {
 import Svg, { Path, Line as SvgLine, Text as SvgText, Circle, Rect, G, Defs, ClipPath, LinearGradient, Stop } from 'react-native-svg';
 import Constants from 'expo-constants';
 import { usePriceFeed } from './src/lib/priceFeed';
-import { synthesizeOptionChain, generateDefaultExpiries } from './src/lib/optionChainSynthesizer';
+import { synthesizeOptionChain, generateDefaultExpiries, fuseLiveOptionChain } from './src/lib/optionChainSynthesizer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -1086,15 +1086,15 @@ export default function App() {
       rows = chainByExpiry[activeExpiry] || [];
     }
 
-    if (rows && rows.length > 0) {
-      return rows;
-    }
-
-    // Zero-lag fallback: synthesize strikes dynamically in 0ms on device
     const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
     const isStock = currConfig?.category === 'STOCKS';
     const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock)[0];
     const sp = spotPrice || currConfig.defaultSpot;
+
+    if (rows && rows.length > 0) {
+      return fuseLiveOptionChain(rows, sp, strikeStep, activeExp, activeAsset);
+    }
+
     return synthesizeOptionChain(activeAsset, sp, strikeStep, activeExp);
   }, [chainByExpiry, activeExpiry, expiries, activeAsset, spotPrice, strikeStep, currConfig]);
 
