@@ -850,12 +850,14 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
         expiries_dates = []
         cur_y = today.year
         cur_m = today.month
+        now_dt = datetime.datetime.now()
         for i in range(5):
             m = ((cur_m - 1 + i) % 12) + 1
             y = cur_y + ((cur_m - 1 + i) // 12)
             thurs = _get_last_thursday(y, m)
-            if thurs >= today:
-                expiries_dates.append(datetime.datetime.combine(thurs, datetime.time(15, 30, 0)))
+            thurs_dt = datetime.datetime.combine(thurs, datetime.time(15, 30, 0))
+            if thurs_dt >= now_dt:
+                expiries_dates.append(thurs_dt)
         expiries_dt = expiries_dates[:3]
         expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
     elif asset_u in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:

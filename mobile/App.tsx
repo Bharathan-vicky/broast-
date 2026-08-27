@@ -870,6 +870,15 @@ export default function App() {
   const lotSize = currConfig.lotSize;
   const strikeStep = currConfig.strikeStep;
 
+  // Immediately initialize exact monthly/weekly expiries on asset switch
+  useEffect(() => {
+    const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
+    const isStock = currConfig?.category === 'STOCKS';
+    const defaultExps = generateDefaultExpiries(isCrypto, isStock);
+    setExpiries(defaultExps);
+    setActiveExpiry(defaultExps[0]);
+  }, [activeAsset, currConfig?.category]);
+
   const currentSpotInfo = liveMarketPrices[activeAsset] || { spot: currConfig.defaultSpot, change: 0, pctChange: 0 };
   const spotPrice = currentSpotInfo.spot;
   const spotChange = currentSpotInfo.change;
