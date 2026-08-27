@@ -708,6 +708,26 @@ const OptionChainRow = React.memo(({
       )}
     </View>
   );
+}, (prev, next) => {
+  return (
+    prev.row.strike === next.row.strike &&
+    prev.callLtp === next.callLtp &&
+    prev.putLtp === next.putLtp &&
+    prev.callChangePct === next.callChangePct &&
+    prev.putChangePct === next.putChangePct &&
+    prev.isCallITM === next.isCallITM &&
+    prev.isPutITM === next.isPutITM &&
+    prev.showSpotLine === next.showSpotLine &&
+    prev.isCallFocused === next.isCallFocused &&
+    prev.isPutFocused === next.isPutFocused &&
+    prev.callLegSide === next.callLegSide &&
+    prev.putLegSide === next.putLegSide &&
+    prev.viewMode === next.viewMode &&
+    prev.currSym === next.currSym &&
+    prev.activeAsset === next.activeAsset &&
+    prev.callOI === next.callOI &&
+    prev.putOI === next.putOI
+  );
 });
 
 export default function App() {

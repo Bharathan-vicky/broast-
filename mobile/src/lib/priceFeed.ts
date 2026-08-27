@@ -287,10 +287,10 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       }
     }, 20000);
 
-    // Direct Device periodic poll every 800ms for second-to-second live ticks
+    // Direct Device periodic poll every 500ms for active asset live ticks
     directPollerTimer.current = setInterval(() => {
       runDirectDevicePoll();
-    }, 800);
+    }, 500);
 
     // Fallback REST polling if WebSocket is offline
     restFallbackTimer.current = setInterval(() => {
