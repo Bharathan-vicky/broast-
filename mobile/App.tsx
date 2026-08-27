@@ -3390,7 +3390,7 @@ export default function App() {
                     (selectedMarket !== 'CRYPTO' && activeAsset !== 'BTC' && activeAsset !== 'ETH' && activeAsset !== 'XAUT' && !isAssetMarketOpen(activeAsset, marketOpen)) && { backgroundColor: '#d97706', borderColor: '#f59e0b', borderWidth: 1 },
                     orderMargin > tradeLabStats.availableMargin && styles.prominentPlaceOrderBtnDisabled
                   ]} 
-                  onPress={handlePlaceOrder}
+                  onPress={() => setShowOrderModal(true)}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.prominentPlaceOrderBtnText}>
@@ -3682,8 +3682,8 @@ export default function App() {
                   borderColor: !isAssetMarketOpen(activeAsset, marketOpen) ? '#f59e0b' : (orderMargin > tradeLabStats.availableMargin ? '#783c13' : 'transparent')
                 }} 
                 onPress={() => {
-                  handlePlaceOrder();
                   setShowPayoffModal(false);
+                  setShowOrderModal(true);
                 }}
               >
                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>
