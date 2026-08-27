@@ -15,6 +15,7 @@ import database as db
 import market_data as md
 import trading_engine as te
 import angel_one
+import cache_engine as cache
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -291,6 +292,18 @@ async def websocket_live_endpoint(websocket: WebSocket):
         return
 
     await websocket.accept()
+    
+    async def heartbeat_listener():
+        try:
+            while True:
+                msg = await websocket.receive_text()
+                if "ping" in msg:
+                    await websocket.send_json({"type": "pong", "timestamp": time.time()})
+        except Exception:
+            pass
+
+    listener_task = asyncio.create_task(heartbeat_listener())
+
     try:
         last_chain_ts = 0.0
         while True:
@@ -391,6 +404,10 @@ async def websocket_live_endpoint(websocket: WebSocket):
                     "pctChange": float(stk_info.get("percent_change", 0.0))
                 }
 
+            # Store in high-performance cache
+            for s_k, s_v in spots.items():
+                cache.set_spot(s_k, s_v["spot"], s_v["change"], s_v["pctChange"])
+
             await websocket.send_json({
                 "type": "live_tick",
                 "timestamp": time.time(),
@@ -413,6 +430,8 @@ async def websocket_live_endpoint(websocket: WebSocket):
             await asyncio.sleep(0.5)
     except (WebSocketDisconnect, Exception):
         pass
+    finally:
+        listener_task.cancel()
 
 @app.get("/api/sync/live")
 def get_live_sync(asset: str = Query("NIFTY"), account_id: int = Query(1)):

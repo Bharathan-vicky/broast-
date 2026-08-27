@@ -92,6 +92,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
   const staleTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const restFallbackTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const directPollerTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMsgTs = useRef(0);
   const assetRef = useRef(asset);
   assetRef.current = asset;
@@ -259,6 +260,17 @@ export function usePriceFeed(asset: string): PriceFeedResult {
 
     connect();
 
+    // Bi-directional WebSocket keepalive heartbeat (every 20 seconds)
+    heartbeatTimer.current = setInterval(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        try {
+          wsRef.current.send(JSON.stringify({ type: 'ping' }));
+        } catch {
+          /* noop */
+        }
+      }
+    }, 20000);
+
     // Direct Device periodic poll every 1.5s
     directPollerTimer.current = setInterval(() => {
       runDirectDevicePoll();
@@ -284,6 +296,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       if (staleTimer.current) clearInterval(staleTimer.current);
       if (restFallbackTimer.current) clearInterval(restFallbackTimer.current);
       if (directPollerTimer.current) clearInterval(directPollerTimer.current);
+      if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
       if (wsRef.current) {
         try {
           wsRef.current.close();
