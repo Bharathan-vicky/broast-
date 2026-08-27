@@ -3333,74 +3333,31 @@ export default function App() {
           />
 
           {stratBasket.length > 0 && (
-            <View style={styles.prominentStickyBar}>
-              {/* Secondary Utility Row (Show Payoff & Clear) */}
+            <TouchableOpacity 
+              style={[styles.prominentStickyBar, { paddingVertical: 14 }]} 
+              activeOpacity={0.9} 
+              onPress={() => setShowPayoffModal(true)}
+            >
               <View style={styles.stickyHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <View style={styles.stratBadgePill}>
                     <Text style={styles.stratBadgeText} numberOfLines={1}>
                       {detectStrategy(stratBasket) || `${stratBasket.length} Legs Selected`}
                     </Text>
                   </View>
-                  <TouchableOpacity 
-                    onPress={() => setShowPayoffModal(true)} 
-                    style={styles.payoffGraphBtn}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.payoffGraphBtnText}>📈 Payoff & Greeks</Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity 
-                  onPress={() => setStratBasket([])} 
-                  style={styles.clearBasketBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.clearBasketBtnText}>Clear 🗑</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Main Side-by-Side Row (Margin Details on Left, Place Order Button on Right) */}
-              <View style={styles.stickyMainRow}>
-                {/* Left Side: Margin Information (Column) */}
-                <View style={styles.stickyMarginCol}>
-                  {/* Order Margin Row */}
-                  <View style={styles.marginRowItem}>
-                    <Text style={styles.marginLabelText}>Order Margin</Text>
-                    <Text style={styles.marginValueText}>
-                      {currSym}{orderMargin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                  </View>
-
-                  {/* Available Margin Row */}
-                  <View style={styles.marginRowItem}>
-                    <Text style={styles.availMarginLabelText}>Avail. Margin</Text>
-                    <Text style={[
-                      styles.availMarginValueText,
-                      { color: tradeLabStats.availableMargin <= 0 ? '#ef4444' : '#10b981' }
-                    ]}>
-                      {currSym}{tradeLabStats.availableMargin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Right Side: Place Order Button */}
-                <TouchableOpacity 
-                  style={[
-                    styles.prominentPlaceOrderBtn,
-                    (selectedMarket !== 'CRYPTO' && activeAsset !== 'BTC' && activeAsset !== 'ETH' && activeAsset !== 'XAUT' && !isAssetMarketOpen(activeAsset, marketOpen)) && { backgroundColor: '#d97706', borderColor: '#f59e0b', borderWidth: 1 },
-                    orderMargin > tradeLabStats.availableMargin && styles.prominentPlaceOrderBtnDisabled
-                  ]} 
-                  onPress={() => setShowOrderModal(true)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.prominentPlaceOrderBtnText}>
-                    {selectedMarket === 'CRYPTO' || activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT'
-                      ? `PLACE LIVE ORDER (${stratBasket.length})`
-                      : (!isAssetMarketOpen(activeAsset, marketOpen) ? `PLACE AMO ORDER (${stratBasket.length})` : `PLACE ORDER (${stratBasket.length})`)}
+                  <Text style={{ color: '#38bdf8', fontSize: 13, fontWeight: '700' }}>
+                    Tap for Payoff & Margin 📈
                   </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={(e) => { e.stopPropagation(); setStratBasket([]); }} 
+                  style={styles.clearBasketBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Text style={styles.clearBasketBtnText}>Clear ✕</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
         </View>
       )}
