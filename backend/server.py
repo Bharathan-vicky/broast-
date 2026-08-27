@@ -16,6 +16,8 @@ import market_data as md
 import trading_engine as te
 import angel_one
 import cache_engine as cache
+import candle_engine as candles
+import risk_engine as risk
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -404,9 +406,10 @@ async def websocket_live_endpoint(websocket: WebSocket):
                     "pctChange": float(stk_info.get("percent_change", 0.0))
                 }
 
-            # Store in high-performance cache
+            # Store in high-performance cache and record real-time candles
             for s_k, s_v in spots.items():
                 cache.set_spot(s_k, s_v["spot"], s_v["change"], s_v["pctChange"])
+                candles.record_tick(s_k, s_v["spot"])
 
             await websocket.send_json({
                 "type": "live_tick",
@@ -570,6 +573,18 @@ def get_live_sync(asset: str = Query("NIFTY"), account_id: int = Query(1)):
 @app.get("/health")
 def ping_health_check():
     return {"status": "ok", "service": "broast-backend", "time": time.time()}
+
+@app.get("/api/candles")
+def get_candles_endpoint(symbol: str = Query("NIFTY"), interval: str = Query("1m"), count: int = Query(60)):
+    data = candles.get_candles(symbol, interval, count)
+    rsi = candles.calculate_rsi(data)
+    return {
+        "symbol": symbol.upper(),
+        "interval": interval,
+        "candles": data,
+        "rsi": rsi,
+        "timestamp": time.time()
+    }
 
 @app.get("/api/refresh")
 def force_refresh_all():
