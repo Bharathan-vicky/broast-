@@ -161,3 +161,95 @@ export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH' | 'XAUT')
   }
   return { expiries: [], chainByExpiry: {} };
 }
+
+/**
+ * Direct High-Speed Native WebSocket Streamer for Delta Exchange
+ */
+export function subscribeDirectDeltaWS(
+  onTick: (spots: Record<string, DeltaSpotData>) => void
+): () => void {
+  let ws: WebSocket | null = null;
+  let timer: any = null;
+  let heartbeat: any = null;
+  let isClosed = false;
+
+  const connect = () => {
+    if (isClosed) return;
+    try {
+      ws = new WebSocket(DELTA_WS_URL);
+
+      ws.onopen = () => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const subMsg = {
+          type: 'subscribe',
+          payload: {
+            channels: [
+              { name: 'v2/ticker', symbols: ['BTCUSD', 'ETHUSD', 'XAUTUSD'] }
+            ]
+          }
+        };
+        ws.send(JSON.stringify(subMsg));
+      };
+
+      ws.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data && data.type === 'v2/ticker') {
+            const sym = data.symbol;
+            const mark = parseFloat(data.mark_price || data.close || 0);
+            const pct = parseFloat(data.price_change_percent || 0);
+            const chg = parseFloat(data.price_change || 0);
+
+            if (mark > 0) {
+              const assetKey = sym.includes('BTC') ? 'BTC' : (sym.includes('ETH') ? 'ETH' : (sym.includes('XAUT') ? 'XAUT' : ''));
+              if (assetKey) {
+                onTick({
+                  [assetKey]: { spot: mark, change: chg, pctChange: pct }
+                });
+              }
+            }
+          }
+        } catch {
+          /* noop */
+        }
+      };
+
+      ws.onerror = () => {
+        try { ws?.close(); } catch {}
+      };
+
+      ws.onclose = () => {
+        if (!isClosed) {
+          timer = setTimeout(connect, 2000);
+        }
+      };
+    } catch {
+      if (!isClosed) timer = setTimeout(connect, 3000);
+    }
+  };
+
+  connect();
+
+  heartbeat = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      } catch {
+        /* noop */
+      }
+    }
+  }, 25000);
+
+  return () => {
+    isClosed = true;
+    if (timer) clearTimeout(timer);
+    if (heartbeat) clearInterval(heartbeat);
+    if (ws) {
+      try {
+        ws.close();
+      } catch {
+        /* noop */
+      }
+    }
+  };
+}

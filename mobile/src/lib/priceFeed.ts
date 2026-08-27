@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import Constants from 'expo-constants';
-import { fetchDirectDeltaTickers, fetchDirectDeltaOptionChain } from './deltaDirectFeed';
+import { fetchDirectDeltaTickers, fetchDirectDeltaOptionChain, subscribeDirectDeltaWS } from './deltaDirectFeed';
 import { fetchAllDirectSpots, fetchDirectYahooSpot } from './directMarketFeed';
 
 const getApiBase = (): string => {
@@ -186,6 +186,22 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       }
     };
 
+    // Connect Direct Native Delta Exchange WebSocket Stream (20ms-50ms sub-second latency)
+    const unsubDeltaWS = subscribeDirectDeltaWS((newSpots) => {
+      if (cancelled) return;
+      lastMsgTs.current = Date.now();
+      setState((s) => {
+        const isDiff = areSpotsDifferent(s.spots, newSpots);
+        if (!isDiff && s.connected) return s;
+        return {
+          ...s,
+          connected: true,
+          stale: false,
+          spots: { ...s.spots, ...newSpots }
+        };
+      });
+    });
+
     // Execute instant direct device poll + backend sync concurrently
     runDirectDevicePoll();
     fetchFastInitialSync();
@@ -348,6 +364,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
 
     return () => {
       cancelled = true;
+      unsubDeltaWS();
       clearInterval(microTickTimer);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (staleTimer.current) clearInterval(staleTimer.current);
