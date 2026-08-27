@@ -4652,7 +4652,7 @@ export default function App() {
                         keyboardType="number-pad"
                         style={{ color: '#ffffff', fontSize: 16, fontWeight: 'bold', paddingVertical: 2 }}
                       />
-                      <Text style={{ color: '#475569', fontSize: 11, marginTop: 4 }}>{totalUnits} Quantity</Text>
+                      <Text style={{ color: '#475569', fontSize: 11, marginTop: 4 }}>{totalUnits} Qty ({orderLots} × {legLotSize} {ASSET_CONFIG[legAsset]?.lotUnit || 'shares'})</Text>
                     </View>
 
                     {/* Entry Price (optional) */}

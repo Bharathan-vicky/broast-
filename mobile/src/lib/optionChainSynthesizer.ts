@@ -58,8 +58,21 @@ function normalCdf(x: number): number {
   }
 }
 
+// Standard Normal Probability Density Function
+function normalPdf(x: number): number {
+  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+}
+
 /**
- * Black-Scholes Pricing Model
+ * Quantize price to exchange minimum tick size (₹0.05 for NSE)
+ */
+export function roundToTick(price: number, tick: number = 0.05): number {
+  if (price <= tick) return tick;
+  return Math.round((Math.round(price / tick) * tick) * 100) / 100;
+}
+
+/**
+ * Black-Scholes Analytical Pricing & Greeks Engine
  */
 export function calculateBSPrice(
   spot: number,
@@ -67,11 +80,18 @@ export function calculateBSPrice(
   timeToExpiryYears: number,
   rate: number,
   iv: number,
-  type: 'CALL' | 'PUT'
+  type: 'CALL' | 'PUT',
+  tickSize: number = 0.05
 ): { price: number; delta: number; gamma: number; theta: number; vega: number } {
   if (spot <= 0 || strike <= 0 || timeToExpiryYears <= 0 || iv <= 0) {
-    const intrinsic = type === 'CALL' ? Math.max(0.05, spot - strike) : Math.max(0.05, strike - spot);
-    return { price: Math.round(intrinsic * 100) / 100, delta: type === 'CALL' ? 0.5 : -0.5, gamma: 0.001, theta: -0.01, vega: 0.01 };
+    const intrinsic = type === 'CALL' ? Math.max(tickSize, spot - strike) : Math.max(tickSize, strike - spot);
+    return {
+      price: roundToTick(intrinsic, tickSize),
+      delta: type === 'CALL' ? 0.5 : -0.5,
+      gamma: 0.001,
+      theta: -0.01,
+      vega: 0.01
+    };
   }
 
   const sqrtT = Math.sqrt(timeToExpiryYears);
@@ -82,21 +102,35 @@ export function calculateBSPrice(
   const nd2 = normalCdf(d2);
   const n_minus_d1 = normalCdf(-d1);
   const n_minus_d2 = normalCdf(-d2);
+  const npd1 = normalPdf(d1);
   const exp_rT = Math.exp(-rate * timeToExpiryYears);
 
-  let price = 0;
+  let rawPrice = 0;
   let delta = 0;
+  let theta = 0;
 
   if (type === 'CALL') {
-    price = (spot * nd1) - (strike * exp_rT * nd2);
+    rawPrice = (spot * nd1) - (strike * exp_rT * nd2);
     delta = nd1;
+    theta = (-(spot * npd1 * iv) / (2 * sqrtT) - rate * strike * exp_rT * nd2) / 365.0;
   } else {
-    price = (strike * exp_rT * n_minus_d2) - (spot * n_minus_d1);
+    rawPrice = (strike * exp_rT * n_minus_d2) - (spot * n_minus_d1);
     delta = nd1 - 1.0;
+    theta = (-(spot * npd1 * iv) / (2 * sqrtT) + rate * strike * exp_rT * n_minus_d2) / 365.0;
   }
 
-  price = Math.max(0.05, Math.round(price * 100) / 100);
-  return { price, delta, gamma: 0.002, theta: -0.05, vega: 0.1 };
+  const gamma = npd1 / (spot * iv * sqrtT);
+  const vega = (spot * sqrtT * npd1) / 100.0;
+
+  const price = roundToTick(Math.max(tickSize, rawPrice), tickSize);
+
+  return {
+    price,
+    delta: Math.round(delta * 1000) / 1000,
+    gamma: Math.round(gamma * 10000) / 10000,
+    theta: Math.round(theta * 100) / 100,
+    vega: Math.round(vega * 100) / 100
+  };
 }
 
 function formatDateIso(d: Date): string {
@@ -222,8 +256,8 @@ export function synthesizeOptionChain(
 
   for (let i = -12; i <= 12; i++) {
     const strike = atmCenter + (i * strikeStep);
-    const callRes = calculateBSPrice(spot, strike, T, rate, iv, 'CALL');
-    const putRes = calculateBSPrice(spot, strike, T, rate, iv, 'PUT');
+    const callRes = calculateBSPrice(spot, strike, T, rate, iv, 'CALL', 0.05);
+    const putRes = calculateBSPrice(spot, strike, T, rate, iv, 'PUT', 0.05);
 
     const diff = Math.abs(strike - spot);
     const baseOI = Math.max(5000, Math.round(100000 - (diff / strikeStep) * 6000));
@@ -236,10 +270,10 @@ export function synthesizeOptionChain(
       putMark: putRes.price,
       callLtp: callRes.price,
       putLtp: putRes.price,
-      callBid: Math.round(callRes.price * 0.99 * 100) / 100,
-      callAsk: Math.round(callRes.price * 1.01 * 100) / 100,
-      putBid: Math.round(putRes.price * 0.99 * 100) / 100,
-      putAsk: Math.round(putRes.price * 1.01 * 100) / 100,
+      callBid: roundToTick(Math.max(0.05, callRes.price - 0.05), 0.05),
+      callAsk: roundToTick(callRes.price + 0.05, 0.05),
+      putBid: roundToTick(Math.max(0.05, putRes.price - 0.05), 0.05),
+      putAsk: roundToTick(putRes.price + 0.05, 0.05),
       callPchange: 0.0,
       putPchange: 0.0,
       callOI: baseOI,
@@ -250,11 +284,11 @@ export function synthesizeOptionChain(
       putIV: Math.round(iv * 100),
       callIv: Math.round(iv * 100),
       putIv: Math.round(iv * 100),
-      callDelta: Math.round(callRes.delta * 100) / 100,
-      putDelta: Math.round(putRes.delta * 100) / 100,
-      gamma: 0.002,
-      vega: 0.1,
-      theta: -0.05
+      callDelta: callRes.delta,
+      putDelta: putRes.delta,
+      gamma: callRes.gamma,
+      vega: callRes.vega,
+      theta: callRes.theta
     });
   }
 
@@ -287,21 +321,27 @@ export function fuseLiveOptionChain(
   const rate = isCrypto ? 0.04 : 0.05;
 
   return existingRows.map((row: any) => {
-    const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL');
-    const putRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'PUT');
+    const callRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'CALL', 0.05);
+    const putRes = calculateBSPrice(currentSpot, row.strike, T, rate, iv, 'PUT', 0.05);
+
+    const callPrice = row.callLtp && row.callLtp > 0 ? row.callLtp : callRes.price;
+    const putPrice = row.putLtp && row.putLtp > 0 ? row.putLtp : putRes.price;
 
     return {
       ...row,
-      callMark: callRes.price,
-      putMark: putRes.price,
-      callLtp: callRes.price,
-      putLtp: putRes.price,
-      callBid: Math.max(0.05, Math.round(callRes.price * 0.99 * 100) / 100),
-      callAsk: Math.max(0.05, Math.round(callRes.price * 1.01 * 100) / 100),
-      putBid: Math.max(0.05, Math.round(putRes.price * 0.99 * 100) / 100),
-      putAsk: Math.max(0.05, Math.round(putRes.price * 1.01 * 100) / 100),
-      callDelta: Math.round(callRes.delta * 100) / 100,
-      putDelta: Math.round(putRes.delta * 100) / 100,
+      callMark: callPrice,
+      putMark: putPrice,
+      callLtp: callPrice,
+      putLtp: putPrice,
+      callBid: roundToTick(Math.max(0.05, callPrice - 0.05), 0.05),
+      callAsk: roundToTick(callPrice + 0.05, 0.05),
+      putBid: roundToTick(Math.max(0.05, putPrice - 0.05), 0.05),
+      putAsk: roundToTick(putPrice + 0.05, 0.05),
+      callDelta: callRes.delta,
+      putDelta: putRes.delta,
+      gamma: callRes.gamma,
+      vega: callRes.vega,
+      theta: callRes.theta,
       callIV: Math.round(iv * 100),
       putIV: Math.round(iv * 100),
       callIv: Math.round(iv * 100),
