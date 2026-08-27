@@ -875,9 +875,13 @@ export default function App() {
     const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
     const isStock = currConfig?.category === 'STOCKS';
     const defaultExps = generateDefaultExpiries(isCrypto, isStock);
-    setExpiries(defaultExps);
-    setActiveExpiry(defaultExps[0]);
-  }, [activeAsset, currConfig?.category]);
+    setExpiries(prev => (prev.length === defaultExps.length && prev[0] === defaultExps[0] ? prev : defaultExps));
+    setActiveExpiry(prev => (prev && defaultExps.includes(prev) ? prev : defaultExps[0]));
+
+    if (currConfig?.category && selectedMarket !== currConfig.category && selectedMarket !== null) {
+      setSelectedMarket(currConfig.category);
+    }
+  }, [activeAsset]);
 
   const currentSpotInfo = liveMarketPrices[activeAsset] || { spot: currConfig.defaultSpot, change: 0, pctChange: 0 };
   const spotPrice = currentSpotInfo.spot;
@@ -967,7 +971,7 @@ export default function App() {
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          setAccounts(data);
+          setAccounts(prev => (prev.length === data.length && prev[0]?.id === data[0]?.id ? prev : data));
           setActiveAccountsByMarket(prev => {
             const cur = prev[selectedMarket];
             if (cur && data.some((a: any) => a.id === cur)) {
@@ -983,14 +987,6 @@ export default function App() {
   useEffect(() => {
     fetchAccounts();
   }, [fetchAccounts]);
-
-  // Synchronize selectedMarket when activeAsset changes
-  useEffect(() => {
-    const config = ASSET_CONFIG[activeAsset];
-    if (config && config.category && selectedMarket !== config.category && selectedMarket !== null) {
-      setSelectedMarket(config.category);
-    }
-  }, [activeAsset, selectedMarket]);
 
   // Real-Time 0-Lag Ultra-Fast WebSocket Stream (spots + option chain, lag-free)
   const priceFeed = usePriceFeed(activeAsset);
@@ -1023,7 +1019,7 @@ export default function App() {
       setActiveExpiry((prev) => (prev && c.expiries.includes(prev)) ? prev : c.expiries[0]);
     }
     if (c.chainByExpiry && Object.keys(c.chainByExpiry).length > 0) {
-      setChainByExpiry(c.chainByExpiry);
+      setChainByExpiry((prev: any) => (prev === c.chainByExpiry ? prev : c.chainByExpiry));
     }
   }, [priceFeed.chain]);
 
