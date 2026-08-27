@@ -1152,64 +1152,19 @@ export default function App() {
     setMarketOpen((prev) => (prev === priceFeed.marketOpen ? prev : priceFeed.marketOpen));
   }, [priceFeed.marketOpen]);
 
-  // Real-Time Atomic Sync Loop (fallback for HTTP and periodic portfolio updates)
+  // Periodic background portfolio & history poller (every 4000ms)
   useEffect(() => {
     let isMounted = true;
+    const accId = activeAccountId || 1;
 
-    const syncLiveMarket = () => {
-      const accId = activeAccountId || 1;
-      
-      // If WS is connected, we only need to sync portfolio and history periodically
-      if (priceFeed.connected && !priceFeed.stale) {
-        fetch(`${BACKEND_URL}/api/portfolio?account_id=${accId}`)
-          .then(r => r.json())
-          .then(data => {
-            if (isMounted && data) setPortfolio(data);
-          })
-          .catch(() => {});
-
-        fetch(`${BACKEND_URL}/api/history?account_id=${accId}`)
-          .then(r => r.json())
-          .then(data => {
-            if (isMounted && Array.isArray(data)) setOrderHistory(data);
-          })
-          .catch(() => {});
-        return;
-      }
-
-      // Fallback: Full REST Sync when WebSocket is offline/reconnecting
-      fetch(`${BACKEND_URL}/api/sync/live?asset=${activeAsset}&account_id=${accId}`)
+    const syncPortfolio = () => {
+      fetch(`${BACKEND_URL}/api/portfolio?account_id=${accId}`)
         .then(r => r.json())
         .then(data => {
-          if (!isMounted || !data) return;
-
-          // 1. Atomic Update of spots
-          if (data.spots) {
-            setLiveMarketPrices((prev) => ({ ...prev, ...data.spots }));
-          }
-
-          // 2. Atomic Update of active Option Chain
-          if (data.chain) {
-            if (data.chain.expiries && data.chain.expiries.length > 0) {
-              setExpiries((prev) => {
-                if (prev.length === data.chain.expiries.length && prev[0] === data.chain.expiries[0]) return prev;
-                return data.chain.expiries;
-              });
-              setActiveExpiry(prev => (prev && data.chain.expiries.includes(prev)) ? prev : data.chain.expiries[0]);
-            }
-            if (data.chain.chainByExpiry) {
-              setChainByExpiry(data.chain.chainByExpiry);
-            }
-          }
-
-          // 3. Atomic Update of Portfolio & Balances
-          if (data.portfolio) {
-            setPortfolio(data.portfolio);
-          }
+          if (isMounted && data) setPortfolio(data);
         })
         .catch(() => {});
 
-      // History fetch
       fetch(`${BACKEND_URL}/api/history?account_id=${accId}`)
         .then(r => r.json())
         .then(data => {
@@ -1218,14 +1173,13 @@ export default function App() {
         .catch(() => {});
     };
 
-    syncLiveMarket();
-    const intervalTime = priceFeed.connected && !priceFeed.stale ? 1500 : 600;
-    const interval = setInterval(syncLiveMarket, intervalTime);
+    syncPortfolio();
+    const interval = setInterval(syncPortfolio, 4000);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [activeAsset, activeAccountId, priceFeed.connected, priceFeed.stale]);
+  }, [activeAccountId]);
 
   const currentChain = useMemo(() => {
     let rows: any[] = [];
@@ -2879,8 +2833,8 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView 
-      style={styles.container}
+    <View 
+      style={[styles.container, { paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 44 }]}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -5085,7 +5039,7 @@ export default function App() {
       </Modal>
         </>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
