@@ -3960,97 +3960,74 @@ export default function App() {
                   const hasActiveTgt = pos.target > 0;
 
                   return (
-                    <View key={idx} style={styles.tradeLabPositionCard}>
-                      <View style={styles.tradeLabPosHeader}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-                          <View style={{
-                            backgroundColor: isBuy ? 'rgba(0, 192, 135, 0.15)' : 'rgba(248, 73, 96, 0.15)',
-                            paddingHorizontal: 6,
-                            paddingVertical: 2,
-                            borderRadius: 4,
-                            borderWidth: 1,
-                            borderColor: isBuy ? 'rgba(0, 192, 135, 0.4)' : 'rgba(248, 73, 96, 0.4)'
-                          }}>
-                            <Text style={{ color: isBuy ? '#00c087' : '#f84960', fontSize: 10, fontWeight: 'bold' }}>
-                              {pos.side}
-                            </Text>
-                          </View>
-                          <Text style={styles.tradeLabContractName} numberOfLines={1}>{pos.symbol}</Text>
-                          <View style={{ backgroundColor: '#1e293b', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                            <Text style={{ color: '#94a3b8', fontSize: 9.5, fontWeight: 'bold' }}>{pos.productType || 'NRML'}</Text>
+                      <View key={idx} style={[styles.tradeLabPositionCard, { padding: 12, paddingBottom: 16 }]}>
+                        {/* Header Row */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }}>{pos.symbol}</Text>
+                            <View style={{
+                                backgroundColor: isBuy ? 'rgba(0, 192, 135, 0.15)' : 'rgba(248, 73, 96, 0.15)',
+                                paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4
+                              }}>
+                              <Text style={{ color: isBuy ? '#00c087' : '#f84960', fontSize: 10, fontWeight: 'bold' }}>
+                                {isBuy ? 'Long' : 'Short'}
+                              </Text>
+                            </View>
                           </View>
                           {pos.orderMode === 'AMO' && (
-                            <View style={{ backgroundColor: 'rgba(234, 179, 8, 0.18)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                              <Text style={{ color: '#eab308', fontSize: 9, fontWeight: 'bold' }}>AMO</Text>
-                            </View>
+                             <View style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                               <Text style={{ color: '#eab308', fontSize: 10, fontWeight: 'bold' }}>AMO</Text>
+                             </View>
                           )}
                         </View>
-                        <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
-                          <Text style={[styles.tradeLabPosPnl, { color: pos.legPnl >= 0 ? '#00c087' : '#f84960' }]}>
-                            {pos.legPnl >= 0 ? `+${posSym}${pos.legPnl.toFixed(isCrypto ? 2 : 0)}` : `-${posSym}${Math.abs(pos.legPnl).toFixed(isCrypto ? 2 : 0)}`}
-                          </Text>
-                          <Text style={[styles.tradeLabPosPct, { color: pos.legPnl >= 0 ? '#00c087' : '#f84960' }]}>
-                            ({pos.pctChange >= 0 ? `+${pos.pctChange.toFixed(2)}%` : `${pos.pctChange.toFixed(2)}%`})
-                          </Text>
-                        </View>
-                      </View>
 
-                      <View style={styles.tradeLabPosSubRow}>
-                        <Text style={styles.tradeLabQtyStatusText}>
-                          {pos.qty} Qty • Avg <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{posSym}{pos.entry?.toFixed(isCrypto ? 2 : 0)}</Text>
+                        {/* Leverage / Type Row */}
+                        <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 16 }}>
+                          {isCrypto ? 'Isolated 100.00x' : 'Delivery'}
                         </Text>
-                        <Text style={styles.tradeLabLtpText}>
-                          LTP: <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{posSym}{pos.ltp?.toFixed(isCrypto ? 2 : 0)}</Text>
-                        </Text>
-                      </View>
 
-                      {/* GTT SL & Target Status Row */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#090d16', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, marginTop: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold' }}>GTT:</Text>
-                          {hasActiveSL ? (
-                            <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
-                              <Text style={{ color: '#f87171', fontSize: 9.5, fontWeight: '700' }}>
-                                SL: {pos.stoplossType === 'PERCENT' ? `${pos.stoploss}%` : `${posSym}${pos.stoploss}`}
-                              </Text>
-                            </View>
-                          ) : (
-                            <Text style={{ color: '#475569', fontSize: 9.5, fontStyle: 'italic' }}>No SL</Text>
-                          )}
-                          {hasActiveTgt ? (
-                            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
-                              <Text style={{ color: '#34d399', fontSize: 9.5, fontWeight: '700' }}>
-                                TGT: {pos.targetType === 'PERCENT' ? `${pos.target}%` : `${posSym}${pos.target}`}
-                              </Text>
-                            </View>
-                          ) : (
-                            <Text style={{ color: '#475569', fontSize: 9.5, fontStyle: 'italic' }}>No Target</Text>
-                          )}
+                        {/* Stats Grid */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                           <View>
+                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Position Size</Text>
+                             <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>{pos.qty}</Text>
+                           </View>
+                           <View>
+                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Entry Price</Text>
+                             <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>{posSym}{pos.entry?.toFixed(2)}</Text>
+                           </View>
+                           <View>
+                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Mark Price</Text>
+                             <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>{posSym}{pos.ltp?.toFixed(2)}</Text>
+                           </View>
+                           <View style={{ alignItems: 'flex-end' }}>
+                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Unrealized P&L</Text>
+                             <Text style={{ color: pos.legPnl >= 0 ? '#00c087' : '#f84960', fontSize: 13, fontWeight: 'bold' }}>
+                               {pos.legPnl >= 0 ? '+' : '-'}{posSym}{Math.abs(pos.legPnl).toFixed(2)} <Text style={{ fontSize: 11, fontWeight: 'normal' }}>({pos.pctChange >= 0 ? '+' : ''}{pos.pctChange.toFixed(2)}%)</Text>
+                             </Text>
+                           </View>
                         </View>
-                        <TouchableOpacity 
-                          onPress={() => openModifyPositionModal(pos)}
-                          style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(56, 189, 248, 0.12)' }}
-                          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                        >
-                          <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: '700' }}>Set SL/TGT ⚙️</Text>
-                        </TouchableOpacity>
-                      </View>
 
-                      <View style={[styles.tradeLabPosSubRow, { marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderColor: '#172033' }]}>
-                        <TouchableOpacity 
-                          style={[styles.tradeLabModifyBtn, { flex: 1, marginRight: 6 }]} 
-                          onPress={() => openModifyPositionModal(pos)}
-                        >
-                          <Text style={styles.tradeLabModifyBtnText}>Modify Order</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[styles.tradeLabCloseBtn, { flex: 1, marginLeft: 6 }]} 
-                          onPress={() => handleCloseSinglePosition(pos.positionId, pos.symbol, pos.basketId)}
-                        >
-                          <Text style={styles.tradeLabCloseBtnText}>Exit Position ✕</Text>
-                        </TouchableOpacity>
+                        {/* Buttons Row */}
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                           <TouchableOpacity
+                             style={{ flex: 1, backgroundColor: '#172033', paddingVertical: 10, borderRadius: 6, alignItems: 'center' }}
+                             onPress={() => openModifyPositionModal(pos)}
+                           >
+                             <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '600' }}>
+                               {hasActiveSL || hasActiveTgt
+                                 ? `${hasActiveSL ? `${pos.stoplossType === 'PERCENT' ? `${pos.stoploss}%` : `${posSym}${pos.stoploss}`}` : '- -'} / ${hasActiveTgt ? `${pos.targetType === 'PERCENT' ? `${pos.target}%` : `${posSym}${pos.target}`}` : '- -'}`
+                                 : 'Set SL / TP'}
+                             </Text>
+                           </TouchableOpacity>
+                           <TouchableOpacity
+                             style={{ flex: 1, backgroundColor: '#172033', paddingVertical: 10, borderRadius: 6, alignItems: 'center' }}
+                             onPress={() => handleCloseSinglePosition(pos.positionId, pos.symbol, pos.basketId)}
+                           >
+                             <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '600' }}>Close By</Text>
+                           </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
                   );
                 })
               ) : (
