@@ -984,14 +984,13 @@ export default function App() {
     fetchAccounts();
   }, [fetchAccounts]);
 
-  // Synchronize selectedMarket & activeExpiry when activeAsset changes
+  // Synchronize selectedMarket when activeAsset changes
   useEffect(() => {
-    setActiveExpiry('');
     const config = ASSET_CONFIG[activeAsset];
     if (config && config.category && selectedMarket !== config.category && selectedMarket !== null) {
       setSelectedMarket(config.category);
     }
-  }, [activeAsset]);
+  }, [activeAsset, selectedMarket]);
 
   // Real-Time 0-Lag Ultra-Fast WebSocket Stream (spots + option chain, lag-free)
   const priceFeed = usePriceFeed(activeAsset);
@@ -3069,12 +3068,21 @@ export default function App() {
                   activeOpacity={0.7}
                 >
                   <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
-                    {activeExpiry ? new Date(activeExpiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : (expiries.length > 0 ? new Date(expiries[0]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '27 Aug')}
+                    {(() => {
+                      const isCrypto = selectedMarket === 'CRYPTO' || activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
+                      const isStock = currConfig?.category === 'STOCKS';
+                      const activeExp = activeExpiry || (expiries.length > 0 ? expiries[0] : generateDefaultExpiries(isCrypto, isStock)[0]);
+                      return new Date(activeExp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                    })()}
                   </Text>
                   {selectedMarket !== 'CRYPTO' && (
                     <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                       <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: 'bold' }}>
-                        {getDteLabel(activeExpiry || (expiries[0] || ''))}
+                        {(() => {
+                          const isStock = currConfig?.category === 'STOCKS';
+                          const activeExp = activeExpiry || (expiries.length > 0 ? expiries[0] : generateDefaultExpiries(false, isStock)[0]);
+                          return getDteLabel(activeExp);
+                        })()}
                       </Text>
                     </View>
                   )}
