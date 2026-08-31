@@ -574,12 +574,39 @@ def _rest_quote_poller_thread():
                             "oi": int(q.get("opnInterest", 0) or 0),
                         }
 
-            # 2. Also poll live quotes for first 50 registered instruments
-            with _LOCK:
-                tokens_to_poll = list(TOKEN_TO_INFO.keys())[:50]
+            # 2. Smart poll: prioritize ATM ±15 strike tokens for the nearest expiry
+            def _get_atm_tokens(instruments, spot, step, limit=30):
+                """Get tokens for nearest-expiry ATM ±15 strikes."""
+                if not instruments or spot <= 0:
+                    return []
+                # Group by expiry, pick nearest
+                by_exp = {}
+                for inst in instruments:
+                    exp = inst.get("expiry_iso", "")
+                    if exp not in by_exp:
+                        by_exp[exp] = []
+                    by_exp[exp].append(inst)
+                nearest_exp = sorted(by_exp.keys())[0] if by_exp else None
+                if not nearest_exp:
+                    return []
+                exp_items = by_exp[nearest_exp]
+                atm = round(spot / step) * step
+                # Sort by distance from ATM
+                exp_items.sort(key=lambda x: abs(x["strike"] - atm))
+                return [str(x["token"]) for x in exp_items[:limit]]
 
-            if tokens_to_poll:
-                res_opt = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"NFO": tokens_to_poll})
+            nifty_tokens = _get_atm_tokens(NIFTY_REAL_INSTRUMENTS, NIFTY_SPOT, 50, 30)
+            bn_tokens = _get_atm_tokens(BANKNIFTY_REAL_INSTRUMENTS, BANKNIFTY_SPOT, 100, 20)
+            mcx_tokens = []
+            for mcx_ast, mcx_step in [("CRUDEOIL", 50), ("GOLD", 500), ("SILVER", 250)]:
+                mcx_insts = [x for x in MCX_REAL_INSTRUMENTS if x.get("asset") == mcx_ast]
+                mcx_sp = COMMODITY_SPOTS.get(mcx_ast, {}).get("spot", 0)
+                mcx_tokens.extend(_get_atm_tokens(mcx_insts, mcx_sp, mcx_step, 10))
+
+            # Batch into NFO and MCX calls
+            nfo_tokens = nifty_tokens + bn_tokens
+            if nfo_tokens:
+                res_opt = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"NFO": nfo_tokens[:50]})
                 if res_opt and res_opt.get("data"):
                     for q in res_opt["data"].get("fetched", []):
                         tok = str(q.get("symbolToken", ""))
@@ -594,7 +621,32 @@ def _rest_quote_poller_thread():
                                     "ask": float(q.get("depth", {}).get("sell", [{}])[0].get("price", 0) or ltp),
                                     "oi": int(q.get("opnInterest", 0) or 0),
                                     "change": float(q.get("netChange", 0) or 0),
-                                    "percent_change": float(q.get("percentChange", 0) or 0),
+                                    "percentChange": float(q.get("percentChange", 0) or 0),
+                                    "high": float(q.get("high", 0) or 0),
+                                    "low": float(q.get("low", 0) or 0),
+                                    "close": float(q.get("close", 0) or 0)
+                                }
+                                LIVE_PRICES[sym] = q_dict
+                                LIVE_PRICES[tok] = q_dict
+
+            if mcx_tokens:
+                time.sleep(0.3)
+                res_mcx = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"MCX": mcx_tokens[:50]})
+                if res_mcx and res_mcx.get("data"):
+                    for q in res_mcx["data"].get("fetched", []):
+                        tok = str(q.get("symbolToken", ""))
+                        sym = q.get("tradingSymbol", "")
+                        ltp = float(q.get("ltp", 0) or 0)
+                        if ltp > 0:
+                            with _LOCK:
+                                q_dict = {
+                                    "ltp": ltp,
+                                    "mark": ltp,
+                                    "bid": float(q.get("depth", {}).get("buy", [{}])[0].get("price", 0) or ltp),
+                                    "ask": float(q.get("depth", {}).get("sell", [{}])[0].get("price", 0) or ltp),
+                                    "oi": int(q.get("opnInterest", 0) or 0),
+                                    "change": float(q.get("netChange", 0) or 0),
+                                    "percentChange": float(q.get("percentChange", 0) or 0),
                                     "high": float(q.get("high", 0) or 0),
                                     "low": float(q.get("low", 0) or 0),
                                     "close": float(q.get("close", 0) or 0)
@@ -605,7 +657,7 @@ def _rest_quote_poller_thread():
         except Exception as e:
             logging.error(f"[AngelOne Quote Poller] Error: {e}")
 
-        time.sleep(1.5)
+        time.sleep(0.8)
 
 
 def get_spot_info(asset="NIFTY"):
@@ -770,6 +822,12 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
 
             call_mark = float(raw_c_ltp) if raw_c_ltp is not None and float(raw_c_ltp) > 0 else max(0.05, round(c_bs, 2))
             put_mark = float(raw_p_ltp) if raw_p_ltp is not None and float(raw_p_ltp) > 0 else max(0.05, round(p_bs, 2))
+
+            # Log first ATM strike to verify real vs synthetic
+            if strike == atm_center and exp_iso == expiries[0]:
+                is_real_c = raw_c_ltp is not None and float(raw_c_ltp) > 0
+                is_real_p = raw_p_ltp is not None and float(raw_p_ltp) > 0
+                print(f"[AngelOne Chain] {asset} ATM {int(strike)} | C: {'REAL' if is_real_c else 'SYNTH'} ₹{call_mark:.2f} | P: {'REAL' if is_real_p else 'SYNTH'} ₹{put_mark:.2f} | c_sym={c_sym} c_tok={c_tok}")
 
             call_pchange = float(c_live.get("percentChange", 0.0) or c_live.get("pchange", 0.0) or 0.0)
             put_pchange = float(p_live.get("percentChange", 0.0) or p_live.get("pchange", 0.0) or 0.0)
