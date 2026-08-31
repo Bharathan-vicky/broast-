@@ -440,12 +440,12 @@ def _load_real_instruments(force_refresh=False):
     time.sleep(0.8)
 
     # 3. Fetch MCX Scrips
-    pattern_mcx = re.compile(r"^(CRUDEOIL|GOLD|SILVER|CRUDEOILM)(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)$")
-    pattern_mcx_fut = re.compile(r"^(CRUDEOIL|GOLD|SILVER|CRUDEOILM|GOLDM|SILVERM)(\d{2}[A-Z]{3}\d{2})FUT$")
+    pattern_mcx = re.compile(r"^(CRUDEOIL|GOLD|SILVER|NATURALGAS|CRUDEOILM|NATGASM)(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)$")
+    pattern_mcx_fut = re.compile(r"^(CRUDEOIL|GOLD|SILVER|NATURALGAS|CRUDEOILM|GOLDM|SILVERM|NATGASM)(\d{2}[A-Z]{3}\d{2})FUT$")
     instruments_mcx = {}
     futures_mcx = []
     
-    for asset in ["CRUDEOIL", "GOLD", "SILVER"]:
+    for asset in ["CRUDEOIL", "GOLD", "SILVER", "NATURALGAS"]:
         try:
             res = _safe_api_call(CLIENT.searchScrip, exchange="MCX", searchscrip=asset)
             if res and res.get("data"):
@@ -458,6 +458,7 @@ def _load_real_instruments(force_refresh=False):
                         if asset_match == "CRUDEOILM": asset_match = "CRUDEOIL"
                         if asset_match == "GOLDM": asset_match = "GOLD"
                         if asset_match == "SILVERM": asset_match = "SILVER"
+                        if asset_match == "NATGASM": asset_match = "NATURALGAS"
                         try:
                             exp_dt = datetime.datetime.strptime(exp_str, "%d%b%y")
                             if exp_dt.date() >= now.date():
@@ -471,6 +472,7 @@ def _load_real_instruments(force_refresh=False):
                     elif m:
                         asset_match, exp_str, strike_str, opt_type = m.groups()
                         if asset_match == "CRUDEOILM": asset_match = "CRUDEOIL"
+                        if asset_match == "NATGASM": asset_match = "NATURALGAS"
                         try:
                             exp_dt = datetime.datetime.strptime(exp_str, "%d%b%y")
                             if exp_dt.date() >= now.date():
@@ -782,8 +784,9 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
         instruments = BANKNIFTY_REAL_INSTRUMENTS
     elif asset == "SENSEX":
         instruments = SENSEX_REAL_INSTRUMENTS
-    elif asset in ["CRUDEOIL", "GOLD", "SILVER"]:
-        instruments = [x for x in MCX_REAL_INSTRUMENTS if x.get("asset") == asset]
+    elif asset in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:
+        base_mcx = "CRUDEOIL" if asset.startswith("CRUDE") else ("GOLD" if asset.startswith("GOLD") else ("SILVER" if asset.startswith("SILVER") else "NATURALGAS"))
+        instruments = [x for x in MCX_REAL_INSTRUMENTS if x.get("asset") == base_mcx or x.get("asset") == asset]
     elif asset == "NIFTY":
         instruments = NIFTY_REAL_INSTRUMENTS
     else:

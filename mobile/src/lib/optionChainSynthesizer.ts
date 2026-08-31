@@ -226,6 +226,20 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
         if (!expiries.includes(iso)) expiries.push(iso);
       }
     }
+  } else if (asset.startsWith('CRUDE') || asset.startsWith('NAT') || asset.startsWith('GOLD') || asset.startsWith('SILVER')) {
+    // MCX Commodities delivery contract expiries (Monthly/Bi-monthly)
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+    const expDay = (asset.startsWith('CRUDE')) ? 19 : (asset.startsWith('NAT') ? 25 : 5);
+    for (let m = 0; m < 4; m++) {
+      const targetMonth = (curMonth + m) % 12;
+      const targetYear = curYear + Math.floor((curMonth + m) / 12);
+      const expDate = new Date(targetYear, targetMonth, expDay, 23, 30, 0);
+      if (expDate.getTime() >= now.getTime() - 86400000) {
+        const iso = formatDateIso(expDate);
+        if (!expiries.includes(iso)) expiries.push(iso);
+      }
+    }
   } else {
     // NIFTY & OTHERS weekly expiry: Thursday
     const todayIso = formatDateIso(now);
@@ -259,12 +273,12 @@ export const ASSET_IV_MAP: Record<string, number> = {
   'BHARTIARTL': 0.220,
   'ITC': 0.185,
   'LT': 0.215,
-  'CRUDEOIL': 0.320,
-  'CRUDEOILM': 0.320,
-  'GOLD': 0.145,
-  'GOLDM': 0.145,
-  'SILVER': 0.235,
-  'SILVERM': 0.235,
+  'CRUDEOIL': 0.280,
+  'CRUDEOILM': 0.280,
+  'GOLD': 0.135,
+  'GOLDM': 0.135,
+  'SILVER': 0.220,
+  'SILVERM': 0.220,
   'NATURALGAS': 0.450,
   'NATGASM': 0.450,
   'BTC': 0.480,
@@ -310,6 +324,16 @@ export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; str
       57800: { callLtp: 756.05, putLtp: 701.85, callPchange: -5.68, putPchange: 1.56 },
       57900: { callLtp: 704.60, putLtp: 747.95, callPchange: -5.64, putPchange: 0.88 },
       58000: { callLtp: 653.15, putLtp: 797.65, callPchange: -5.43, putPchange: 0.97 }
+    }
+  },
+  'CRUDEOIL': {
+    baseSpot: 8315.0,
+    strikes: {
+      8100: { callLtp: 320.0, putLtp: 105.0, callPchange: 5.2, putPchange: -12.4 },
+      8200: { callLtp: 245.0, putLtp: 130.0, callPchange: 4.8, putPchange: -10.1 },
+      8300: { callLtp: 180.0, putLtp: 165.0, callPchange: 3.5, putPchange: -8.5 },
+      8400: { callLtp: 125.0, putLtp: 210.0, callPchange: 2.1, putPchange: -6.2 },
+      8500: { callLtp: 85.0, putLtp: 270.0, callPchange: 0.5, putPchange: -4.1 }
     }
   }
 };
