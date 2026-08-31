@@ -1006,7 +1006,7 @@ export default function App() {
   }, [activeAsset]);
 
   const allLiveSpots = useMemo(() => {
-    return { ...(priceFeed.spots || {}), ...liveMarketPrices };
+    return { ...liveMarketPrices, ...(priceFeed.spots || {}) };
   }, [liveMarketPrices, priceFeed.spots]);
 
   const currentSpotInfo = allLiveSpots[activeAsset] || { spot: currConfig?.defaultSpot || 24000, change: 0, pctChange: 0 };

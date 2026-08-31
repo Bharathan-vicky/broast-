@@ -203,7 +203,14 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       const base = getApiBase();
       const currentAsset = assetRef.current || 'NIFTY';
       try {
-        const res = await fetch(`${base}/api/sync/live?asset=${encodeURIComponent(currentAsset)}&account_id=1`);
+        const t = Date.now();
+        const res = await fetch(`${base}/api/sync/live?asset=${encodeURIComponent(currentAsset)}&account_id=1&_t=${t}`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
@@ -356,42 +363,51 @@ export function usePriceFeed(asset: string): PriceFeedResult {
     // Active sub-second live micro-tick engine (Zerodha/Groww style - every 400ms)
     const microTickTimer = setInterval(() => {
       if (cancelled) return;
-      const currentAsset = assetRef.current || 'NIFTY';
       setState(s => {
-        if (!isAssetMarketOpen(currentAsset, s.marketOpen)) {
-          return s; // Freeze prices when market is closed!
+        const spotKeys = Object.keys(s.spots);
+        if (spotKeys.length === 0) return s;
+
+        let hasUpdates = false;
+        const updatedSpots = { ...s.spots };
+
+        for (const assetKey of spotKeys) {
+          if (!isAssetMarketOpen(assetKey, s.marketOpen)) {
+            continue; // Freeze prices when market is closed for this specific asset
+          }
+          const curQuote = s.spots[assetKey];
+          if (!curQuote || curQuote.spot <= 0) continue;
+
+          // Scale micro-tick jitter realistically according to asset index scale
+          const baseJitter = 
+            assetKey === 'NIFTY' ? 0.50 :
+            assetKey === 'BANKNIFTY' ? 1.50 :
+            assetKey === 'SENSEX' ? 2.50 :
+            assetKey === 'BTC' ? 5.00 :
+            assetKey === 'ETH' ? 0.50 :
+            (assetKey === 'CRUDEOIL' || assetKey === 'GOLD' || assetKey === 'SILVER') ? 1.00 :
+            0.10;
+
+          const tickDelta = (Math.random() > 0.48 ? baseJitter : -baseJitter) * (Math.random() > 0.6 ? 2 : 1);
+          const newSpot = Math.round((curQuote.spot + tickDelta) * 100) / 100;
+          const newChange = Math.round(((curQuote.change || 0) + tickDelta) * 100) / 100;
+          const prevClose = newSpot - newChange;
+          const newPct = prevClose > 0 ? Math.round((newChange / prevClose) * 10000) / 100 : curQuote.pctChange;
+
+          updatedSpots[assetKey] = {
+            spot: newSpot,
+            change: newChange,
+            pctChange: newPct
+          };
+          hasUpdates = true;
         }
-        const curQuote = s.spots[currentAsset];
-        if (!curQuote || curQuote.spot <= 0) return s;
 
-        // Scale micro-tick jitter realistically according to asset index scale
-        const baseJitter = 
-          currentAsset === 'NIFTY' ? 0.50 :
-          currentAsset === 'BANKNIFTY' ? 1.50 :
-          currentAsset === 'SENSEX' ? 2.50 :
-          currentAsset === 'BTC' ? 5.00 :
-          currentAsset === 'ETH' ? 0.50 :
-          (currentAsset === 'CRUDEOIL' || currentAsset === 'GOLD' || currentAsset === 'SILVER') ? 1.00 :
-          0.10;
-
-        const tickDelta = (Math.random() > 0.48 ? baseJitter : -baseJitter) * (Math.random() > 0.6 ? 2 : 1);
-        const newSpot = Math.round((curQuote.spot + tickDelta) * 100) / 100;
-        const newChange = Math.round(((curQuote.change || 0) + tickDelta) * 100) / 100;
-        const prevClose = newSpot - newChange;
-        const newPct = prevClose > 0 ? Math.round((newChange / prevClose) * 10000) / 100 : curQuote.pctChange;
+        if (!hasUpdates) return s;
 
         return {
           ...s,
           connected: true,
           stale: false,
-          spots: {
-            ...s.spots,
-            [currentAsset]: {
-              spot: newSpot,
-              change: newChange,
-              pctChange: newPct
-            }
-          }
+          spots: updatedSpots
         };
       });
     }, 400);

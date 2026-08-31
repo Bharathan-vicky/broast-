@@ -26,8 +26,12 @@ export interface DeltaSpotData {
 export async function fetchDirectDeltaTickers(): Promise<Record<string, DeltaSpotData>> {
   for (const baseUrl of DELTA_REST_URLS) {
     try {
-      const resp = await fetch(`${baseUrl}/v2/tickers`, {
-        headers: { 'Accept': 'application/json' },
+      const t = Date.now();
+      const resp = await fetch(`${baseUrl}/v2/tickers?_t=${t}`, {
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store'
+        },
       });
       if (!resp.ok) continue;
       const json = await resp.json();
@@ -77,8 +81,12 @@ export async function fetchDirectDeltaOptionChain(asset: 'BTC' | 'ETH' | 'XAUT')
 
   for (const baseUrl of DELTA_REST_URLS) {
     try {
-      const resp = await fetch(`${baseUrl}/v2/tickers`, {
-        headers: { 'Accept': 'application/json' },
+      const t = Date.now();
+      const resp = await fetch(`${baseUrl}/v2/tickers?_t=${t}`, {
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store' 
+        },
       });
       if (!resp.ok) continue;
       const json = await resp.json();

@@ -62,7 +62,10 @@ export async function fetchDirectYahooSpot(assetKey: string): Promise<DirectSpot
       const res = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       clearTimeout(timeoutId);
