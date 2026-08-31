@@ -72,36 +72,42 @@ CRYPTO_CHAIN_CACHE = {
 
 def _fetch_crypto_tickers_now():
     global CRYPTO_SPOT_CACHE
-    try:
-        res = requests.get("https://api.india.delta.exchange/v2/tickers", timeout=2)
-        if res.status_code == 200:
-            items = res.json().get("result", [])
-            for item in items:
-                sym = item.get("symbol", "")
-                if sym in ["BTCUSD", "ETHUSD", "XAUTUSD"]:
-                    asset = sym.replace("USD", "")
-                    spot = float(item.get("spot_price") or item.get("mark_price") or item.get("close") or 0)
-                    pchg = float(item.get("mark_change_24h") or item.get("ltp_change_24h") or 0)
-                    open_p = float(item.get("open") or spot)
-                    chg = spot - open_p
-                    if spot > 0:
-                        CRYPTO_SPOT_CACHE[asset] = {"spot_price": spot, "change": chg, "percent_change": pchg}
-                if sym.startswith("C-") or sym.startswith("P-"):
-                    quotes = item.get("quotes", {})
-                    best_bid = float(quotes.get("best_bid") or 0)
-                    best_ask = float(quotes.get("best_ask") or 0)
-                    mark_p = float(item.get("mark_price") or item.get("close") or 0)
-                    oi_val = float(item.get("oi") or item.get("open_interest") or 0)
-                    if sym not in md.LIVE_PRICES:
-                        md.LIVE_PRICES[sym] = {}
-                    md.LIVE_PRICES[sym].update({
-                        "mark": mark_p,
-                        "bid": best_bid,
-                        "ask": best_ask,
-                        "oi": oi_val,
-                    })
-    except Exception as e:
-        logger.error(f"Error polling crypto tickers: {e}")
+    urls = [
+        "https://api.india.delta.exchange/v2/tickers",
+        "https://api.delta.exchange/v2/tickers"
+    ]
+    for url in urls:
+        try:
+            res = requests.get(url, timeout=4.0)
+            if res.status_code == 200:
+                items = res.json().get("result", [])
+                for item in items:
+                    sym = item.get("symbol", "")
+                    if sym in ["BTCUSD", "ETHUSD", "XAUTUSD"]:
+                        asset = sym.replace("USD", "")
+                        spot = float(item.get("spot_price") or item.get("mark_price") or item.get("close") or 0)
+                        pchg = float(item.get("mark_change_24h") or item.get("ltp_change_24h") or 0)
+                        open_p = float(item.get("open") or spot)
+                        chg = spot - open_p
+                        if spot > 0:
+                            CRYPTO_SPOT_CACHE[asset] = {"spot_price": spot, "change": chg, "percent_change": pchg}
+                    if sym.startswith("C-") or sym.startswith("P-"):
+                        quotes = item.get("quotes", {})
+                        best_bid = float(quotes.get("best_bid") or 0)
+                        best_ask = float(quotes.get("best_ask") or 0)
+                        mark_p = float(item.get("mark_price") or item.get("close") or 0)
+                        oi_val = float(item.get("oi") or item.get("open_interest") or 0)
+                        if sym not in md.LIVE_PRICES:
+                            md.LIVE_PRICES[sym] = {}
+                        md.LIVE_PRICES[sym].update({
+                            "mark": mark_p,
+                            "bid": best_bid,
+                            "ask": best_ask,
+                            "oi": oi_val,
+                        })
+                return
+        except Exception:
+            continue
 
 
 def _crypto_spot_poller_thread():
