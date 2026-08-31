@@ -247,9 +247,11 @@ def start_background_workers():
     crypto_chain_thread.start()
 
 
-@app.get("/api/health")
+@app.api_route("/", methods=["GET", "HEAD"])
+@app.api_route("/health", methods=["GET", "HEAD"])
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health_check():
-    return {"status": "ok", "timestamp": time.time()}
+    return {"status": "ok", "service": "broast-backend", "timestamp": time.time()}
 
 
 def get_chain_for_ws(asset: str):
@@ -436,7 +438,7 @@ async def websocket_live_endpoint(websocket: WebSocket):
     finally:
         listener_task.cancel()
 
-@app.get("/api/sync/live")
+@app.api_route("/api/sync/live", methods=["GET", "HEAD"])
 def get_live_sync(asset: str = Query("NIFTY"), account_id: int = Query(1)):
     # 1. Fetch All Spots Synchronously In-Memory (0.00ms latency)
     nifty_spot = angel_one.get_nifty_spot(asset="NIFTY")
@@ -569,8 +571,7 @@ def get_live_sync(asset: str = Query("NIFTY"), account_id: int = Query(1)):
         "journal": trade_journal
     }
 
-@app.get("/api/ping")
-@app.get("/health")
+@app.api_route("/api/ping", methods=["GET", "HEAD"])
 def ping_health_check():
     return {"status": "ok", "service": "broast-backend", "time": time.time()}
 
