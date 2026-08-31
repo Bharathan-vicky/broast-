@@ -65,16 +65,16 @@ function NiftyTerminal() {
 
   // Multi-Account & Custom Available Margin State (NIFTY INR - Max 10 Accounts)
   const [accounts, setAccounts] = useState<Account[]>([
-    { id: 1, name: 'Nifty Main Account (Cross)', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
-    { id: 2, name: 'Nifty Scalping 1L (Cross)', margin_type: 'Cross', balance: 100000.0, currency: 'INR' },
-    { id: 3, name: 'Nifty Intraday 2.5L (Cross)', margin_type: 'Cross', balance: 250000.0, currency: 'INR' },
-    { id: 4, name: 'Nifty Option Buying 50k (Cross)', margin_type: 'Cross', balance: 50000.0, currency: 'INR' },
-    { id: 5, name: 'Nifty Option Selling 5L (Isolated)', margin_type: 'Isolated', balance: 500000.0, currency: 'INR' },
-    { id: 6, name: 'Nifty Expiry Trader 2L (Cross)', margin_type: 'Cross', balance: 200000.0, currency: 'INR' },
-    { id: 7, name: 'Nifty Iron Condor Fund 15L (Isolated)', margin_type: 'Isolated', balance: 1500000.0, currency: 'INR' },
-    { id: 8, name: 'Nifty Straddle Bot 20L (Cross)', margin_type: 'Cross', balance: 2000000.0, currency: 'INR' },
-    { id: 9, name: 'Nifty High Margin 25L (Cross)', margin_type: 'Cross', balance: 2500000.0, currency: 'INR' },
-    { id: 10, name: 'Nifty Pro Portfolio 50L (Cross)', margin_type: 'Cross', balance: 5000000.0, currency: 'INR' }
+    { id: 1, name: 'Acc 1', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 2, name: 'Acc 2', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 3, name: 'Acc 3', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 4, name: 'Acc 4', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 5, name: 'Acc 5', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 6, name: 'Acc 6', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 7, name: 'Acc 7', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 8, name: 'Acc 8', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 9, name: 'Acc 9', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' },
+    { id: 10, name: 'Acc 10', margin_type: 'Cross', balance: 1000000.0, currency: 'INR' }
   ]);
   const [activeAccountId, setActiveAccountId] = useState<number>(1);
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
@@ -170,7 +170,7 @@ function NiftyTerminal() {
           ...a,
           name: editAccName.trim(),
           balance: editAccBalance,
-          margin_type: editAccMarginType
+          margin_type: (editAccMarginType === 'Isolated' ? 'Isolated' : 'Cross') as 'Cross' | 'Isolated'
         } : a));
         setEditingAccount(null);
       }
@@ -237,7 +237,10 @@ function NiftyTerminal() {
       oi: true,
       price: true,
       delta: true,
-      volume: false
+      volume: false,
+      bidAsk: false,
+      qty: false,
+      mark: false
   });
 
   const todayStart = useMemo(() => new Date(new Date().setHours(0,0,0,0)).getTime(), []);
@@ -255,7 +258,7 @@ function NiftyTerminal() {
   }, [minExpiry, computedSliderMin]);
 
   // Multi-asset cache for instant 0ms switching
-  const [assetCache, setAssetCache] = useState<Record<string, { expiries: string[], chainByExpiry: any, spotPrice?: number }>>({});
+  const [assetCache, setAssetCache] = useState<Record<string, any>>({});
 
   const switchAsset = (newAsset: string) => {
       setActiveAsset(newAsset);
@@ -274,6 +277,7 @@ function NiftyTerminal() {
           }
       }
   };
+  void switchAsset;
 
   // Prefetch all assets on mount
   useEffect(() => {
@@ -333,7 +337,8 @@ function NiftyTerminal() {
 
   // High-Frequency 1-Second Zero-Lag Market Streamer
   const [syncLatency, setSyncLatency] = useState<number>(4);
-  const [lastSyncTs, setLastSyncTs] = useState<number>(Date.now());
+  const [_lastSyncTs, setLastSyncTs] = useState<number>(Date.now());
+  void _lastSyncTs;
 
   useEffect(() => {
     const fetchMarketTick = () => {

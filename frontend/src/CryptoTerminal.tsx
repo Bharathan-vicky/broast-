@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './App.css';
 import { Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ComposedChart, Bar, ReferenceDot } from 'recharts';
@@ -61,16 +61,16 @@ function CryptoTerminal() {
 
   // Multi-Account & Custom Available Margin State (CRYPTO USD - Max 10 Accounts)
   const [accounts, setAccounts] = useState<Account[]>([
-    { id: 101, name: 'Crypto Main Account (Cross)', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
-    { id: 102, name: 'BTC Scalping 10k (Cross)', margin_type: 'Cross', balance: 10000.0, currency: 'USD' },
-    { id: 103, name: 'BTC Swing Trader 25k (Cross)', margin_type: 'Cross', balance: 25000.0, currency: 'USD' },
-    { id: 104, name: 'BTC Option Buying 5k (Cross)', margin_type: 'Cross', balance: 5000.0, currency: 'USD' },
-    { id: 105, name: 'ETH Strategy Sub-Account 50k (Isolated)', margin_type: 'Isolated', balance: 50000.0, currency: 'USD' },
-    { id: 106, name: 'ETH Weekly Option 15k (Cross)', margin_type: 'Cross', balance: 15000.0, currency: 'USD' },
-    { id: 107, name: 'Crypto Delta Neutral 75k (Isolated)', margin_type: 'Isolated', balance: 75000.0, currency: 'USD' },
-    { id: 108, name: 'Crypto High Leverage 20k (Cross)', margin_type: 'Cross', balance: 20000.0, currency: 'USD' },
-    { id: 109, name: 'Crypto Macro Fund 250k (Cross)', margin_type: 'Cross', balance: 250000.0, currency: 'USD' },
-    { id: 110, name: 'Crypto Whale Portfolio 500k (Cross)', margin_type: 'Cross', balance: 500000.0, currency: 'USD' }
+    { id: 101, name: 'Acc 1', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 102, name: 'Acc 2', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 103, name: 'Acc 3', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 104, name: 'Acc 4', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 105, name: 'Acc 5', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 106, name: 'Acc 6', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 107, name: 'Acc 7', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 108, name: 'Acc 8', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 109, name: 'Acc 9', margin_type: 'Cross', balance: 100000.0, currency: 'USD' },
+    { id: 110, name: 'Acc 10', margin_type: 'Cross', balance: 100000.0, currency: 'USD' }
   ]);
   const [activeAccountId, setActiveAccountId] = useState<number>(101);
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
@@ -166,7 +166,7 @@ function CryptoTerminal() {
           ...a,
           name: editAccName.trim(),
           balance: editAccBalance,
-          margin_type: editAccMarginType
+          margin_type: (editAccMarginType === 'Isolated' ? 'Isolated' : 'Cross') as 'Cross' | 'Isolated'
         } : a));
         setEditingAccount(null);
       }
@@ -242,8 +242,9 @@ function CryptoTerminal() {
   }, [activeAsset]);
 
   useEffect(() => {
-    if (spotPrice && currentChain.length > 0) {
-      const sorted = [...currentChain].sort((a, b) => a.strike - b.strike);
+    const chain = (activeExpiry && chainByExpiry[activeExpiry]) || [];
+    if (spotPrice && chain.length > 0) {
+      const sorted = [...chain].sort((a, b) => a.strike - b.strike);
       const strikeStep = sorted.length > 1 ? Math.abs(sorted[1].strike - sorted[0].strike) : 50;
       
       const putsBelow = sorted.filter(r => r.strike < spotPrice);
@@ -265,7 +266,7 @@ function CryptoTerminal() {
 
       setStrategyTargetPrice(prev => prev === 0 ? defaultTarget : prev);
     }
-  }, [spotPrice, currentChain.length, outlook]);
+  }, [spotPrice, activeExpiry, chainByExpiry, outlook]);
   const [portfolioTab, setPortfolioTab] = useState('Positions');
   const [orderHistory, setOrderHistory] = useState<any[]>([]);
 
@@ -1441,11 +1442,11 @@ function CryptoTerminal() {
                        lineHeight: '1.4',
                        textAlign: 'center' 
                      }}>
-                       {activeAsset} {spotPrice ? `@ $${spotPrice.toLocaleString()}` : ''} | <strong>{outlook}</strong> | Target: ${targetPrice.toLocaleString()} | Support: ${supportPrice.toLocaleString()} | Resistance: ${resistancePrice.toLocaleString()}
+                       {activeAsset} {spotPrice ? `@ $${spotPrice.toLocaleString()}` : ''} | <strong>{outlook}</strong> | Target: ${targetPrice ? targetPrice.toLocaleString() : '---'} | Support: ${supportPrice.toLocaleString()} | Resistance: ${resistancePrice.toLocaleString()}
                        <div style={{ marginTop: '4px', color: 'white', fontSize: '10px' }}>
                          💡 Suggested Strategy: 
-                         {outlook === 'Bullish' && <span style={{ color: '#00c087', fontWeight: 'bold' }}> Bull Call Spread (Buy ${atmStrike || 'ATM'} CE / Sell ${targetPrice} CE)</span>}
-                         {outlook === 'Bearish' && <span style={{ color: '#f84960', fontWeight: 'bold' }}> Bear Put Spread (Buy ${atmStrike || 'ATM'} PE / Sell ${targetPrice} PE)</span>}
+                         {outlook === 'Bullish' && <span style={{ color: '#00c087', fontWeight: 'bold' }}> Bull Call Spread (Buy ${atmStrike || 'ATM'} CE / Sell ${targetPrice || 'OTM'} CE)</span>}
+                         {outlook === 'Bearish' && <span style={{ color: '#f84960', fontWeight: 'bold' }}> Bear Put Spread (Buy ${atmStrike || 'ATM'} PE / Sell ${targetPrice || 'OTM'} PE)</span>}
                          {outlook === 'Neutral' && <span style={{ color: '#38bdf8', fontWeight: 'bold' }}> Iron Condor (Sell ${supportPrice} PE + Sell ${resistancePrice} CE)</span>}
                          {outlook === 'Volatility' && <span style={{ color: '#38bdf8', fontWeight: 'bold' }}> Long Straddle (Buy ${atmStrike || 'ATM'} CE + Buy ${atmStrike || 'ATM'} PE)</span>}
                        </div>
@@ -1453,7 +1454,7 @@ function CryptoTerminal() {
                          onClick={() => {
                            const stratName = outlook === 'Bullish' ? 'Bull Call Spread' : outlook === 'Bearish' ? 'Bear Put Spread' : outlook === 'Neutral' ? 'Iron Condor' : 'Long Straddle';
                            if (atmStrike) {
-                             const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice, supportPrice, resistancePrice, expiries);
+                             const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice ?? undefined, supportPrice, resistancePrice, expiries);
                              if (basket.length > 0) {
                                setStratBasket(basket);
                                setStrategy(stratName);
@@ -1487,7 +1488,7 @@ function CryptoTerminal() {
                            key={stratName}
                            onClick={() => {
                              if (atmStrike) {
-                               const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice, supportPrice, resistancePrice, expiries);
+                               const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice ?? undefined, supportPrice, resistancePrice, expiries);
                                if (basket.length > 0) {
                                  setStratBasket(basket);
                                  setStrategy(stratName);
@@ -1530,7 +1531,7 @@ function CryptoTerminal() {
                            key={stratName}
                            onClick={() => {
                              if (atmStrike) {
-                               const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice, supportPrice, resistancePrice, expiries);
+                               const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice ?? undefined, supportPrice, resistancePrice, expiries);
                                if (basket.length > 0) {
                                  setStratBasket(basket);
                                  setStrategy(stratName);
@@ -1573,7 +1574,7 @@ function CryptoTerminal() {
                            key={stratName}
                            onClick={() => {
                              if (atmStrike) {
-                               const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice, supportPrice, resistancePrice, expiries);
+                               const basket = buildStrategyBasket(stratName, currentChain, atmStrike, activeAsset, activeExpiry, stratSize, targetPrice ?? undefined, supportPrice, resistancePrice, expiries);
                                if (basket.length > 0) {
                                  setStratBasket(basket);
                                  setStrategy(stratName);
@@ -1901,7 +1902,7 @@ function CryptoTerminal() {
                                            <span className="font-bold">{leg.option_type === 'CALL' ? 'C' : 'P'}</span>
                                            <span className="font-bold text-sm" style={{marginLeft: '2px'}}>{leg.strike}</span>
                                              {leg.side === 'SELL' && activeAsset !== 'NIFTY' && (
-                                                <span style={{background: '#f97316', color: 'white', padding: '2px 4px', fontSize: '9px', borderRadius: '4px', fontWeight: 'bold', marginLeft: '4px'}} style={{cursor: 'pointer'}} onClick={() => setShowLeverageModal(true)}>{leverage}x</span>
+                                                <span style={{background: '#f97316', color: 'white', padding: '2px 4px', fontSize: '9px', borderRadius: '4px', fontWeight: 'bold', marginLeft: '4px', cursor: 'pointer'}} onClick={() => setShowLeverageModal(true)}>{leverage}x</span>
                                              )}
                                            <select 
                                                style={{background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '12px', cursor: 'pointer', outline: 'none'}}
