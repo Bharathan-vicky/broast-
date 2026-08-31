@@ -156,7 +156,7 @@ def _is_rate_limited():
     return time.time() < BROKER_RATE_LIMIT_UNTIL
 
 
-def _mark_rate_limited(seconds=3):
+def _mark_rate_limited(seconds=60):
     global BROKER_RATE_LIMIT_UNTIL
     BROKER_RATE_LIMIT_UNTIL = time.time() + seconds
     print(f"[AngelOne] Temporary rate limit. Quick backoff for {seconds}s.")
