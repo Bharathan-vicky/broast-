@@ -448,9 +448,6 @@ export function fuseLiveOptionChain(
     const diffDays = (rawDiffDays > 0.05 && rawDiffDays < 365) ? rawDiffDays : (asset === 'BANKNIFTY' ? 18.0 : 4.5);
     const T = Math.max(0.003, diffDays / 365.0);
 
-    const knownData = KNOWN_CLOSING_OPTION_PRICES[asset];
-    const isNearKnownSpot = knownData && Math.abs(validSpot - knownData.baseSpot) < 50;
-
     const sanitizedRows: OptionRowData[] = existingRows.map((row: any) => {
       try {
         const strike = Number(row.strike);
@@ -459,19 +456,15 @@ export function fuseLiveOptionChain(
         const callRes = calculateBSPrice(validSpot, strike, T, rate, iv, 'CALL', tickSize);
         const putRes = calculateBSPrice(validSpot, strike, T, rate, iv, 'PUT', tickSize);
 
-        let callPrice = (isCrypto && row.callMark && row.callMark > 0) ? row.callMark : callRes.price;
-        let putPrice = (isCrypto && row.putMark && row.putMark > 0) ? row.putMark : putRes.price;
-        let callPchange = row.callPchange || 0.0;
-        let putPchange = row.putPchange || 0.0;
+        // Always prioritize real live market exchange data (Angel One / Delta)
+        const hasLiveCall = (row.callMark && row.callMark > 0) || (row.callLtp && row.callLtp > 0);
+        const hasLivePut = (row.putMark && row.putMark > 0) || (row.putLtp && row.putLtp > 0);
 
-        if (isNearKnownSpot && knownData?.strikes[strike]) {
-          const kEntry = knownData.strikes[strike];
-          const spotDiff = validSpot - knownData.baseSpot;
-          callPrice = roundToTick(Math.max(tickSize, kEntry.callLtp + callRes.delta * spotDiff), tickSize);
-          putPrice = roundToTick(Math.max(tickSize, kEntry.putLtp + putRes.delta * spotDiff), tickSize);
-          if (kEntry.callPchange !== undefined) callPchange = kEntry.callPchange;
-          if (kEntry.putPchange !== undefined) putPchange = kEntry.putPchange;
-        }
+        let callPrice = hasLiveCall ? (row.callMark || row.callLtp) : callRes.price;
+        let putPrice = hasLivePut ? (row.putMark || row.putLtp) : putRes.price;
+
+        let callPchange = row.callPchange !== undefined ? row.callPchange : 0.0;
+        let putPchange = row.putPchange !== undefined ? row.putPchange : 0.0;
 
         // Absolute fail-safe: Ensure prices are non-zero valid numbers
         if (!isFinite(callPrice) || callPrice <= 0) callPrice = Math.max(tickSize, callRes.price || 0.05);
@@ -487,27 +480,27 @@ export function fuseLiveOptionChain(
           strike,
           callSym: row.callSym || `C-${asset}-${strike}`,
           putSym: row.putSym || `P-${asset}-${strike}`,
-          callMark: callPrice,
-          putMark: putPrice,
-          callLtp: callPrice,
-          putLtp: putPrice,
+          callMark: roundToTick(callPrice, tickSize),
+          putMark: roundToTick(putPrice, tickSize),
+          callLtp: roundToTick(callPrice, tickSize),
+          putLtp: roundToTick(putPrice, tickSize),
           callBid,
           callAsk,
           putBid,
           putAsk,
           callPchange,
           putPchange,
-          callOI: row.callOI || 25000,
-          putOI: row.putOI || 25000,
-          callDelta: callRes.delta,
-          putDelta: putRes.delta,
-          gamma: callRes.gamma,
-          vega: callRes.vega,
-          theta: callRes.theta,
-          callIV: Math.round(iv * 100),
-          putIV: Math.round(iv * 100),
-          callIv: Math.round(iv * 100),
-          putIv: Math.round(iv * 100)
+          callOI: row.callOI !== undefined && row.callOI >= 0 ? row.callOI : 25000,
+          putOI: row.putOI !== undefined && row.putOI >= 0 ? row.putOI : 25000,
+          callDelta: row.callDelta !== undefined ? row.callDelta : callRes.delta,
+          putDelta: row.putDelta !== undefined ? row.putDelta : putRes.delta,
+          gamma: row.callGamma !== undefined ? row.callGamma : (row.gamma !== undefined ? row.gamma : callRes.gamma),
+          vega: row.callVega !== undefined ? row.callVega : (row.vega !== undefined ? row.vega : callRes.vega),
+          theta: row.callTheta !== undefined ? row.callTheta : (row.theta !== undefined ? row.theta : callRes.theta),
+          callIV: row.callIV !== undefined && row.callIV > 0 ? row.callIV : Math.round(iv * 100),
+          putIV: row.putIV !== undefined && row.putIV > 0 ? row.putIV : Math.round(iv * 100),
+          callIv: row.callIV !== undefined && row.callIV > 0 ? row.callIV : Math.round(iv * 100),
+          putIv: row.putIV !== undefined && row.putIV > 0 ? row.putIV : Math.round(iv * 100)
         };
       } catch {
         return null;
