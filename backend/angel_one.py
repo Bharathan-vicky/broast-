@@ -510,7 +510,7 @@ def _rest_quote_poller_thread():
                 fetched = res_spot["data"].get("fetched", [])
                 for q in fetched:
                     tok = str(q.get("symbolToken", ""))
-                    ltp = float(q.get("ltp", 0) or 0)
+                    ltp = float(q.get("ltp", 0) or q.get("close", 0) or 0)
                     netchange = float(q.get("netChange", 0) or 0)
                     pchange = float(q.get("percentChange", 0) or 0)
                     sym = q.get("tradingSymbol", "")
@@ -603,12 +603,18 @@ def _rest_quote_poller_thread():
             # Batch into NFO and MCX calls
             nfo_tokens = nifty_tokens + bn_tokens
             if nfo_tokens:
+                time.sleep(0.4)
                 res_opt = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"NFO": nfo_tokens[:50]})
                 if res_opt and res_opt.get("data"):
+                    fetched_count = len(res_opt["data"].get("fetched", []))
+                    if fetched_count > 0:
+                        print(f"[AngelOne Poller] Polled {fetched_count} NFO options successfully.")
+                    else:
+                        print(f"[AngelOne Poller] Warning: 0 NFO options fetched. Request tokens: {nfo_tokens[:50]}")
                     for q in res_opt["data"].get("fetched", []):
                         tok = str(q.get("symbolToken", ""))
                         sym = q.get("tradingSymbol", "")
-                        ltp = float(q.get("ltp", 0) or 0)
+                        ltp = float(q.get("ltp", 0) or q.get("close", 0) or 0)
                         if ltp > 0:
                             with _LOCK:
                                 q_dict = {
@@ -627,13 +633,13 @@ def _rest_quote_poller_thread():
                                 LIVE_PRICES[tok] = q_dict
 
             if mcx_tokens:
-                time.sleep(0.3)
+                time.sleep(0.4)
                 res_mcx = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"MCX": mcx_tokens[:50]})
                 if res_mcx and res_mcx.get("data"):
                     for q in res_mcx["data"].get("fetched", []):
                         tok = str(q.get("symbolToken", ""))
                         sym = q.get("tradingSymbol", "")
-                        ltp = float(q.get("ltp", 0) or 0)
+                        ltp = float(q.get("ltp", 0) or q.get("close", 0) or 0)
                         if ltp > 0:
                             with _LOCK:
                                 q_dict = {
