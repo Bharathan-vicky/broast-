@@ -603,7 +603,7 @@ def _rest_quote_poller_thread():
             # Batch into NFO and MCX calls
             nfo_tokens = nifty_tokens + bn_tokens
             if nfo_tokens:
-                time.sleep(0.4)
+                time.sleep(1.1)
                 res_opt = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"NFO": nfo_tokens[:50]})
                 if res_opt and res_opt.get("data"):
                     fetched_count = len(res_opt["data"].get("fetched", []))
@@ -633,7 +633,7 @@ def _rest_quote_poller_thread():
                                 LIVE_PRICES[tok] = q_dict
 
             if mcx_tokens:
-                time.sleep(0.4)
+                time.sleep(1.1)
                 res_mcx = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"MCX": mcx_tokens[:50]})
                 if res_mcx and res_mcx.get("data"):
                     for q in res_mcx["data"].get("fetched", []):
@@ -660,7 +660,7 @@ def _rest_quote_poller_thread():
         except Exception as e:
             logging.error(f"[AngelOne Quote Poller] Error: {e}")
 
-        time.sleep(0.8)
+        time.sleep(1.1)
 
 
 def get_spot_info(asset="NIFTY"):
