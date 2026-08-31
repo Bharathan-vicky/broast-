@@ -910,13 +910,17 @@ def get_options_chain(asset="NIFTY", expiry_filter=None):
 
 # ==================== WEBSOCKET SUPPORT (ZERO LAG) ====================
 
-def _on_ws_data(wsapp, data):
+def _on_ws_data(wsapp=None, data=None, *args, **kwargs):
     global NIFTY_SPOT, BANKNIFTY_SPOT, SENSEX_SPOT, LIVE_PRICES, TOKEN_TO_INFO, LAST_TICK_UPDATE, CACHED_SPOT
     LAST_TICK_UPDATE = time.time()
     try:
-        tok = str(data.get("token", ""))
+        # Handle cases where data is first or second positional arg
+        d = data if isinstance(data, dict) else (wsapp if isinstance(wsapp, dict) else (args[0] if args and isinstance(args[0], dict) else {}))
+        if not d:
+            return
+        tok = str(d.get("token", ""))
         # Angel One returns price in paise (divide by 100)
-        raw_ltp = data.get("last_traded_price", 0)
+        raw_ltp = d.get("last_traded_price", 0)
         ltp = float(raw_ltp or 0) / 100.0 if raw_ltp > 1000 else float(raw_ltp or 0)
         if ltp <= 0:
             return
@@ -948,7 +952,7 @@ def _on_ws_data(wsapp, data):
         pass
 
 
-def _on_ws_open(wsapp=None):
+def _on_ws_open(wsapp=None, *args, **kwargs):
     global WS_CONNECTED, WS_CLIENT
     WS_CONNECTED = True
     print("[AngelOne WS] WebSocket connected successfully! Subscribing tokens for 0ms streaming...")
@@ -973,11 +977,12 @@ def _on_ws_open(wsapp=None):
         print(f"[AngelOne WS] Subscription warning: {e}")
 
 
-def _on_ws_error(wsapp, error):
-    print(f"[AngelOne WS] WebSocket Error: {error}")
+def _on_ws_error(wsapp=None, error=None, *args, **kwargs):
+    err = error if error is not None else wsapp
+    print(f"[AngelOne WS] WebSocket Error: {err}")
 
 
-def _on_ws_close(wsapp):
+def _on_ws_close(wsapp=None, *args, **kwargs):
     global WS_CONNECTED
     WS_CONNECTED = False
     print("[AngelOne WS] WebSocket connection closed.")
