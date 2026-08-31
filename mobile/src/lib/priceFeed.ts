@@ -86,6 +86,41 @@ function areChainsDifferent(prev: ChainPayload, nextExpiries: string[], nextChai
   }
 }
 
+function isAssetMarketOpen(asset: string, serverMarketOpen: boolean): boolean {
+  const assetUpper = asset.toUpperCase();
+  if (assetUpper === 'BTC' || assetUpper === 'ETH' || assetUpper === 'XAUT') {
+    return true; // Crypto 24/7/365
+  }
+
+  if (assetUpper.startsWith('CRUDE') || assetUpper.startsWith('GOLD') || assetUpper.startsWith('SILVER') || assetUpper.startsWith('NAT')) {
+    // MCX Commodities: 09:00 to 23:30 IST Monday-Friday
+    try {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const istTime = new Date(utc + (3600000 * 5.5));
+      const day = istTime.getDay();
+      if (day === 0 || day === 6) return false;
+      const curMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+      return curMinutes >= (9 * 60) && curMinutes <= (23 * 60 + 30);
+    } catch {
+      return serverMarketOpen;
+    }
+  }
+
+  // Indian Indices & Stocks (NSE/BSE): 09:15 to 15:30 IST Monday-Friday
+  try {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const istTime = new Date(utc + (3600000 * 5.5));
+    const day = istTime.getDay();
+    if (day === 0 || day === 6) return false;
+    const curMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+    return curMinutes >= (9 * 60 + 15) && curMinutes <= (15 * 60 + 30);
+  } catch {
+    return serverMarketOpen;
+  }
+}
+
 export function usePriceFeed(asset: string): PriceFeedResult {
   const [state, setState] = useState<PriceFeedState>({
     connected: false,
@@ -313,16 +348,19 @@ export function usePriceFeed(asset: string): PriceFeedResult {
       }
     }, 20000);
 
-    // Direct Device periodic poll every 400ms for active asset live ticks
+    // Direct Device periodic poll for active asset live quotes (every 1000ms)
     directPollerTimer.current = setInterval(() => {
       runDirectDevicePoll();
-    }, 400);
+    }, 1000);
 
-    // Active second-to-second live micro-tick engine (Zerodha/Groww style)
+    // Active sub-second live micro-tick engine (Zerodha/Groww style - every 400ms)
     const microTickTimer = setInterval(() => {
       if (cancelled) return;
       const currentAsset = assetRef.current || 'NIFTY';
       setState(s => {
+        if (!isAssetMarketOpen(currentAsset, s.marketOpen)) {
+          return s; // Freeze prices when market is closed!
+        }
         const curQuote = s.spots[currentAsset];
         if (!curQuote || curQuote.spot <= 0) return s;
 
@@ -356,7 +394,7 @@ export function usePriceFeed(asset: string): PriceFeedResult {
           }
         };
       });
-    }, 600);
+    }, 400);
 
     // Fallback REST polling if WebSocket is offline
     restFallbackTimer.current = setInterval(() => {

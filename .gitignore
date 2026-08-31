@@ -62,6 +62,7 @@ mobile/ios/
 # IDE and Editor files
 .vscode/
 .idea/
+.kiro/
 *.suo
 *.ntvs*
 *.njsproj

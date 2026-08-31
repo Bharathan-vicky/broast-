@@ -47,19 +47,50 @@ def get_current_price(symbol, side="BUY", underlying="NIFTY", strike=0, option_t
             if res > 0:
                 return float(res)
 
-    # 4. Accurate Real-Time Valuation from Live Spot Model
+    # 4. Extract underlying, strike, option_type from symbol if needed
     try:
         und = (underlying or "NIFTY").upper()
-        if und in ["BTC", "ETH", "XAUT"]:
-            spot = float(md.CRYPTO_SPOT_MAP.get(und, {}).get("spot_price", 0) or angel_one.get_spot_info(und).get("spot", 0))
-        else:
-            spot = float(angel_one.get_spot_info(und).get("spot", 0))
+        parsed_strike = float(strike or 0)
+        parsed_opt = (option_type or "CALL").upper()
 
-        if spot > 0 and strike > 0:
-            is_call = (option_type or "CALL").upper() in ["CALL", "CE"]
-            intrinsic = max(0.0, spot - strike) if is_call else max(0.0, strike - spot)
-            time_val = max(0.2, spot * 0.006)
-            return round(intrinsic + time_val, 2)
+        if parsed_strike <= 0:
+            import re
+            m = re.search(r'(\d{4,6})', symbol)
+            if m:
+                parsed_strike = float(m.group(1))
+            if 'PUT' in symbol.upper() or 'PE' in symbol.upper() or symbol.startswith('P-'):
+                parsed_opt = 'PUT'
+            elif 'CALL' in symbol.upper() or 'CE' in symbol.upper() or symbol.startswith('C-'):
+                parsed_opt = 'CALL'
+
+        if und in ["BTC", "ETH", "XAUT"]:
+            spot = float(md.CRYPTO_SPOT_MAP.get(und, {}).get("spot_price", 0) or angel_one.get_spot_info(und).get("spot_price", 0))
+        else:
+            spot = float(angel_one.get_spot_info(und).get("spot_price", 0))
+
+        if spot > 0 and parsed_strike > 0:
+            is_call = parsed_opt in ["CALL", "CE"]
+            intrinsic = max(0.0, spot - parsed_strike) if is_call else max(0.0, parsed_strike - spot)
+            
+            # Dynamic time-value based on asset and moneyness
+            moneyness_dist = abs(spot - parsed_strike) / (spot or 1)
+            time_decay_factor = max(0.05, 1.0 - (moneyness_dist * 4.0))
+            
+            if und in ["BTC", "ETH", "XAUT"]:
+                base_time = spot * 0.025 * time_decay_factor
+                tick = 0.5 if und == 'BTC' else 0.05
+            elif und == 'BANKNIFTY':
+                base_time = max(25.0, spot * 0.0055 * time_decay_factor)
+                tick = 0.05
+            elif und == 'SENSEX':
+                base_time = max(35.0, spot * 0.0050 * time_decay_factor)
+                tick = 0.05
+            else:
+                base_time = max(15.0, spot * 0.0045 * time_decay_factor)
+                tick = 0.05
+                
+            raw_p = intrinsic + base_time
+            return round(round(raw_p / tick) * tick, 2)
     except Exception:
         pass
 
@@ -190,7 +221,7 @@ def place_basket_order(basket_name, legs, account_id=1):
         
         if is_indian:
             spot_info = angel_one.get_spot_info(underlying)
-            spot_price = spot_info.get('spot', 77300.0 if underlying == 'SENSEX' else (57600.0 if underlying == 'BANKNIFTY' else 24250.0))
+            spot_price = spot_info.get('spot_price', 77300.0 if underlying == 'SENSEX' else (57600.0 if underlying == 'BANKNIFTY' else 24250.0))
             if leg['side'] == 'BUY':
                 # Premium = Option Premium * Lots * lot_size
                 total_margin += price * lots * lot_size
@@ -370,9 +401,11 @@ def close_single_position(position_id: int, exit_reason: str = "MANUAL"):
     size = float(pos['size'] or 1)
     side = pos['side']
     underlying = pos['underlying'] or 'NIFTY'
+    strike = float(pos['strike'] or 0)
+    option_type = pos['option_type'] or 'CALL'
     lot_size = get_lot_size(underlying, symbol)
 
-    close_price = get_current_price(symbol, "SELL" if side == "BUY" else "BUY")
+    close_price = get_current_price(symbol, "SELL" if side == "BUY" else "BUY", underlying=underlying, strike=strike, option_type=option_type)
     if close_price == 0:
         close_price = entry_price
 
@@ -390,7 +423,7 @@ def close_single_position(position_id: int, exit_reason: str = "MANUAL"):
         UPDATE positions 
         SET status='CLOSED', close_price=? 
         WHERE id=?
-    ''', (close_price, position_id))
+    ''', (close_price, pos['id']))
 
     now_str = datetime.datetime.now().isoformat()
     c.execute('''
@@ -405,7 +438,7 @@ def close_single_position(position_id: int, exit_reason: str = "MANUAL"):
 
     conn.commit()
     conn.close()
-    return True, f"✓ Position closed! Realized P&L: {pnl:+.2f} ({exit_reason})"
+    return True, f"✓ Position exited at {close_price:.2f}! Realized P&L: {pnl:+.2f} ({exit_reason})"
 
 
 def check_sl_target_triggers():
@@ -416,7 +449,7 @@ def check_sl_target_triggers():
         conn = db.get_db_connection()
         conn.row_factory = db.sqlite3.Row
         c = conn.cursor()
-        c.execute("SELECT id, symbol, side, entry_price, stoploss, target, stoploss_type, target_type FROM positions WHERE status='OPEN'")
+        c.execute("SELECT id, symbol, side, entry_price, stoploss, target, stoploss_type, target_type, underlying, strike, option_type FROM positions WHERE status='OPEN'")
         open_positions = [dict(r) for r in c.fetchall()]
         conn.close()
 
@@ -429,11 +462,14 @@ def check_sl_target_triggers():
             tgt = float(pos['target'] or 0)
             sl_type = pos.get('stoploss_type', 'PRICE')
             tgt_type = pos.get('target_type', 'PRICE')
+            und = pos.get('underlying', 'NIFTY')
+            strk = float(pos.get('strike', 0) or 0)
+            op_t = pos.get('option_type', 'CALL')
 
             if entry_p <= 0 or (sl <= 0 and tgt <= 0):
                 continue
 
-            current_p = get_current_price(sym, "SELL" if side == "BUY" else "BUY")
+            current_p = get_current_price(sym, "SELL" if side == "BUY" else "BUY", underlying=und, strike=strk, option_type=op_t)
             if current_p <= 0:
                 continue
 
@@ -493,9 +529,11 @@ def close_basket(basket_id, account_id=None):
         size = float(pos['size'] or 1)
         side = pos['side']
         underlying = pos.get('underlying', 'NIFTY')
+        strike = float(pos.get('strike', 0) or 0)
+        option_type = pos.get('option_type', 'CALL')
         lot_size = get_lot_size(underlying, symbol)
             
-        close_price = get_current_price(symbol, "SELL" if side == "BUY" else "BUY")
+        close_price = get_current_price(symbol, "SELL" if side == "BUY" else "BUY", underlying=underlying, strike=strike, option_type=option_type)
         if close_price == 0:
             close_price = entry_price
 

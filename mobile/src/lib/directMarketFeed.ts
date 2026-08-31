@@ -15,6 +15,24 @@ const YAHOO_SYMBOLS: Record<string, string> = {
   'NIFTY': '^NSEI',
   'BANKNIFTY': '^NSEBANK',
   'SENSEX': '^BSESN',
+  'CRUDEOIL': 'CL=F',
+  'CRUDEOILM': 'CL=F',
+  'GOLD': 'GC=F',
+  'GOLDM': 'GC=F',
+  'SILVER': 'SI=F',
+  'SILVERM': 'SI=F',
+  'NATURALGAS': 'NG=F',
+  'NATGASM': 'NG=F',
+  'RELIANCE': 'RELIANCE.NS',
+  'TCS': 'TCS.NS',
+  'INFY': 'INFY.NS',
+  'HDFCBANK': 'HDFCBANK.NS',
+  'ICICIBANK': 'ICICIBANK.NS',
+  'SBIN': 'SBIN.NS',
+  'TATAMOTORS': 'TATAMOTORS.NS',
+  'BHARTIARTL': 'BHARTIARTL.NS',
+  'ITC': 'ITC.NS',
+  'LT': 'LT.NS'
 };
 
 export interface DirectSpotQuote {

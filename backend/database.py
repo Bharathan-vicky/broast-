@@ -126,54 +126,54 @@ def init_db():
         except Exception:
             pass
     
-    # Seed 10 Nifty INR Sub-Accounts (INDIAN Market)
+    # Seed 10 Indian INR Sub-Accounts (Acc 1 to Acc 10)
     c.execute("SELECT COUNT(*) FROM accounts WHERE market='INDIAN'")
     if c.fetchone()[0] == 0:
         nifty_presets = [
-            (1, 'Nifty Main Account (Cross)', 'Cross', 1000000.0, 'INR', 'INDIAN'),
-            (2, 'Nifty Scalping 1L (Cross)', 'Cross', 100000.0, 'INR', 'INDIAN'),
-            (3, 'Nifty Intraday 2.5L (Cross)', 'Cross', 250000.0, 'INR', 'INDIAN'),
-            (4, 'Nifty Option Buying 50k (Cross)', 'Cross', 50000.0, 'INR', 'INDIAN'),
-            (5, 'Nifty Option Selling 5L (Isolated)', 'Isolated', 500000.0, 'INR', 'INDIAN'),
-            (6, 'Nifty Expiry Trader 2L (Cross)', 'Cross', 200000.0, 'INR', 'INDIAN'),
-            (7, 'Nifty Iron Condor Fund 15L (Isolated)', 'Isolated', 1500000.0, 'INR', 'INDIAN'),
-            (8, 'Nifty Straddle Bot 20L (Cross)', 'Cross', 2000000.0, 'INR', 'INDIAN'),
-            (9, 'Nifty High Margin 25L (Cross)', 'Cross', 2500000.0, 'INR', 'INDIAN'),
-            (10, 'Nifty Pro Portfolio 50L (Cross)', 'Cross', 5000000.0, 'INR', 'INDIAN')
+            (1, 'Acc 1', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (2, 'Acc 2', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (3, 'Acc 3', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (4, 'Acc 4', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (5, 'Acc 5', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (6, 'Acc 6', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (7, 'Acc 7', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (8, 'Acc 8', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (9, 'Acc 9', 'Cross', 1000000.0, 'INR', 'INDIAN'),
+            (10, 'Acc 10', 'Cross', 1000000.0, 'INR', 'INDIAN')
         ]
         c.executemany("INSERT INTO accounts (id, name, margin_type, balance, currency, market) VALUES (?, ?, ?, ?, ?, ?)", nifty_presets)
         
-    # Seed 10 Crypto USD Sub-Accounts (CRYPTO Market)
+    # Seed 10 Crypto USD Sub-Accounts (Acc 1 to Acc 10)
     c.execute("SELECT COUNT(*) FROM accounts WHERE market='CRYPTO'")
     if c.fetchone()[0] == 0:
         crypto_presets = [
-            (101, 'Crypto Main Account (Cross)', 'Cross', 100000.0, 'USD', 'CRYPTO'),
-            (102, 'BTC Scalping 10k (Cross)', 'Cross', 10000.0, 'USD', 'CRYPTO'),
-            (103, 'BTC Swing Trader 25k (Cross)', 'Cross', 25000.0, 'USD', 'CRYPTO'),
-            (104, 'BTC Option Buying 5k (Cross)', 'Cross', 5000.0, 'USD', 'CRYPTO'),
-            (105, 'ETH Strategy Sub-Account 50k (Isolated)', 'Isolated', 50000.0, 'USD', 'CRYPTO'),
-            (106, 'ETH Weekly Option 15k (Cross)', 'Cross', 15000.0, 'USD', 'CRYPTO'),
-            (107, 'Crypto Delta Neutral 75k (Isolated)', 'Isolated', 75000.0, 'USD', 'CRYPTO'),
-            (108, 'Crypto High Leverage 20k (Cross)', 'Cross', 20000.0, 'USD', 'CRYPTO'),
-            (109, 'Crypto Macro Fund 250k (Cross)', 'Cross', 250000.0, 'USD', 'CRYPTO'),
-            (110, 'Crypto Whale Portfolio 500k (Cross)', 'Cross', 500000.0, 'USD', 'CRYPTO')
+            (101, 'Acc 1', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (102, 'Acc 2', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (103, 'Acc 3', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (104, 'Acc 4', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (105, 'Acc 5', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (106, 'Acc 6', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (107, 'Acc 7', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (108, 'Acc 8', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (109, 'Acc 9', 'Cross', 100000.0, 'USD', 'CRYPTO'),
+            (110, 'Acc 10', 'Cross', 100000.0, 'USD', 'CRYPTO')
         ]
         c.executemany("INSERT INTO accounts (id, name, margin_type, balance, currency, market) VALUES (?, ?, ?, ?, ?, ?)", crypto_presets)
         
-    # Seed 10 MCX Commodities INR Sub-Accounts (COMMODITY Market)
+    # Seed 10 MCX Commodities INR Sub-Accounts (Acc 1 to Acc 10)
     c.execute("SELECT COUNT(*) FROM accounts WHERE market='COMMODITY'")
     if c.fetchone()[0] == 0:
         commodity_presets = [
-            (201, 'MCX Crude Oil Main (Cross)', 'Cross', 1500000.0, 'INR', 'COMMODITY'),
-            (202, 'MCX Gold Fund 50L (Cross)', 'Cross', 5000000.0, 'INR', 'COMMODITY'),
-            (203, 'MCX Silver Scalper 10L (Cross)', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (204, 'MCX Copper Swing 5L (Cross)', 'Cross', 500000.0, 'INR', 'COMMODITY'),
-            (205, 'MCX Natural Gas 2L (Isolated)', 'Isolated', 200000.0, 'INR', 'COMMODITY'),
-            (206, 'MCX Intraday 3L (Cross)', 'Cross', 300000.0, 'INR', 'COMMODITY'),
-            (207, 'MCX Options Selling 8L (Isolated)', 'Isolated', 800000.0, 'INR', 'COMMODITY'),
-            (208, 'MCX Mini Lot Trader 1L (Cross)', 'Cross', 100000.0, 'INR', 'COMMODITY'),
-            (209, 'MCX High Leverage 4L (Cross)', 'Cross', 400000.0, 'INR', 'COMMODITY'),
-            (210, 'MCX Pro Portfolio 25L (Cross)', 'Cross', 2500000.0, 'INR', 'COMMODITY')
+            (201, 'Acc 1', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (202, 'Acc 2', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (203, 'Acc 3', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (204, 'Acc 4', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (205, 'Acc 5', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (206, 'Acc 6', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (207, 'Acc 7', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (208, 'Acc 8', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (209, 'Acc 9', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
+            (210, 'Acc 10', 'Cross', 1000000.0, 'INR', 'COMMODITY')
         ]
         c.executemany("INSERT INTO accounts (id, name, margin_type, balance, currency, market) VALUES (?, ?, ?, ?, ?, ?)", commodity_presets)
 
@@ -296,12 +296,48 @@ def get_open_baskets(account_id: int = 1):
     conn.close()
     return baskets
 
+LOT_SIZES = {
+    'NIFTY': 65,
+    'BANKNIFTY': 30,
+    'SENSEX': 20,
+    'CRUDEOIL': 100,
+    'CRUDEOILM': 10,
+    'GOLD': 100,
+    'GOLDM': 10,
+    'SILVER': 30,
+    'SILVERM': 5,
+    'NATURALGAS': 1250,
+    'NATGASM': 250,
+    'RELIANCE': 250,
+    'TCS': 175,
+    'INFY': 400,
+    'HDFCBANK': 550,
+    'ICICIBANK': 700,
+    'SBIN': 750,
+    'TATAMOTORS': 575,
+    'BHARTIARTL': 475,
+    'ITC': 1600,
+    'LT': 150,
+    'BTC': 0.001,
+    'ETH': 0.01,
+    'XAUT': 1.0
+}
+
+def get_db_lot_size(underlying, symbol=""):
+    if underlying and underlying in LOT_SIZES:
+        return LOT_SIZES[underlying]
+    sym = (symbol or "").upper()
+    for k in LOT_SIZES:
+        if k in sym:
+            return LOT_SIZES[k]
+    return 1.0
+
 def get_trade_history(account_id: int = 1):
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    # Query all closed baskets with their complete position legs
+    # 1. Query all closed baskets
     c.execute('''
         SELECT id, account_id, name as basket_name, status, created_at, closed_at 
         FROM baskets 
@@ -311,6 +347,8 @@ def get_trade_history(account_id: int = 1):
     closed_baskets = [dict(r) for r in c.fetchall()]
     
     journal = []
+    seen_position_ids = set()
+
     for b in closed_baskets:
         c.execute('''
             SELECT * FROM positions 
@@ -324,6 +362,7 @@ def get_trade_history(account_id: int = 1):
         currency = 'INR'
         
         for leg in legs:
+            seen_position_ids.add(leg['id'])
             symbol = leg['symbol']
             entry_p = float(leg.get('entry_price', 0) or 0)
             close_p = float(leg.get('close_price', 0) or entry_p)
@@ -331,29 +370,9 @@ def get_trade_history(account_id: int = 1):
             side = leg.get('side', 'BUY')
             underlying = leg.get('underlying', 'NIFTY')
             
-            is_indian = underlying in ['NIFTY', 'BANKNIFTY', 'CRUDEOIL', 'GOLD', 'SILVER'] or 'NIFTY' in symbol
-            if is_indian:
-                currency = 'INR'
-                if underlying == 'NIFTY':
-                    lot_size = 65
-                elif underlying == 'BANKNIFTY':
-                    lot_size = 15
-                elif underlying == 'CRUDEOIL':
-                    lot_size = 100
-                elif underlying == 'GOLD':
-                    lot_size = 100
-                elif underlying == 'SILVER':
-                    lot_size = 30
-                else:
-                    lot_size = 65
-            else:
-                currency = 'USD'
-                if underlying == 'BTC':
-                    lot_size = 0.001
-                elif underlying == 'ETH':
-                    lot_size = 0.01
-                else:
-                    lot_size = 1.0
+            is_crypto = underlying in ['BTC', 'ETH', 'XAUT']
+            currency = 'USD' if is_crypto else 'INR'
+            lot_size = get_db_lot_size(underlying, symbol)
                 
             pts = (close_p - entry_p) if side == 'BUY' else (entry_p - close_p)
             leg_pnl = pts * size * lot_size
@@ -374,12 +393,62 @@ def get_trade_history(account_id: int = 1):
             'basket_name': b['basket_name'],
             'status': 'CLOSED',
             'created_at': b['created_at'],
-            'closed_at': b['closed_at'],
+            'closed_at': b['closed_at'] or b['created_at'],
             'currency': currency,
             'realized_pnl': round(total_realized_pnl, 2),
             'invested_margin': round(total_invested, 2),
             'roi_pct': round(roi_pct, 2),
             'legs': legs
+        })
+
+    # 2. Query any individually closed positions from open baskets
+    c.execute('''
+        SELECT p.*, b.name as basket_name, b.created_at as basket_created_at
+        FROM positions p
+        JOIN baskets b ON p.basket_id = b.id
+        WHERE b.account_id = ? AND p.status = 'CLOSED'
+        ORDER BY p.id DESC
+    ''', (account_id,))
+    individual_closed = [dict(r) for r in c.fetchall()]
+
+    for pos in individual_closed:
+        if pos['id'] in seen_position_ids:
+            continue
+        seen_position_ids.add(pos['id'])
+
+        symbol = pos['symbol']
+        entry_p = float(pos.get('entry_price', 0) or 0)
+        close_p = float(pos.get('close_price', 0) or entry_p)
+        size = float(pos.get('size', 1) or 1)
+        side = pos.get('side', 'BUY')
+        underlying = pos.get('underlying', 'NIFTY')
+        
+        is_crypto = underlying in ['BTC', 'ETH', 'XAUT']
+        currency = 'USD' if is_crypto else 'INR'
+        lot_size = get_db_lot_size(underlying, symbol)
+            
+        pts = (close_p - entry_p) if side == 'BUY' else (entry_p - close_p)
+        leg_pnl = pts * size * lot_size
+        leg_inv = entry_p * size * lot_size
+        
+        pos['lot_size'] = lot_size
+        pos['points_captured'] = round(pts, 2)
+        pos['realized_pnl'] = round(leg_pnl, 2)
+        pos['invested'] = round(leg_inv, 2)
+        
+        roi_pct = (leg_pnl / leg_inv * 100.0) if leg_inv > 0 else 0.0
+
+        journal.append({
+            'id': pos['id'],
+            'basket_name': f"{pos['basket_name']} ({pos['symbol']})",
+            'status': 'CLOSED',
+            'created_at': pos.get('basket_created_at', datetime.now().isoformat()),
+            'closed_at': datetime.now().isoformat(),
+            'currency': currency,
+            'realized_pnl': round(leg_pnl, 2),
+            'invested_margin': round(leg_inv, 2),
+            'roi_pct': round(roi_pct, 2),
+            'legs': [pos]
         })
         
     conn.close()

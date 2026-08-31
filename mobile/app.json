@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "jsEngine": "hermes",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -13,10 +14,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.broast.app"
+      "bundleIdentifier": "com.broast.app",
+      "jsEngine": "hermes"
     },
     "android": {
       "package": "com.broast.app",
+      "jsEngine": "hermes",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#0a0d14",
         "foregroundImage": "./assets/android-icon-foreground.png"

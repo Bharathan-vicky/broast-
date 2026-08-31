@@ -430,7 +430,7 @@ async def websocket_live_endpoint(websocket: WebSocket):
                     "chainByExpiry": chain.get("chainByExpiry", {}),
                 })
 
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.15)
     except (WebSocketDisconnect, Exception):
         pass
     finally:
