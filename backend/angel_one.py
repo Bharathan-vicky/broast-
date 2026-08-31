@@ -1031,8 +1031,30 @@ def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NI
 CACHED_MCX_CHAINS = {}
 
 def get_nifty_chain(asset="NIFTY", expiry_filter=None):
+    global CACHED_CHAIN, CACHED_BANKNIFTY_CHAIN, CACHED_SENSEX_CHAIN
     asset_u = (asset or "NIFTY").upper()
-    return _build_nifty_chain_internal(expiry_filter, asset=asset_u)
+    with _LOCK:
+        if asset_u == "NIFTY" and CACHED_CHAIN:
+            return CACHED_CHAIN
+        elif asset_u == "BANKNIFTY" and CACHED_BANKNIFTY_CHAIN:
+            return CACHED_BANKNIFTY_CHAIN
+        elif asset_u == "SENSEX" and CACHED_SENSEX_CHAIN:
+            return CACHED_SENSEX_CHAIN
+        elif asset_u in CACHED_STOCK_CHAINS and CACHED_STOCK_CHAINS[asset_u]:
+            return CACHED_STOCK_CHAINS[asset_u]
+        elif asset_u in CACHED_MCX_CHAINS and CACHED_MCX_CHAINS[asset_u]:
+            return CACHED_MCX_CHAINS[asset_u]
+
+    # Fallback to computing on-the-fly and caching
+    res = _build_nifty_chain_internal(expiry_filter, asset=asset_u)
+    with _LOCK:
+        if asset_u == "NIFTY":
+            CACHED_CHAIN = res
+        elif asset_u == "BANKNIFTY":
+            CACHED_BANKNIFTY_CHAIN = res
+        elif asset_u == "SENSEX":
+            CACHED_SENSEX_CHAIN = res
+    return res
 
 
 def get_options_chain(asset="NIFTY", expiry_filter=None):
@@ -1159,7 +1181,7 @@ def _cache_refresher_loop():
             LAST_CHAIN_UPDATE = time.time()
         except Exception:
             pass
-        time.sleep(0.5)
+        time.sleep(0.15)
 
 
 def _live_market_data_fetcher_thread():
@@ -1298,7 +1320,7 @@ def _live_market_data_fetcher_thread():
                     STOCK_SPOTS[sym_key]["pctChange"] = pct
         except Exception:
             pass
-        time.sleep(1.0)
+        time.sleep(0.35)
 
 
 def _periodic_instrument_refresh_loop():
