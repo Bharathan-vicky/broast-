@@ -22,6 +22,14 @@ import pyotp
 from dotenv import load_dotenv
 import config
 
+try:
+    from SmartApi.smartWebSocketV2 import SmartWebSocketV2
+except ImportError:
+    try:
+        from SmartApi import SmartWebSocket as SmartWebSocketV2
+    except ImportError:
+        SmartWebSocketV2 = None
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_FILE = os.path.join(BASE_DIR, "instruments_cache.json")
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(BASE_DIR), '.env'))
@@ -1114,7 +1122,7 @@ def _ws_worker_loop():
             if not CONNECTED or not AUTH_TOKEN or not FEED_TOKEN:
                 login()
             
-            if CONNECTED and AUTH_TOKEN and FEED_TOKEN:
+            if SmartWebSocketV2 and CONNECTED and AUTH_TOKEN and FEED_TOKEN:
                 client_id = os.getenv("ANGEL_CLIENT_ID", "")
                 WS_CLIENT = SmartWebSocketV2(AUTH_TOKEN, API_KEY, client_id, FEED_TOKEN)
                 WS_CLIENT.on_data = _on_ws_data
