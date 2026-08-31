@@ -57,6 +57,39 @@ def startup_event():
 
     start_background_workers()
 
+
+# ==================== CRYPTO GREEKS (Delta Exchange only) ====================
+import math
+
+def _N(x):
+    a1,a2,a3,a4,a5,p = 0.254829592,-0.284496736,1.421413741,-1.453152027,1.061405429,0.3275911
+    sign = 1 if x >= 0 else -1
+    x = abs(x)/math.sqrt(2.0)
+    t = 1.0/(1.0+p*x)
+    y = 1.0-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*math.exp(-x*x)
+    return 0.5*(1.0+sign*y)
+
+def _n(x):
+    return math.exp(-x*x/2.0)/math.sqrt(2.0*math.pi)
+
+def _bs_greeks(S, K, T, r, sigma, opt_type):
+    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
+        return 0,0,0,0,0
+    d1 = (math.log(S/K)+(r+0.5*sigma**2)*T)/(sigma*math.sqrt(T))
+    d2 = d1-sigma*math.sqrt(T)
+    gamma = _n(d1)/(S*sigma*math.sqrt(T))
+    vega = S*_n(d1)*math.sqrt(T)
+    if opt_type == "C":
+        price = S*_N(d1)-K*math.exp(-r*T)*_N(d2)
+        delta = _N(d1)
+        theta = (-(S*_n(d1)*sigma)/(2*math.sqrt(T))-r*K*math.exp(-r*T)*_N(d2))/365
+    else:
+        price = K*math.exp(-r*T)*_N(-d2)-S*_N(-d1)
+        delta = _N(d1)-1
+        theta = (-(S*_n(d1)*sigma)/(2*math.sqrt(T))+r*K*math.exp(-r*T)*_N(-d2))/365
+    return price, delta, gamma, theta, vega
+
+
 CRYPTO_SPOT_CACHE = {
     "BTC": {"spot_price": _DEFAULT_SPOT_FALLBACKS["BTC"]["spot_price"], "change": _DEFAULT_SPOT_FALLBACKS["BTC"]["change"], "percent_change": _DEFAULT_SPOT_FALLBACKS["BTC"]["percent_change"]},
     "ETH": {"spot_price": _DEFAULT_SPOT_FALLBACKS["ETH"]["spot_price"], "change": _DEFAULT_SPOT_FALLBACKS["ETH"]["change"], "percent_change": _DEFAULT_SPOT_FALLBACKS["ETH"]["percent_change"]},
@@ -180,8 +213,8 @@ def _crypto_chain_poller_thread():
                         c_live = md.LIVE_PRICES.get(c_sym, {})
                         p_live = md.LIVE_PRICES.get(p_sym, {})
 
-                        c_bs, c_delta, c_gamma, c_theta, c_vega = angel_one._bs_greeks(spot_p, strike, T, r, iv, "C")
-                        p_bs, p_delta, p_gamma, p_theta, p_vega = angel_one._bs_greeks(spot_p, strike, T, r, iv, "P")
+                        c_bs, c_delta, c_gamma, c_theta, c_vega = _bs_greeks(spot_p, strike, T, r, iv, "C")
+                        p_bs, p_delta, p_gamma, p_theta, p_vega = _bs_greeks(spot_p, strike, T, r, iv, "P")
 
                         c_mark = float(c_live.get('mark', 0) or round(max(0.1, c_bs), 2))
                         p_mark = float(p_live.get('mark', 0) or round(max(0.1, p_bs), 2))
