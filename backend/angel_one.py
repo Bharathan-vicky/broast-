@@ -1101,8 +1101,8 @@ def _on_ws_data(wsapp, data):
         pass
 
 
-def _on_ws_open(wsapp):
-    global WS_CONNECTED
+def _on_ws_open(wsapp=None):
+    global WS_CONNECTED, WS_CLIENT
     WS_CONNECTED = True
     print("[AngelOne WS] WebSocket connected successfully! Subscribing tokens for 0ms streaming...")
     try:
@@ -1112,7 +1112,10 @@ def _on_ws_open(wsapp):
             {"exchangeType": 1, "tokens": nse_indices},
             {"exchangeType": 2, "tokens": option_tokens}
         ]
-        wsapp.subscribe(correlation_id="broast_live_feed", mode=1, token_list=token_list)
+        if WS_CLIENT and hasattr(WS_CLIENT, "subscribe"):
+            WS_CLIENT.subscribe(correlation_id="broast_live_feed", mode=1, token_list=token_list)
+        elif wsapp and hasattr(wsapp, "subscribe"):
+            wsapp.subscribe(correlation_id="broast_live_feed", mode=1, token_list=token_list)
         print(f"[AngelOne WS] Subscribed to {len(nse_indices)} indices and {len(option_tokens)} options with 0ms Mode 1 (LTP) stream!")
     except Exception as e:
         print(f"[AngelOne WS] Subscription warning: {e}")
