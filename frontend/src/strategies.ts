@@ -7,6 +7,7 @@ export interface OptionLeg {
     side: 'BUY' | 'SELL';
     size: number;
     price: number;
+    entry_price?: number;
     order_type?: 'MARKET' | 'LIMIT';
     limit_price?: number;
 }

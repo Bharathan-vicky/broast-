@@ -7,9 +7,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<CryptoTerminal />} />
-        <Route path="/nifty" element={<NiftyTerminal />} />
+        <Route path="/" element={<MobileTerminal />} />
         <Route path="/mobile" element={<MobileTerminal />} />
+        <Route path="/nifty" element={<NiftyTerminal />} />
+        <Route path="/crypto" element={<CryptoTerminal />} />
+        <Route path="/desktop" element={<CryptoTerminal />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
