@@ -27,6 +27,62 @@ export const CATEGORIZED_STRATEGIES = {
     ]
 };
 
+export interface StrategyTemplate {
+  name: string;
+  view: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'VOLATILE';
+  desc: string;
+  risk: 'Defined' | 'Unlimited';
+  reward: 'Defined' | 'Unlimited';
+}
+
+export const READY_STRATEGIES: StrategyTemplate[] = [
+  { name: 'Buy Call', view: 'BULLISH', desc: 'Buy ATM Call. Strong upward move expected with defined risk.', risk: 'Defined', reward: 'Unlimited' },
+  { name: 'Bull Call Spread', view: 'BULLISH', desc: 'Buy ATM CE + Sell OTM CE. Moderate upward move with reduced cost.', risk: 'Defined', reward: 'Defined' },
+  { name: 'Bull Put Spread', view: 'BULLISH', desc: 'Sell ATM PE + Buy OTM PE. Moderately bullish credit spread.', risk: 'Defined', reward: 'Defined' },
+  { name: 'Call Ratio Spread', view: 'BULLISH', desc: 'Buy 1 ATM CE + Sell 2 OTM CE. Range-bound bullish move.', risk: 'Unlimited', reward: 'Defined' },
+  { name: 'Bullish Condor', view: 'BULLISH', desc: '4-leg spread: buy OTM wings and sell ATM body, shifted bullishly.', risk: 'Defined', reward: 'Defined' },
+
+  { name: 'Buy Put', view: 'BEARISH', desc: 'Buy ATM Put. Strong downward move expected.', risk: 'Defined', reward: 'Unlimited' },
+  { name: 'Bear Put Spread', view: 'BEARISH', desc: 'Buy ATM PE + Sell OTM PE. Moderate downward move with lower cost.', risk: 'Defined', reward: 'Defined' },
+  { name: 'Bear Call Spread', view: 'BEARISH', desc: 'Sell ATM CE + Buy OTM CE. Moderately bearish credit spread.', risk: 'Defined', reward: 'Defined' },
+  { name: 'Put Ratio Spread', view: 'BEARISH', desc: 'Buy 1 ATM PE + Sell 2 OTM PE. Range-bound bearish move.', risk: 'Unlimited', reward: 'Defined' },
+  { name: 'Bearish Condor', view: 'BEARISH', desc: '4-leg spread: buy OTM wings and sell ATM body, shifted bearishly.', risk: 'Defined', reward: 'Defined' },
+
+  { name: 'Short Straddle', view: 'NEUTRAL', desc: 'Sell ATM CE + Sell ATM PE. Range-bound market with no big move.', risk: 'Unlimited', reward: 'Defined' },
+  { name: 'Short Strangle', view: 'NEUTRAL', desc: 'Sell OTM CE + Sell OTM PE. Wide range-bound market.', risk: 'Unlimited', reward: 'Defined' },
+  { name: 'Long Call Butterfly', view: 'NEUTRAL', desc: 'Buy 1 ITM CE + Sell 2 ATM CE + Buy 1 OTM CE. Defined risk range play.', risk: 'Defined', reward: 'Defined' },
+  { name: 'Short Iron Condor', view: 'NEUTRAL', desc: '4-leg credit spread. Profit if index stays inside range.', risk: 'Defined', reward: 'Defined' },
+
+  { name: 'Long Straddle', view: 'VOLATILE', desc: 'Buy ATM CE + Buy ATM PE. Big move in either direction.', risk: 'Defined', reward: 'Unlimited' },
+  { name: 'Long Strangle', view: 'VOLATILE', desc: 'Buy OTM CE + Buy OTM PE. Low-cost explosive breakout move.', risk: 'Defined', reward: 'Unlimited' },
+  { name: 'Long Iron Butterfly', view: 'VOLATILE', desc: 'Defined-risk 4-leg breakout structure away from ATM.', risk: 'Defined', reward: 'Defined' },
+  { name: 'Long Iron Condor', view: 'VOLATILE', desc: 'Defined-risk 4-leg range breakout strategy.', risk: 'Defined', reward: 'Defined' }
+];
+
+export const STRATEGY_GLOSSARY: Record<string, { view: string; purpose: string; strike: string; usage: string }> = {
+  'Buy Call': { view: 'Strongly Bullish 📈', purpose: 'Unlimited upside with strictly defined risk.', strike: 'ATM (balanced choice), ITM (higher premium/safer), or OTM (cheaper/needs stronger move).', usage: 'Simply buy a Call option contract. Volatility rise helps the option value.' },
+  'Bull Call Spread': { view: 'Moderately Bullish 📈', purpose: 'Reduce option buying costs while capping max risk and return.', strike: 'Buy ATM/slightly ITM Call + Sell OTM Call (target price).', usage: 'Buy lower strike Call + Sell higher strike Call. Reduces premium decay drag.' },
+  'Bull Put Spread': { view: 'Moderately Bullish 📈', purpose: 'Collect upfront credit/income if asset stays above strike.', strike: 'Sell ATM Put + Buy OTM Put (protection).', usage: 'Sell higher strike Put + Buy lower strike Put. Generates positive theta decay.' },
+  'Call Ratio Spread': { view: 'Slightly Bullish / Neutral 📈', purpose: 'Profit from a target price while paying very low or zero net premium.', strike: 'Buy 1 ATM Call + Sell 2 OTM Calls.', usage: 'Buy 1 CE at lower strike + Sell 2 CE at higher strike. Risk is unlimited if price explodes.' },
+  'Bullish Condor': { view: 'Moderately Bullish 📈', purpose: 'Range-bound play with bullish bias and capped maximum loss.', strike: 'Buy far OTM Put, Sell slightly ITM Put, Sell slightly OTM Call, Buy far OTM Call.', usage: '4-leg structure designed to profit if asset stays near the bullish target range.' },
+  'Buy Put': { view: 'Strongly Bearish 📉', purpose: 'Profit from rapid downward movements with limited risk.', strike: 'ATM (balanced), ITM (conservative), or OTM (aggressive/speculative).', usage: 'Simply buy a Put option contract. Volatility expansion benefits the value.' },
+  'Bear Put Spread': { view: 'Moderately Bearish 📉', purpose: 'Cheaper way to play a bearish move by selling a lower strike Put.', strike: 'Buy ATM Put + Sell OTM Put.', usage: 'Buy higher strike Put + Sell lower strike Put. Less theta decay drag than outright Buy Put.' },
+  'Bear Call Spread': { view: 'Moderately Bearish 📉', purpose: 'Collect credit/premium income expecting price to stay below strike.', strike: 'Sell ATM Call + Buy OTM Call (protection).', usage: 'Sell lower strike Call + Buy higher strike Call. Benefits from theta decay.' },
+  'Put Ratio Spread': { view: 'Slightly Bearish / Neutral 📉', purpose: 'Profit from target low while paying very low or zero net premium.', strike: 'Buy 1 ATM Put + Sell 2 OTM Puts.', usage: 'Buy 1 PE at higher strike + Sell 2 PE at lower strike. Risk is unlimited if price drops to zero.' },
+  'Bearish Condor': { view: 'Moderately Bearish 📉', purpose: 'Range-bound play with bearish bias and capped maximum loss.', strike: 'Buy far OTM Put, Sell slightly OTM Put, Sell slightly ITM Call, Buy far OTM Call.', usage: '4-leg structure designed to profit if asset stays near the bearish target range.' },
+  'Short Straddle': { view: 'Neutral ↔', purpose: 'Collect high premium expecting zero market movement.', strike: 'Sell ATM Call + Sell ATM Put.', usage: 'Sell ATM CE and PE. Maximum risk is unlimited in both directions. Highest theta collection.' },
+  'Short Strangle': { view: 'Neutral / Range-Bound ↔', purpose: 'Wide range profit with high probability of success.', strike: 'Sell OTM Call + Sell OTM Put.', usage: 'Sell OTM CE and PE. Risk is unlimited in both directions but price has room to breathe.' },
+  'Long Call Butterfly': { view: 'Neutral / Pinning ↔', purpose: 'Extremely high ROI if asset finishes exactly at ATM strike.', strike: 'Buy 1 ITM Call + Sell 2 ATM Calls + Buy 1 OTM Call.', usage: 'Highly defined risk target play. Benefits from decay on sold ATM body.' },
+  'Short Iron Condor': { view: 'Neutral / Range-Bound ↔', purpose: 'Collect premium safely with defined, limited risk.', strike: 'Buy OTM Put + Sell slightly OTM Put + Sell slightly OTM Call + Buy OTM Call.', usage: 'Sell ATM body + Buy OTM wings. Safest income strategy with capped maximum loss.' },
+  'Long Straddle': { view: 'High Volatility', purpose: 'Profit from massive explosive breakout in either direction.', strike: 'Buy ATM Call + Buy ATM Put.', usage: 'Buy ATM CE and PE. Profits if price moves significantly higher or lower. Loses on theta decay.' },
+  'Long Strangle': { view: 'High Volatility', purpose: 'Low-cost speculative play on an expected huge breakout.', strike: 'Buy OTM Call + Buy OTM Put.', usage: 'Buy OTM CE and PE. Cheaper entry cost than Straddle, but requires a much stronger price move.' },
+  'Long Iron Butterfly': { view: 'High Volatility', purpose: 'Defined-risk breakout structure profit on big moves.', strike: 'Buy 1 ATM Put, Sell 1 OTM Put, Sell 1 OTM Call, Buy 1 ATM Call.', usage: 'Defined-risk volatility play. Profits when price moves outside the middle range.' },
+  'Long Iron Condor': { view: 'High Volatility', purpose: 'Defined-risk play on range breakdown.', strike: 'Buy OTM Put + Sell slightly OTM Put + Sell slightly OTM Call + Buy OTM Call.', usage: 'Designed to profit if asset breaks out of range with capped maximum loss.' },
+  'Short Call': { view: 'Strongly Bearish 📉', purpose: 'Collect premium income expecting price to stay below strike.', strike: 'ATM (highest theta collection) or OTM (safer buffer).', usage: 'Sell a Call option contract. Maximum profit is capped, risk is unlimited.' },
+  'Short Put': { view: 'Strongly Bullish 📈', purpose: 'Collect premium income expecting price to stay above strike.', strike: 'ATM (highest theta collection) or OTM (safer buffer).', usage: 'Sell a Put option contract. Maximum profit is capped, risk is unlimited.' },
+  'Custom Strategy': { view: 'Varies (depends on leg combination) 🎭', purpose: 'Tailored payoff profile for specific market situations.', strike: 'Selected manually depending on trader view.', usage: 'Multi-leg custom trade. Review the Payoff Chart & Greeks to evaluate risk/reward.' }
+};
+
 // Helper to find a strike by offset from ATM (index-based)
 const getStrikeRow = (chain: any[], atmIndex: number, offset: number) => {
     const index = atmIndex + offset;

@@ -3,8 +3,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './App.css';
 import { Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ComposedChart, Bar, ReferenceDot } from 'recharts';
-import { CATEGORIZED_STRATEGIES, buildStrategyBasket } from './strategies';
-import type { OptionLeg } from './strategies';
+import { CATEGORIZED_STRATEGIES, buildStrategyBasket, READY_STRATEGIES, STRATEGY_GLOSSARY } from './strategies';
+import type { OptionLeg, StrategyTemplate } from './strategies';
 
 // Standard Normal Cumulative Distribution Function
 const cnd = (x: number) => {
@@ -61,7 +61,11 @@ function NiftyTerminal() {
   const [leverage, setLeverage] = useState(200);
   const [targetPrice, setTargetPrice] = useState<number | null>(null);
   const [targetDate, setTargetDate] = useState<number>(Date.now());
-  const [activeTab, setActiveTab] = useState<'Chart'|'PNL'|'Greeks'>('Chart');
+  const [activeTab, setActiveTab] = useState<'Chart'|'PNL'|'Greeks'|'Library'>('Chart');
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [orderProductType, setOrderProductType] = useState<'INTRADAY' | 'OVERNIGHT'>('OVERNIGHT');
+  const [orderTargetPct, setOrderTargetPct] = useState<string>('');
+  const [orderSlPct, setOrderSlPct] = useState<string>('');
 
   // Multi-Account & Custom Available Margin State (NIFTY INR - Max 10 Accounts)
   const [accounts, setAccounts] = useState<Account[]>([
@@ -1011,11 +1015,13 @@ function NiftyTerminal() {
                     <td 
                       style={{
                         textAlign: 'center',
-                        background: isCallITM ? 'rgba(255, 184, 0, 0.04)' : 'transparent',
-                        padding: '4px 8px'
+                        background: isCallITM ? 'rgba(239, 68, 68, 0.06)' : 'transparent',
+                        padding: '4px 8px',
+                        position: 'relative'
                       }}
                     >
-                      <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
+                      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${Math.min(callOiRatio * 100, 100)}%`, backgroundColor: 'rgba(0, 192, 135, 0.15)' }} />
+                      <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', position: 'relative', zIndex: 1}}>
                         <span style={{color: '#e2e8f0', fontWeight: 500}}>
                           {row.callOI ? row.callOI.toLocaleString('en-IN') : '-'}
                         </span>
@@ -1031,7 +1037,7 @@ function NiftyTerminal() {
                       onMouseLeave={() => setHoveredCell(null)}
                       style={{
                         textAlign: 'center',
-                        background: isCallITM ? 'rgba(255, 184, 0, 0.04)' : 'transparent',
+                        background: isCallITM ? 'rgba(239, 68, 68, 0.06)' : 'transparent',
                         position: 'relative',
                         padding: '4px 8px',
                         borderLeft: callLeg ? '2px solid var(--color-accent)' : '',
@@ -1041,7 +1047,7 @@ function NiftyTerminal() {
                     >
                       {callLeg && (
                         <div 
-                          style={{position: 'absolute', left: 2, top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: callLeg.side === 'BUY' ? 'var(--color-up)' : 'var(--color-down)', color: 'white', fontWeight: 'bold', fontSize: '9px', cursor: 'pointer'}}
+                          style={{position: 'absolute', left: 2, top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: callLeg.side === 'BUY' ? 'var(--color-up)' : 'var(--color-down)', color: 'white', fontWeight: 'bold', fontSize: '9px', cursor: 'pointer', zIndex: 2}}
                           onClick={(e) => { e.stopPropagation(); setStratBasket(stratBasket.filter(l => !(l.strike === row.strike && l.option_type === 'CALL'))); }}
                           title="Click to deselect"
                         >
@@ -1050,9 +1056,9 @@ function NiftyTerminal() {
                       )}
 
                       {hoveredCell?.strike === row.strike && hoveredCell?.side === 'CALL' ? (
-                        <div style={{display: 'flex', gap: '5px', justifyContent: 'center', alignItems: 'center'}}>
-                          <button className="btn" style={{background: 'var(--color-up)', padding: '3px 10px', fontSize: '10.5px', color: 'white', border: 'none', borderRadius: '3px', fontWeight: 'bold', cursor: 'pointer'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('BUY', 'CALL', row, stratSize); }}>Buy</button>
-                          <button className="btn" style={{background: 'var(--color-down)', padding: '3px 10px', fontSize: '10.5px', color: 'white', border: 'none', borderRadius: '3px', fontWeight: 'bold', cursor: 'pointer'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('SELL', 'CALL', row, stratSize); }}>Sell</button>
+                        <div style={{display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center', position: 'relative', zIndex: 2}}>
+                          <button style={{background: 'transparent', border: '1px solid #00c087', color: '#00c087', padding: '4px 10px', fontSize: '10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', minWidth: '42px'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('BUY', 'CALL', row, stratSize); }}>BUY</button>
+                          <button style={{background: 'transparent', border: '1px solid #f84960', color: '#f84960', padding: '4px 10px', fontSize: '10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', minWidth: '42px'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('SELL', 'CALL', row, stratSize); }}>SELL</button>
                         </div>
                       ) : (
                         <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
@@ -1066,27 +1072,19 @@ function NiftyTerminal() {
                       )}
                     </td>
 
-                    {/* 3. Strike with OI comparison bars */}
+                    {/* 3. Strike */}
                     <td 
                       style={{
                         textAlign: 'center',
-                        background: '#0d111a',
+                        background: (hoveredCell?.strike === row.strike) ? 'rgba(56, 189, 248, 0.08)' : '#0d111a',
                         fontWeight: 700,
                         color: 'white',
-                        padding: '4px 8px'
+                        padding: '4px 8px',
+                        transition: 'background 0.2s'
                       }}
                     >
                       <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px'}}>
                         <span style={{fontSize: '13px', letterSpacing: '0.3px'}}>{row.strike.toLocaleString('en-IN')}</span>
-                        {/* Dual OI relative bars */}
-                        <div style={{display: 'flex', width: '56px', height: '3px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden', gap: '2px'}}>
-                          <div style={{flex: 1, display: 'flex', justifyContent: 'flex-end'}}>
-                            <div style={{width: `${Math.max(callOiRatio * 100, 6)}%`, height: '100%', background: '#ff7043', borderRadius: '1px'}} />
-                          </div>
-                          <div style={{flex: 1, display: 'flex', justifyContent: 'flex-start'}}>
-                            <div style={{width: `${Math.max(putOiRatio * 100, 6)}%`, height: '100%', background: '#26a69a', borderRadius: '1px'}} />
-                          </div>
-                        </div>
                       </div>
                     </td>
 
@@ -1096,7 +1094,7 @@ function NiftyTerminal() {
                       onMouseLeave={() => setHoveredCell(null)}
                       style={{
                         textAlign: 'center',
-                        background: isPutITM ? 'rgba(255, 184, 0, 0.04)' : 'transparent',
+                        background: isPutITM ? 'rgba(0, 192, 135, 0.06)' : 'transparent',
                         position: 'relative',
                         padding: '4px 8px',
                         borderRight: putLeg ? '2px solid var(--color-accent)' : '',
@@ -1105,9 +1103,9 @@ function NiftyTerminal() {
                       }}
                     >
                       {hoveredCell?.strike === row.strike && hoveredCell?.side === 'PUT' ? (
-                        <div style={{display: 'flex', gap: '5px', justifyContent: 'center', alignItems: 'center'}}>
-                          <button className="btn" style={{background: 'var(--color-up)', padding: '3px 10px', fontSize: '10.5px', color: 'white', border: 'none', borderRadius: '3px', fontWeight: 'bold', cursor: 'pointer'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('BUY', 'PUT', row, stratSize); }}>Buy</button>
-                          <button className="btn" style={{background: 'var(--color-down)', padding: '3px 10px', fontSize: '10.5px', color: 'white', border: 'none', borderRadius: '3px', fontWeight: 'bold', cursor: 'pointer'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('SELL', 'PUT', row, stratSize); }}>Sell</button>
+                        <div style={{display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center', position: 'relative', zIndex: 2}}>
+                          <button style={{background: 'transparent', border: '1px solid #00c087', color: '#00c087', padding: '4px 10px', fontSize: '10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', minWidth: '42px'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('BUY', 'PUT', row, stratSize); }}>BUY</button>
+                          <button style={{background: 'transparent', border: '1px solid #f84960', color: '#f84960', padding: '4px 10px', fontSize: '10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', minWidth: '42px'}} onClick={(e) => { e.stopPropagation(); addLegToBasket('SELL', 'PUT', row, stratSize); }}>SELL</button>
                         </div>
                       ) : (
                         <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
@@ -1122,7 +1120,7 @@ function NiftyTerminal() {
 
                       {putLeg && (
                         <div 
-                          style={{position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: putLeg.side === 'BUY' ? 'var(--color-up)' : 'var(--color-down)', color: 'white', fontWeight: 'bold', fontSize: '9px', cursor: 'pointer'}}
+                          style={{position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: putLeg.side === 'BUY' ? 'var(--color-up)' : 'var(--color-down)', color: 'white', fontWeight: 'bold', fontSize: '9px', cursor: 'pointer', zIndex: 2}}
                           onClick={(e) => { e.stopPropagation(); setStratBasket(stratBasket.filter(l => !(l.strike === row.strike && l.option_type === 'PUT'))); }}
                           title="Click to deselect"
                         >
@@ -1135,11 +1133,13 @@ function NiftyTerminal() {
                     <td 
                       style={{
                         textAlign: 'center',
-                        background: isPutITM ? 'rgba(255, 184, 0, 0.04)' : 'transparent',
-                        padding: '4px 8px'
+                        background: isPutITM ? 'rgba(0, 192, 135, 0.06)' : 'transparent',
+                        padding: '4px 8px',
+                        position: 'relative'
                       }}
                     >
-                      <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
+                      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(putOiRatio * 100, 100)}%`, backgroundColor: 'rgba(248, 73, 96, 0.15)' }} />
+                      <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', position: 'relative', zIndex: 1}}>
                         <span style={{color: '#e2e8f0', fontWeight: 500}}>
                           {row.putOI ? row.putOI.toLocaleString('en-IN') : '-'}
                         </span>
@@ -1909,6 +1909,60 @@ function NiftyTerminal() {
                    </div>
                )}
                
+               {activeTab === 'Library' && (
+                   <div style={{padding: '0 15px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '50vh'}}>
+                       <h4 style={{fontSize: '13px', color: 'white', marginBottom: '4px', marginTop: '10px'}}>Ready-Made Market Strategies</h4>
+                       {READY_STRATEGIES.map((strat, idx) => {
+                           const info = STRATEGY_GLOSSARY[strat.name] || STRATEGY_GLOSSARY['Custom Strategy'];
+                           const isBullish = strat.view === 'BULLISH';
+                           const isBearish = strat.view === 'BEARISH';
+                           const isNeutral = strat.view === 'NEUTRAL';
+                           
+                           return (
+                               <div key={idx} 
+                                   onClick={() => {
+                                       if (atmStrike) {
+                                           const basket = buildStrategyBasket(strat.name, currentChain, atmStrike, activeAsset, activeExpiry, stratSize);
+                                           if (basket.length > 0) {
+                                               setStratBasket(basket);
+                                               setStrategy('Custom');
+                                               setActiveTab('Chart');
+                                           }
+                                       }
+                                   }}
+                                   style={{
+                                   background: 'rgba(255,255,255,0.03)', 
+                                   border: '1px solid rgba(255,255,255,0.08)', 
+                                   borderRadius: '8px', 
+                                   padding: '12px',
+                                   cursor: 'pointer',
+                                   transition: 'background 0.2s ease'
+                               }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+                                       <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                           <span style={{
+                                               fontSize: '10px', 
+                                               fontWeight: 'bold',
+                                               padding: '2px 6px',
+                                               borderRadius: '4px',
+                                               background: isBullish ? 'rgba(0,192,135,0.15)' : isBearish ? 'rgba(248,73,96,0.15)' : isNeutral ? 'rgba(255,184,0,0.15)' : 'rgba(56,189,248,0.15)',
+                                               color: isBullish ? '#00c087' : isBearish ? '#f84960' : isNeutral ? '#ffb800' : '#38bdf8'
+                                           }}>{strat.view}</span>
+                                           <span style={{fontWeight: 'bold', fontSize: '13px', color: 'white'}}>{strat.name}</span>
+                                       </div>
+                                       <span style={{fontSize: '10px', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px'}}>Risk: {strat.risk}</span>
+                                   </div>
+                                   <p style={{fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: '1.4'}}>{strat.desc}</p>
+                                   <div style={{fontSize: '10.5px', color: '#a0a6b5', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '4px'}}>
+                                       <span style={{display: 'block', marginBottom: '4px'}}>🎯 <strong style={{color: '#c3c8d4'}}>Purpose:</strong> {info.purpose}</span>
+                                       <span style={{display: 'block'}}>⚡ <strong style={{color: '#c3c8d4'}}>Usage:</strong> {info.usage}</span>
+                                   </div>
+                               </div>
+                           );
+                       })}
+                   </div>
+               )}
+
                <div style={{padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)'}}>   </div>
             </div>
            </div>
@@ -1959,9 +2013,9 @@ function NiftyTerminal() {
                            flex: 1
                        }} 
                        disabled={stratBasket.length === 0}
-                       onClick={() => handleTrade(stratBasket, strategy)}
+                       onClick={() => setShowOrderModal(true)}
                    >
-                       Place Order {stratBasket.length > 0 ? `(${stratBasket.length})` : ''}
+                       Review Order {stratBasket.length > 0 ? `(${stratBasket.length})` : ''}
                    </button>
                </div>
            </div>
@@ -2527,6 +2581,115 @@ function NiftyTerminal() {
           </div>
           );
       })()}
+
+      {/* Order Placement Modal (Zerodha/Delta Style) */}
+      {showOrderModal && (
+          <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(4px)'}}>
+              <div style={{background: '#141822', padding: '22px', borderRadius: '10px', width: '460px', border: '1px solid var(--border-color)', position: 'relative', boxShadow: '0 12px 40px rgba(0,0,0,0.6)'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px'}}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                          <span style={{color: 'white', fontSize: '16px', fontWeight: 'bold'}}>Review Order: {strategy !== 'Custom' ? strategy : (stratBasket.length > 0 ? 'Custom Strategy' : 'None')}</span>
+                      </div>
+                      <span style={{cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '16px'}} onClick={() => setShowOrderModal(false)}>✕</span>
+                  </div>
+
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px'}}>
+                      
+                      {/* Product Type Toggle */}
+                      <div>
+                          <label style={{fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px'}}>Product Type</label>
+                          <div style={{display: 'flex', background: '#0e121a', border: '1px solid var(--border-color)', borderRadius: '4px', overflow: 'hidden'}}>
+                              <div 
+                                  style={{flex: 1, padding: '8px', textAlign: 'center', fontSize: '12px', cursor: 'pointer', background: orderProductType === 'INTRADAY' ? 'var(--color-accent)' : 'transparent', color: orderProductType === 'INTRADAY' ? 'white' : 'var(--text-secondary)'}}
+                                  onClick={() => setOrderProductType('INTRADAY')}
+                              >
+                                  INTRADAY (MIS)
+                              </div>
+                              <div 
+                                  style={{flex: 1, padding: '8px', textAlign: 'center', fontSize: '12px', cursor: 'pointer', background: orderProductType === 'OVERNIGHT' ? 'var(--color-accent)' : 'transparent', color: orderProductType === 'OVERNIGHT' ? 'white' : 'var(--text-secondary)'}}
+                                  onClick={() => setOrderProductType('OVERNIGHT')}
+                              >
+                                  OVERNIGHT (NRML)
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* Bracket Order Options */}
+                      <div style={{display: 'flex', gap: '12px'}}>
+                          <div style={{flex: 1}}>
+                              <label style={{fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px'}}>Target (%)</label>
+                              <input 
+                                  type="number" 
+                                  placeholder="e.g. 10" 
+                                  value={orderTargetPct}
+                                  onChange={e => setOrderTargetPct(e.target.value)}
+                                  style={{width: '100%', background: '#0e121a', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px 10px', color: 'white', fontSize: '12px', outline: 'none'}}
+                              />
+                          </div>
+                          <div style={{flex: 1}}>
+                              <label style={{fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px'}}>Stoploss (%)</label>
+                              <input 
+                                  type="number" 
+                                  placeholder="e.g. 5" 
+                                  value={orderSlPct}
+                                  onChange={e => setOrderSlPct(e.target.value)}
+                                  style={{width: '100%', background: '#0e121a', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px 10px', color: 'white', fontSize: '12px', outline: 'none'}}
+                              />
+                          </div>
+                      </div>
+
+                      {/* Leverage Slider (if crypto) */}
+                      {(activeAsset === 'BTC' || activeAsset === 'ETH') && (
+                          <div>
+                              <label style={{fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px'}}>Leverage</label>
+                              <div style={{display: 'flex', alignItems: 'center', background: '#0e121a', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px 10px'}}>
+                                  <span style={{cursor: 'pointer', padding: '0 10px', fontSize: '14px', color: 'white'}} onClick={() => setLeverage(Math.max(1, leverage - 5))}>-</span>
+                                  <span style={{flex: 1, textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: 'white'}}>{leverage}x</span>
+                                  <span style={{cursor: 'pointer', padding: '0 10px', fontSize: '14px', color: 'white'}} onClick={() => setLeverage(Math.min(200, leverage + 5))}>+</span>
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Order Summary */}
+                      <div style={{background: '#0e121a', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '12px', marginTop: '8px'}}>
+                          <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px'}}>
+                              <span style={{color: 'var(--text-secondary)'}}>Required Margin</span>
+                              <strong style={{color: 'white'}}>₹{orderMargin.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                          </div>
+                          <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px'}}>
+                              <span style={{color: 'var(--text-secondary)'}}>Available Balance</span>
+                              <strong style={{color: activeAccount.balance < (orderMargin + tradingFees.totalAllFees) ? 'var(--color-down)' : 'white'}}>₹{activeAccount.balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                          </div>
+                          <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '12px'}}>
+                              <span style={{color: 'var(--text-secondary)'}}>Legs</span>
+                              <strong style={{color: 'white'}}>{stratBasket.length}</strong>
+                          </div>
+                      </div>
+                  </div>
+
+                  <button 
+                      className="btn" 
+                      style={{
+                          width: '100%',
+                          background: activeAccount.balance < (orderMargin + tradingFees.totalAllFees) ? '#384050' : 'var(--color-accent)', 
+                          color: activeAccount.balance < (orderMargin + tradingFees.totalAllFees) ? '#838a9b' : 'white', 
+                          fontWeight: 'bold', 
+                          fontSize: '14px', 
+                          padding: '12px 24px', 
+                          borderRadius: '4px',
+                          cursor: activeAccount.balance < (orderMargin + tradingFees.totalAllFees) ? 'not-allowed' : 'pointer',
+                          border: 'none'
+                      }} 
+                      onClick={() => {
+                          setShowOrderModal(false);
+                          handleTrade(stratBasket, strategy);
+                      }}
+                  >
+                      {activeAccount.balance < (orderMargin + tradingFees.totalAllFees) ? 'Insufficient Funds' : 'Confirm Order'}
+                  </button>
+              </div>
+          </div>
+      )}
     </div>
   );
 }

@@ -954,15 +954,20 @@ def _on_ws_open(wsapp=None):
     print("[AngelOne WS] WebSocket connected successfully! Subscribing tokens for 0ms streaming...")
     try:
         nse_indices = ["99926000", "99926009"] + list(STOCK_TOKENS.values())
-        option_tokens = list(TOKEN_TO_INFO.keys())[:100]
+        
+        # Subscribe to option tokens (max 1000 to avoid 429 errors or WS size limits)
+        option_tokens = list(TOKEN_TO_INFO.keys())[:1000]
+        
         token_list = [
             {"exchangeType": 1, "tokens": nse_indices},
             {"exchangeType": 2, "tokens": option_tokens}
         ]
+        
         if WS_CLIENT and hasattr(WS_CLIENT, "subscribe"):
             WS_CLIENT.subscribe(correlation_id="broast_live_feed", mode=1, token_list=token_list)
         elif wsapp and hasattr(wsapp, "subscribe"):
             wsapp.subscribe(correlation_id="broast_live_feed", mode=1, token_list=token_list)
+            
         print(f"[AngelOne WS] Subscribed to {len(nse_indices)} indices and {len(option_tokens)} options with 0ms Mode 1 (LTP) stream!")
     except Exception as e:
         print(f"[AngelOne WS] Subscription warning: {e}")
