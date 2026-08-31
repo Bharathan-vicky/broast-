@@ -1,18 +1,15 @@
 """
-Angel One SmartAPI 100% Bulletproof Zero-Failure Real-Time Sync Engine.
-Guarantees:
+Angel One SmartAPI 100% Real Market Data Sync Engine.
+- 100% real Angel One option chain data — ZERO Black-Scholes, ZERO synthetic prices
 - Persistent disk-cached instruments (`instruments_cache.json`) with auto-refresh
-- Resilient API calls with automatic retry, exponential backoff, and auto-relogin
-- Dedicated 1.5s background REST batch quote poller for spot & option strikes
-- SmartWebSocketV2 tick streaming for ultra-low latency
-- Real live exchange prices (LTP, Net Change, % Change, OI, Bid/Ask, Greeks)
+- Smart ATM±15 REST batch quote poller (0.8s cycle) for real LTP, OI, Bid/Ask, Change%
+- SmartWebSocketV2 tick streaming for ultra-low latency spot prices
 - 0ms in-memory cache for all API requests
 """
 import os
 import re
 import json
 import time
-import math
 import datetime
 import logging
 from datetime import timezone, timedelta
@@ -694,65 +691,46 @@ def get_spot_info(asset="NIFTY"):
 def get_nifty_spot(asset="NIFTY"):
     return get_spot_info(asset)
 
-
-# ==================== GREEKS ENGINE ====================
-
-def _N(x):
-    a1,a2,a3,a4,a5,p = 0.254829592,-0.284496736,1.421413741,-1.453152027,1.061405429,0.3275911
-    sign = 1 if x >= 0 else -1
-    x = abs(x)/math.sqrt(2.0)
-    t = 1.0/(1.0+p*x)
-    y = 1.0-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*math.exp(-x*x)
-    return 0.5*(1.0+sign*y)
-
-def _n(x):
-    return math.exp(-x*x/2.0)/math.sqrt(2.0*math.pi)
-
-def _bs_greeks(S, K, T, r, sigma, opt_type):
-    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
-        return 0,0,0,0,0
-    d1 = (math.log(S/K)+(r+0.5*sigma**2)*T)/(sigma*math.sqrt(T))
-    d2 = d1-sigma*math.sqrt(T)
-    gamma = _n(d1)/(S*sigma*math.sqrt(T))
-    vega = S*_n(d1)*math.sqrt(T)
-    if opt_type == "C":
-        price = S*_N(d1)-K*math.exp(-r*T)*_N(d2)
-        delta = _N(d1)
-        theta = (-(S*_n(d1)*sigma)/(2*math.sqrt(T))-r*K*math.exp(-r*T)*_N(d2))/365
-    else:
-        price = K*math.exp(-r*T)*_N(-d2)-S*_N(-d1)
-        delta = _N(d1)-1
-        theta = (-(S*_n(d1)*sigma)/(2*math.sqrt(T))+r*K*math.exp(-r*T)*_N(-d2))/365
-    return price, delta, gamma, theta, vega
-
-
-# ==================== CHAIN BUILDER ====================
+# ==================== CHAIN BUILDER (100% ANGEL ONE REAL DATA) ====================
 
 def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
+    """Builds option chain from 100% real Angel One market data. No Black-Scholes. No synthetic."""
     global NIFTY_REAL_INSTRUMENTS, BANKNIFTY_REAL_INSTRUMENTS, MCX_REAL_INSTRUMENTS, LIVE_PRICES
     spot_info = get_spot_info(asset)
-    spot_price = spot_info.get("spot_price") or (80625.5 if asset == "SENSEX" else (57669.5 if asset == "BANKNIFTY" else 24284.85))
+    spot_price = spot_info.get("spot_price", 0)
 
     if asset == "BANKNIFTY":
         instruments = BANKNIFTY_REAL_INSTRUMENTS
     elif asset in ["CRUDEOIL", "GOLD", "SILVER"]:
         instruments = [x for x in MCX_REAL_INSTRUMENTS if x.get("asset") == asset]
-    elif asset == "SENSEX" or asset in STOCK_TOKENS:
-        instruments = []
     elif asset == "NIFTY":
         instruments = NIFTY_REAL_INSTRUMENTS
     else:
         instruments = []
 
     if not instruments:
-        return _generate_synthetic_fallback_chain(spot_price, expiry_filter, asset=asset)
+        # No instruments loaded yet — return empty chain (not fake data)
+        return {
+            "expiries": [],
+            "chainByExpiry": {},
+            "spot": spot_info,
+            "sync_status": {
+                "is_live": False,
+                "broker": "AngelOne (Loading...)",
+                "last_synced": time.time()
+            }
+        }
 
     expiries = sorted(list(set(x["expiry_iso"] for x in instruments)))
     if not expiries:
-        return _generate_synthetic_fallback_chain(spot_price, expiry_filter, asset=asset)
+        return {
+            "expiries": [],
+            "chainByExpiry": {},
+            "spot": spot_info,
+            "sync_status": {"is_live": False, "broker": "AngelOne (No Expiries)", "last_synced": time.time()}
+        }
 
     chain_by_expiry = {}
-    now_ts = time.time()
     step = 50.0
     if asset in ["NIFTY", "CRUDEOIL", "CRUDEOILM"]:
         step = 50.0
@@ -771,7 +749,7 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
 
     for exp_iso in expiries[:5]:
         exp_items = [x for x in instruments if x["expiry_iso"] == exp_iso]
-        
+
         grouped = {}
         for item in exp_items:
             strike = item["strike"]
@@ -784,14 +762,11 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
                 grouped[strike]["put_token"] = item["token"]
                 grouped[strike]["put_sym"] = item["symbol"]
 
-        atm_center = round(spot_price / step) * step
+        atm_center = round(spot_price / step) * step if spot_price > 0 else 0
         all_strikes = sorted(grouped.keys())
-        target_strikes = [s for s in all_strikes if abs(s - atm_center) <= (step * 25)]
+        target_strikes = [s for s in all_strikes if abs(s - atm_center) <= (step * 20)]
         if not target_strikes:
             target_strikes = all_strikes[:35]
-
-        exp_dt = datetime.datetime.strptime(exp_iso, "%Y-%m-%dT12:00:00Z")
-        T = max((exp_dt.timestamp() - now_ts) / (365.25 * 24 * 3600), 0.001)
 
         chain_data = []
         max_call_oi = 1
@@ -804,72 +779,48 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
             c_tok = info["call_token"]
             p_tok = info["put_token"]
 
+            # 100% Real Angel One data from LIVE_PRICES (populated by REST poller + WebSocket)
             c_live = LIVE_PRICES.get(c_sym, {}) or LIVE_PRICES.get(c_tok, {})
             p_live = LIVE_PRICES.get(p_sym, {}) or LIVE_PRICES.get(p_tok, {})
 
+            # Real LTP — 0 if not yet polled (honest, not fake)
+            call_ltp = float(c_live.get("ltp", 0) or 0)
+            put_ltp = float(p_live.get("ltp", 0) or 0)
+
+            # Real OI
             c_oi = int(c_live.get("oi", 0) or 0)
             p_oi = int(p_live.get("oi", 0) or 0)
             if c_oi > max_call_oi: max_call_oi = c_oi
             if p_oi > max_put_oi: max_put_oi = p_oi
 
-            iv = 0.135
-            c_bs, c_delta, c_gamma, c_theta, c_vega = _bs_greeks(spot_price, strike, T, 0.065, iv, "C")
-            p_bs, p_delta, p_gamma, p_theta, p_vega = _bs_greeks(spot_price, strike, T, 0.065, iv, "P")
+            # Real change & percentChange
+            call_pchange = float(c_live.get("percentChange", 0) or c_live.get("percent_change", 0) or 0)
+            put_pchange = float(p_live.get("percentChange", 0) or p_live.get("percent_change", 0) or 0)
+            call_netchange = float(c_live.get("change", 0) or 0)
+            put_netchange = float(p_live.get("change", 0) or 0)
 
-            # Prioritize real AngelOne live market price
-            raw_c_ltp = c_live.get("ltp") or c_live.get("mark")
-            raw_p_ltp = p_live.get("ltp") or p_live.get("mark")
+            # Real bid/ask
+            call_bid = float(c_live.get("bid", 0) or 0)
+            call_ask = float(c_live.get("ask", 0) or 0)
+            put_bid = float(p_live.get("bid", 0) or 0)
+            put_ask = float(p_live.get("ask", 0) or 0)
 
-            call_mark = float(raw_c_ltp) if raw_c_ltp is not None and float(raw_c_ltp) > 0 else max(0.05, round(c_bs, 2))
-            put_mark = float(raw_p_ltp) if raw_p_ltp is not None and float(raw_p_ltp) > 0 else max(0.05, round(p_bs, 2))
-
-            # Log first ATM strike to verify real vs synthetic
-            if strike == atm_center and exp_iso == expiries[0]:
-                is_real_c = raw_c_ltp is not None and float(raw_c_ltp) > 0
-                is_real_p = raw_p_ltp is not None and float(raw_p_ltp) > 0
-                print(f"[AngelOne Chain] {asset} ATM {int(strike)} | C: {'REAL' if is_real_c else 'SYNTH'} ₹{call_mark:.2f} | P: {'REAL' if is_real_p else 'SYNTH'} ₹{put_mark:.2f} | c_sym={c_sym} c_tok={c_tok}")
-
-            call_pchange = float(c_live.get("percentChange", 0.0) or c_live.get("pchange", 0.0) or 0.0)
-            put_pchange = float(p_live.get("percentChange", 0.0) or p_live.get("pchange", 0.0) or 0.0)
-            call_netchange = float(c_live.get("netchange", 0.0) or c_live.get("change", 0.0) or 0.0)
-            put_netchange = float(p_live.get("netchange", 0.0) or p_live.get("change", 0.0) or 0.0)
-
-            call_bid = c_live.get("bid") or round(call_mark * 0.99, 2)
-            call_ask = c_live.get("ask") or round(call_mark * 1.01, 2)
-            put_bid = p_live.get("bid") or round(put_mark * 0.99, 2)
-            put_ask = p_live.get("ask") or round(put_mark * 1.01, 2)
-
-            # Save into LIVE_PRICES for 0ms execution & PnL calculation
-            with _LOCK:
-                if c_sym:
-                    LIVE_PRICES[c_sym] = {
-                        "mark": round(call_mark, 2),
-                        "ltp": round(call_mark, 2),
-                        "bid": round(call_bid, 2),
-                        "ask": round(call_ask, 2),
-                        "oi": c_oi,
-                        "change": round(call_netchange, 2),
-                        "percentChange": round(call_pchange, 2)
-                    }
-                if p_sym:
-                    LIVE_PRICES[p_sym] = {
-                        "mark": round(put_mark, 2),
-                        "ltp": round(put_mark, 2),
-                        "bid": round(put_bid, 2),
-                        "ask": round(put_ask, 2),
-                        "oi": p_oi,
-                        "change": round(put_netchange, 2),
-                        "percentChange": round(put_pchange, 2)
-                    }
+            # Real high/low/close
+            call_high = float(c_live.get("high", 0) or 0)
+            call_low = float(c_live.get("low", 0) or 0)
+            call_close = float(c_live.get("close", 0) or 0)
+            put_high = float(p_live.get("high", 0) or 0)
+            put_low = float(p_live.get("low", 0) or 0)
+            put_close = float(p_live.get("close", 0) or 0)
 
             chain_data.append({
                 "strike": strike,
                 "callSym": c_sym or f"C-{asset}-{int(strike)}",
                 "putSym": p_sym or f"P-{asset}-{int(strike)}",
-                "callMark": round(call_mark, 2),
-                "putMark": round(put_mark, 2),
-                "callLtp": round(call_mark, 2),
-                "putLtp": round(put_mark, 2),
+                "callMark": round(call_ltp, 2),
+                "putMark": round(put_ltp, 2),
+                "callLtp": round(call_ltp, 2),
+                "putLtp": round(put_ltp, 2),
                 "callBid": round(call_bid, 2),
                 "callAsk": round(call_ask, 2),
                 "putBid": round(put_bid, 2),
@@ -878,20 +829,26 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
                 "putPchange": round(put_pchange, 2),
                 "callNetchange": round(call_netchange, 2),
                 "putNetchange": round(put_netchange, 2),
-                "callOI": c_oi if c_oi > 0 else int(max(10000, 150000 - abs(strike - spot_price) * 80)),
-                "putOI": p_oi if p_oi > 0 else int(max(10000, 150000 - abs(strike - spot_price) * 80)),
-                "callOiChange": round(call_pchange * -0.3, 2),
-                "putOiChange": round(put_pchange * -0.3, 2),
-                "callIV": round(iv, 3),
-                "putIV": round(iv, 3),
-                "callDelta": round(c_delta, 4),
-                "putDelta": round(p_delta, 4),
-                "callGamma": round(c_gamma, 6),
-                "putGamma": round(p_gamma, 6),
-                "callTheta": round(c_theta, 2),
-                "putTheta": round(p_theta, 2),
-                "callVega": round(c_vega, 2),
-                "putVega": round(p_vega, 2),
+                "callOI": c_oi,
+                "putOI": p_oi,
+                "callOiChange": 0,
+                "putOiChange": 0,
+                "callHigh": round(call_high, 2),
+                "callLow": round(call_low, 2),
+                "callClose": round(call_close, 2),
+                "putHigh": round(put_high, 2),
+                "putLow": round(put_low, 2),
+                "putClose": round(put_close, 2),
+                "callIV": 0,
+                "putIV": 0,
+                "callDelta": 0,
+                "putDelta": 0,
+                "callGamma": 0,
+                "putGamma": 0,
+                "callTheta": 0,
+                "putTheta": 0,
+                "callVega": 0,
+                "putVega": 0,
             })
 
         for item in chain_data:
@@ -906,181 +863,7 @@ def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
         "spot": spot_info,
         "sync_status": {
             "is_live": True,
-            "broker": "AngelOne SmartAPI",
-            "last_synced": time.time()
-        }
-    }
-
-
-def _generate_synthetic_fallback_chain(spot_price, expiry_filter=None, asset="NIFTY"):
-    today = datetime.date.today()
-    asset_u = asset.upper()
-    
-    if asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS:
-        # Stock Options have monthly expiries on the last Tuesday of each month (NSE Standard)
-        import calendar
-        def _get_last_tuesday(year, month):
-            last_day = calendar.monthrange(year, month)[1]
-            d = datetime.date(year, month, last_day)
-            offset = (d.weekday() - 1) % 7 # 1 = Tuesday
-            return d - datetime.timedelta(days=offset)
-        
-        expiries_dates = []
-        cur_y = today.year
-        cur_m = today.month
-        now_dt = datetime.datetime.now()
-        for i in range(5):
-            m = ((cur_m - 1 + i) % 12) + 1
-            y = cur_y + ((cur_m - 1 + i) // 12)
-            tues = _get_last_tuesday(y, m)
-            tues_dt = datetime.datetime.combine(tues, datetime.time(15, 30, 0))
-            if tues_dt >= now_dt:
-                expiries_dates.append(tues_dt)
-        expiries_dt = expiries_dates[:3]
-        expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
-    elif asset_u in ["CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM", "NATURALGAS", "NATGASM"]:
-        # MCX Commodities have monthly contract expiries
-        expiries_dates = []
-        cur_y = today.year
-        cur_m = today.month
-        for i in range(5):
-            m = ((cur_m - 1 + i) % 12) + 1
-            y = cur_y + ((cur_m - 1 + i) // 12)
-            exp_day = 19 if "CRUDE" in asset_u else (25 if "NAT" in asset_u else 5)
-            exp_d = datetime.date(y, m, exp_day)
-            if exp_d >= today:
-                expiries_dates.append(datetime.datetime.combine(exp_d, datetime.time(23, 30, 0)))
-        if not expiries_dates:
-            expiries_dates = [datetime.datetime.combine(today + datetime.timedelta(days=14), datetime.time(23, 30, 0))]
-        expiries_dt = expiries_dates[:3]
-        expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
-    else:
-        # Indices: SENSEX = Friday (4), BANKNIFTY = Wednesday (2), NIFTY = Thursday (3)
-        if asset_u == "SENSEX":
-            target_weekday = 4
-        elif asset_u == "BANKNIFTY":
-            target_weekday = 2
-        else:
-            target_weekday = 3
-
-        days_ahead = (target_weekday - today.weekday()) % 7
-        if days_ahead == 0 and (datetime.datetime.now().hour > 15 or (datetime.datetime.now().hour == 15 and datetime.datetime.now().minute >= 30)):
-            days_ahead = 7
-        next_exp = today + datetime.timedelta(days=days_ahead)
-        expiries_dt = [datetime.datetime.combine(next_exp + datetime.timedelta(weeks=i), datetime.time(15, 30, 0)) for i in range(5)]
-        expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
-        expiries = [dt.strftime("%Y-%m-%dT12:00:00Z") for dt in expiries_dt]
-
-    chain_by_expiry = {}
-    now_ts = time.time()
-    if asset_u in STOCK_STRIKE_STEPS:
-        strike_step = STOCK_STRIKE_STEPS[asset_u]
-    elif asset_u in COMMODITY_STRIKE_STEPS:
-        strike_step = COMMODITY_STRIKE_STEPS[asset_u]
-    elif asset_u in ["BANKNIFTY", "SENSEX"]:
-        strike_step = 100
-    else:
-        strike_step = 50
-
-    atm_center = int(round(spot_price / float(strike_step)) * strike_step)
-    strikes = [atm_center + (i * strike_step) for i in range(-15, 16)]
-
-    # Realistic Market IV mapping
-    if asset_u in ["CRUDEOIL", "CRUDEOILM"]:
-        iv = 0.35
-    elif asset_u in ["NATURALGAS", "NATGASM"]:
-        iv = 0.45
-    elif asset_u in ["GOLD", "GOLDM"]:
-        iv = 0.14
-    elif asset_u in ["SILVER", "SILVERM"]:
-        iv = 0.19
-    elif asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS:
-        iv = 0.25
-    elif asset_u == "BANKNIFTY":
-        iv = 0.155
-    elif asset_u == "SENSEX":
-        iv = 0.145
-    else:
-        iv = 0.135
-
-    for exp_iso in expiries:
-        exp_dt = datetime.datetime.strptime(exp_iso, "%Y-%m-%dT12:00:00Z")
-        T = max((exp_dt.timestamp() - now_ts) / (365.25 * 24 * 3600), 0.002)
-        exp_label = exp_dt.strftime("%d%b%y").upper()
-        chain_data = []
-
-        for strike in strikes:
-            diff = abs(strike - spot_price)
-            base_oi = int(max(5000, 80000 - diff * (20 if (asset_u in STOCK_TOKENS or asset_u in STOCK_STRIKE_STEPS) else 80)))
-            c_bs, c_delta, c_gamma, c_theta, c_vega = _bs_greeks(spot_price, strike, T, 0.065, iv, "C")
-            p_bs, p_delta, p_gamma, p_theta, p_vega = _bs_greeks(spot_price, strike, T, 0.065, iv, "P")
-
-            c_mark = max(0.05, round(c_bs, 2))
-            p_mark = max(0.05, round(p_bs, 2))
-            c_sym = f"C-{asset_u}-{int(strike)}-{exp_label}"
-            p_sym = f"P-{asset_u}-{int(strike)}-{exp_label}"
-
-            with _LOCK:
-                LIVE_PRICES[c_sym] = {
-                    "mark": c_mark,
-                    "ltp": c_mark,
-                    "bid": round(c_mark * 0.99, 2),
-                    "ask": round(c_mark * 1.01, 2),
-                    "oi": base_oi,
-                    "change": 0.0,
-                    "percentChange": 0.0
-                }
-                LIVE_PRICES[p_sym] = {
-                    "mark": p_mark,
-                    "ltp": p_mark,
-                    "bid": round(p_mark * 0.99, 2),
-                    "ask": round(p_mark * 1.01, 2),
-                    "oi": base_oi,
-                    "change": 0.0,
-                    "percentChange": 0.0
-                }
-
-            chain_data.append({
-                "strike": strike,
-                "callSym": c_sym,
-                "putSym": p_sym,
-                "callMark": c_mark,
-                "putMark": p_mark,
-                "callLtp": c_mark,
-                "putLtp": p_mark,
-                "callBid": round(c_mark * 0.99, 2),
-                "callAsk": round(c_mark * 1.01, 2),
-                "putBid": round(p_mark * 0.99, 2),
-                "putAsk": round(p_mark * 1.01, 2),
-                "callPchange": 0.0,
-                "putPchange": 0.0,
-                "callOI": base_oi,
-                "putOI": base_oi,
-                "callOiChange": 0.0,
-                "putOiChange": 0.0,
-                "callIV": iv,
-                "putIV": iv,
-                "callDelta": round(c_delta, 4),
-                "putDelta": round(p_delta, 4),
-                "callGamma": round(c_gamma, 6),
-                "putGamma": round(p_gamma, 6),
-                "callTheta": round(c_theta, 2),
-                "putTheta": round(p_theta, 2),
-                "callVega": round(c_vega, 2),
-                "putVega": round(p_vega, 2),
-                "callOiRatio": 0.5,
-                "putOiRatio": 0.5
-            })
-
-        chain_by_expiry[exp_iso] = chain_data
-
-    return {
-        "expiries": expiries,
-        "chainByExpiry": chain_by_expiry,
-        "spot": get_spot_info(asset),
-        "sync_status": {
-            "is_live": False,
-            "broker": "AngelOne (Synthetic Fallback)",
+            "broker": "AngelOne SmartAPI (Real)",
             "last_synced": time.time()
         }
     }
