@@ -329,7 +329,7 @@ export function synthesizeOptionChain(
 
     const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
     const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
-    const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : 0.19);
+    const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : (asset === 'BANKNIFTY' ? 0.14 : (asset === 'SENSEX' ? 0.11 : 0.105)));
     const rate = isCrypto ? 0.04 : 0.05;
 
     const now = new Date();
@@ -341,17 +341,20 @@ export function synthesizeOptionChain(
       expDate = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
     }
     const rawDiffDays = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-    const diffDays = (rawDiffDays > 0.05 && rawDiffDays < 365) ? rawDiffDays : (asset === 'BANKNIFTY' ? 18.0 : 4.5);
-    const T = Math.max(0.003, diffDays / 365.0);
+    const diffDays = Math.max(0.01, Math.min(365, rawDiffDays > 0 ? rawDiffDays : 1.0));
+    const T = Math.max(0.002, diffDays / 365.0);
 
     const atmCenter = Math.round(spot / strikeStep) * strikeStep;
     const rows: OptionRowData[] = [];
     const expLabel = (expiry || '').replace(/-/g, '').slice(2);
 
     const knownData = KNOWN_CLOSING_OPTION_PRICES[asset];
-    const isNearKnownSpot = knownData && Math.abs(spot - knownData.baseSpot) < 50;
+    const threshold = (asset === 'SENSEX' || asset === 'BANKNIFTY') ? 300 : 75;
+    const isNearKnownSpot = knownData && Math.abs(spot - knownData.baseSpot) < threshold;
 
-    for (let i = -12; i <= 12; i++) {
+    const strikeSpan = (asset === 'BANKNIFTY' || asset === 'SENSEX') ? 22 : 16;
+
+    for (let i = -strikeSpan; i <= strikeSpan; i++) {
       const strike = atmCenter + (i * strikeStep);
       if (!isFinite(strike) || strike <= 0) continue;
 
@@ -373,7 +376,7 @@ export function synthesizeOptionChain(
       }
 
       const diff = Math.abs(strike - spot);
-      const baseOI = Math.max(5000, Math.round(100000 - (diff / strikeStep) * 6000));
+      const baseOI = Math.max(5000, Math.round(100000 - (diff / strikeStep) * 4000));
 
       rows.push({
         strike,

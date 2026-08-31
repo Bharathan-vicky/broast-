@@ -133,6 +133,7 @@ STOCK_SPOTS = {
 _LOCK = threading.Lock()
 NIFTY_REAL_INSTRUMENTS = []
 BANKNIFTY_REAL_INSTRUMENTS = []
+SENSEX_REAL_INSTRUMENTS = []
 MCX_REAL_INSTRUMENTS = []
 MCX_SPOT_TOKENS = {}
 CACHED_CHAIN = None
@@ -273,19 +274,20 @@ def _save_instruments_cache(nifty_inst, bn_inst, mcx_inst, mcx_spots):
             "date": datetime.date.today().isoformat(),
             "nifty": _clean_list(nifty_inst),
             "banknifty": _clean_list(bn_inst),
+            "sensex": _clean_list(sensex_inst if 'sensex_inst' in locals() else SENSEX_REAL_INSTRUMENTS),
             "mcx": _clean_list(mcx_inst),
             "mcx_spots": mcx_spots
         }
         with open(CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
-        print(f"[AngelOne Cache] Successfully saved {len(nifty_inst)} NIFTY, {len(bn_inst)} BANKNIFTY, {len(mcx_inst)} MCX instruments to disk.")
+        print(f"[AngelOne Cache] Successfully saved {len(nifty_inst)} NIFTY, {len(bn_inst)} BANKNIFTY, {len(SENSEX_REAL_INSTRUMENTS)} SENSEX, {len(mcx_inst)} MCX instruments to disk.")
     except Exception as e:
         print(f"[AngelOne Cache] Failed to save disk cache: {e}")
 
 
 def _load_instruments_from_disk_cache():
     """Loads instruments from disk cache if available and from today."""
-    global NIFTY_REAL_INSTRUMENTS, BANKNIFTY_REAL_INSTRUMENTS, MCX_REAL_INSTRUMENTS, MCX_SPOT_TOKENS, TOKEN_TO_INFO
+    global NIFTY_REAL_INSTRUMENTS, BANKNIFTY_REAL_INSTRUMENTS, SENSEX_REAL_INSTRUMENTS, MCX_REAL_INSTRUMENTS, MCX_SPOT_TOKENS, TOKEN_TO_INFO
     if not os.path.exists(CACHE_FILE):
         return False
     try:
@@ -299,10 +301,11 @@ def _load_instruments_from_disk_cache():
 
         nifty_raw = data.get("nifty", [])
         bn_raw = data.get("banknifty", [])
+        sensex_raw = data.get("sensex", [])
         mcx_raw = data.get("mcx", [])
         mcx_spots = data.get("mcx_spots", {})
 
-        if not nifty_raw:
+        if not nifty_raw and not bn_raw and not sensex_raw:
             return False
 
         # Convert date strings back to datetime objects
@@ -310,19 +313,22 @@ def _load_instruments_from_disk_cache():
             x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
         for x in bn_raw:
             x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+        for x in sensex_raw:
+            x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
         for x in mcx_raw:
             x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
 
         with _LOCK:
             NIFTY_REAL_INSTRUMENTS = nifty_raw
             BANKNIFTY_REAL_INSTRUMENTS = bn_raw
+            SENSEX_REAL_INSTRUMENTS = sensex_raw
             MCX_REAL_INSTRUMENTS = mcx_raw
             MCX_SPOT_TOKENS = mcx_spots
 
-            for inst in NIFTY_REAL_INSTRUMENTS + BANKNIFTY_REAL_INSTRUMENTS + MCX_REAL_INSTRUMENTS:
+            for inst in NIFTY_REAL_INSTRUMENTS + BANKNIFTY_REAL_INSTRUMENTS + SENSEX_REAL_INSTRUMENTS + MCX_REAL_INSTRUMENTS:
                 TOKEN_TO_INFO[str(inst["token"])] = inst
 
-        print(f"[AngelOne Cache] Loaded {len(NIFTY_REAL_INSTRUMENTS)} NIFTY, {len(BANKNIFTY_REAL_INSTRUMENTS)} BANKNIFTY, {len(MCX_REAL_INSTRUMENTS)} MCX instruments from disk cache.")
+        print(f"[AngelOne Cache] Loaded {len(NIFTY_REAL_INSTRUMENTS)} NIFTY, {len(BANKNIFTY_REAL_INSTRUMENTS)} BANKNIFTY, {len(SENSEX_REAL_INSTRUMENTS)} SENSEX, {len(MCX_REAL_INSTRUMENTS)} MCX instruments from disk cache.")
         return True
     except Exception as e:
         print(f"[AngelOne Cache] Failed to load disk cache: {e}")
@@ -331,7 +337,7 @@ def _load_instruments_from_disk_cache():
 
 def _load_real_instruments(force_refresh=False):
     """Loads instruments with multi-layer fallback (disk cache -> Angel One SmartAPI)."""
-    global NIFTY_REAL_INSTRUMENTS, BANKNIFTY_REAL_INSTRUMENTS, MCX_REAL_INSTRUMENTS, MCX_SPOT_TOKENS, TOKEN_TO_INFO
+    global NIFTY_REAL_INSTRUMENTS, BANKNIFTY_REAL_INSTRUMENTS, SENSEX_REAL_INSTRUMENTS, MCX_REAL_INSTRUMENTS, MCX_SPOT_TOKENS, TOKEN_TO_INFO
 
     # 1. Try Disk Cache First for 0ms Instant Boot
     if not force_refresh and _load_instruments_from_disk_cache():
@@ -341,12 +347,13 @@ def _load_real_instruments(force_refresh=False):
         return False
 
     now = datetime.datetime.now()
-
     # 2. Fetch NFO Scrips (NIFTY & BANKNIFTY)
     pattern_nifty = re.compile(r"^NIFTY(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)$")
     pattern_banknifty = re.compile(r"^BANKNIFTY(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)$")
+    pattern_sensex = re.compile(r"^(?:SENSEX|BSX)(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)$")
     instruments_nifty = {}
     instruments_banknifty = {}
+    instruments_sensex = {}
 
     try:
         res = _safe_api_call(CLIENT.searchScrip, exchange="NFO", searchscrip="NIFTY")
@@ -354,7 +361,6 @@ def _load_real_instruments(force_refresh=False):
             for item in res["data"]:
                 sym = item.get("tradingsymbol", "")
                 m = pattern_nifty.match(sym)
-                m_bn = pattern_banknifty.match(sym)
                 if m:
                     exp_str, strike_str, opt_type = m.groups()
                     try:
@@ -372,7 +378,18 @@ def _load_real_instruments(force_refresh=False):
                             }
                     except Exception:
                         pass
-                elif m_bn:
+    except Exception as e:
+        print(f"[AngelOne] Search scrip NIFTY error: {e}")
+
+    time.sleep(0.8)
+
+    try:
+        res_bn = _safe_api_call(CLIENT.searchScrip, exchange="NFO", searchscrip="BANKNIFTY")
+        if res_bn and res_bn.get("data"):
+            for item in res_bn["data"]:
+                sym = item.get("tradingsymbol", "")
+                m_bn = pattern_banknifty.match(sym)
+                if m_bn:
                     exp_str, strike_str, opt_type = m_bn.groups()
                     try:
                         exp_dt = datetime.datetime.strptime(exp_str, "%d%b%y")
@@ -390,7 +407,35 @@ def _load_real_instruments(force_refresh=False):
                     except Exception:
                         pass
     except Exception as e:
-        print(f"[AngelOne] Search scrip NIFTY error: {e}")
+        print(f"[AngelOne] Search scrip BANKNIFTY error: {e}")
+
+    time.sleep(0.8)
+
+    try:
+        res_sx = _safe_api_call(CLIENT.searchScrip, exchange="BFO", searchscrip="SENSEX")
+        if res_sx and res_sx.get("data"):
+            for item in res_sx["data"]:
+                sym = item.get("tradingsymbol", "")
+                m_sx = pattern_sensex.match(sym)
+                if m_sx:
+                    exp_str, strike_str, opt_type = m_sx.groups()
+                    try:
+                        exp_dt = datetime.datetime.strptime(exp_str, "%d%b%y")
+                        if exp_dt.date() >= now.date():
+                            instruments_sensex[sym] = {
+                                "symbol": sym,
+                                "token": str(item.get("symboltoken", "")),
+                                "expiry_str": exp_str,
+                                "expiry_dt": exp_dt,
+                                "expiry_iso": exp_dt.strftime("%Y-%m-%dT12:00:00Z"),
+                                "strike": float(strike_str),
+                                "opt_type": opt_type,
+                                "asset": "SENSEX"
+                            }
+                    except Exception:
+                        pass
+    except Exception as e:
+        print(f"[AngelOne] Search scrip SENSEX error: {e}")
 
     time.sleep(0.8)
 
@@ -450,6 +495,8 @@ def _load_real_instruments(force_refresh=False):
             NIFTY_REAL_INSTRUMENTS = list(instruments_nifty.values())
         if instruments_banknifty:
             BANKNIFTY_REAL_INSTRUMENTS = list(instruments_banknifty.values())
+        if instruments_sensex:
+            SENSEX_REAL_INSTRUMENTS = list(instruments_sensex.values())
         if instruments_mcx:
             MCX_REAL_INSTRUMENTS = list(instruments_mcx.values())
         
@@ -461,7 +508,7 @@ def _load_real_instruments(force_refresh=False):
                 futs.sort(key=lambda x: x["expiry_dt"])
                 MCX_SPOT_TOKENS[ast] = futs[0]["token"]
 
-        for inst in NIFTY_REAL_INSTRUMENTS + BANKNIFTY_REAL_INSTRUMENTS + MCX_REAL_INSTRUMENTS:
+        for inst in NIFTY_REAL_INSTRUMENTS + BANKNIFTY_REAL_INSTRUMENTS + SENSEX_REAL_INSTRUMENTS + MCX_REAL_INSTRUMENTS:
             TOKEN_TO_INFO[str(inst["token"])] = inst
 
         # Save to disk cache for future instant boots
@@ -472,7 +519,7 @@ def _load_real_instruments(force_refresh=False):
             MCX_SPOT_TOKENS
         )
 
-        print(f"[AngelOne] Ready with {len(NIFTY_REAL_INSTRUMENTS)} NIFTY, {len(BANKNIFTY_REAL_INSTRUMENTS)} BANKNIFTY, and {len(MCX_REAL_INSTRUMENTS)} MCX instruments!")
+        print(f"[AngelOne] Ready with {len(NIFTY_REAL_INSTRUMENTS)} NIFTY, {len(BANKNIFTY_REAL_INSTRUMENTS)} BANKNIFTY, {len(SENSEX_REAL_INSTRUMENTS)} SENSEX, and {len(MCX_REAL_INSTRUMENTS)} MCX instruments!")
         return True
 
 
@@ -594,6 +641,7 @@ def _rest_quote_poller_thread():
 
             nifty_tokens = _get_atm_tokens(NIFTY_REAL_INSTRUMENTS, NIFTY_SPOT, 50, 30)
             bn_tokens = _get_atm_tokens(BANKNIFTY_REAL_INSTRUMENTS, BANKNIFTY_SPOT, 100, 20)
+            sensex_tokens = _get_atm_tokens(SENSEX_REAL_INSTRUMENTS, SENSEX_SPOT, 100, 20)
             mcx_tokens = []
             for mcx_ast, mcx_step in [("CRUDEOIL", 50), ("GOLD", 500), ("SILVER", 250)]:
                 mcx_insts = [x for x in MCX_REAL_INSTRUMENTS if x.get("asset") == mcx_ast]
@@ -612,6 +660,31 @@ def _rest_quote_poller_thread():
                     else:
                         print(f"[AngelOne Poller] Warning: 0 NFO options fetched. Request tokens: {nfo_tokens[:50]}")
                     for q in res_opt["data"].get("fetched", []):
+                        tok = str(q.get("symbolToken", ""))
+                        sym = q.get("tradingSymbol", "")
+                        ltp = float(q.get("ltp", 0) or q.get("close", 0) or 0)
+                        if ltp > 0:
+                            with _LOCK:
+                                q_dict = {
+                                    "ltp": ltp,
+                                    "mark": ltp,
+                                    "bid": float(q.get("depth", {}).get("buy", [{}])[0].get("price", 0) or ltp),
+                                    "ask": float(q.get("depth", {}).get("sell", [{}])[0].get("price", 0) or ltp),
+                                    "oi": int(q.get("opnInterest", 0) or 0),
+                                    "change": float(q.get("netChange", 0) or 0),
+                                    "percentChange": float(q.get("percentChange", 0) or 0),
+                                    "high": float(q.get("high", 0) or 0),
+                                    "low": float(q.get("low", 0) or 0),
+                                    "close": float(q.get("close", 0) or 0)
+                                }
+                                LIVE_PRICES[sym] = q_dict
+                                LIVE_PRICES[tok] = q_dict
+
+            if sensex_tokens:
+                time.sleep(1.1)
+                res_bfo = _safe_api_call(CLIENT.getMarketData, mode="FULL", exchangeTokens={"BFO": sensex_tokens[:50]})
+                if res_bfo and res_bfo.get("data"):
+                    for q in res_bfo["data"].get("fetched", []):
                         tok = str(q.get("symbolToken", ""))
                         sym = q.get("tradingSymbol", "")
                         ltp = float(q.get("ltp", 0) or q.get("close", 0) or 0)
@@ -701,12 +774,14 @@ def get_nifty_spot(asset="NIFTY"):
 
 def _build_nifty_chain_internal(expiry_filter=None, asset="NIFTY"):
     """Builds option chain from 100% real Angel One market data. No Black-Scholes. No synthetic."""
-    global NIFTY_REAL_INSTRUMENTS, BANKNIFTY_REAL_INSTRUMENTS, MCX_REAL_INSTRUMENTS, LIVE_PRICES
+    global NIFTY_REAL_INSTRUMENTS, BANKNIFTY_REAL_INSTRUMENTS, SENSEX_REAL_INSTRUMENTS, MCX_REAL_INSTRUMENTS, LIVE_PRICES
     spot_info = get_spot_info(asset)
     spot_price = spot_info.get("spot_price", 0)
 
     if asset == "BANKNIFTY":
         instruments = BANKNIFTY_REAL_INSTRUMENTS
+    elif asset == "SENSEX":
+        instruments = SENSEX_REAL_INSTRUMENTS
     elif asset in ["CRUDEOIL", "GOLD", "SILVER"]:
         instruments = [x for x in MCX_REAL_INSTRUMENTS if x.get("asset") == asset]
     elif asset == "NIFTY":
