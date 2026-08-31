@@ -27,6 +27,10 @@ import { fetchAllDirectSpots, fetchDirectYahooSpot } from './src/lib/directMarke
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+const STATUSBAR_HEIGHT = Platform.OS === 'ios'
+  ? (Constants.statusBarHeight || 44)
+  : Math.max(Constants.statusBarHeight || 0, StatusBar.currentHeight || 0, 32);
+
 const getBackendUrl = () => {
   // 1. Explicit env var override (highest priority)
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -3027,12 +3031,11 @@ export default function App() {
 
   return (
     <View 
-      style={[styles.container, { paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 44 }]}
+      style={[styles.container, { paddingTop: STATUSBAR_HEIGHT }]}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0a0d14" translucent={false} />
-
+      <StatusBar barStyle="light-content" backgroundColor="#0a0d14" translucent={true} />
 
     {/* 1. Header (Rendered inside Trading Theaters, removed on Options Terminal home page) */}
     {selectedMarket !== null && (
@@ -3042,39 +3045,41 @@ export default function App() {
           onPress={() => setSelectedMarket(null)}
           activeOpacity={0.7}
         >
-          <Image
-            source={require('./assets/logo.png')}
-            style={{ width: 38, height: 38, borderRadius: 10 }}
-            resizeMode="contain"
-          />
-          <View>
-            <Text style={styles.headerTitle}>Broast Terminal</Text>
-            <Text style={styles.headerSubtitle}>
-              {activeTab === 'home' ? 'Market Watchlist' : activeTab === 'chain' ? `${activeAsset} Option Chain` : 'Positions & Journal'}
+          <View style={styles.headerLogoWrapper}>
+            <Image
+              source={require('./assets/logo.png')}
+              style={{ width: 32, height: 32, borderRadius: 8 }}
+              resizeMode="contain"
+            />
+            <View style={styles.headerLiveDot} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.headerTitle} numberOfLines={1}>Broast Terminal</Text>
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>PRO</Text>
+              </View>
+            </View>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {activeTab === 'home' ? 'Market Watchlist' : activeTab === 'chain' ? `${activeAsset} Option Chain` : activeTab === 'strategy' ? 'Strategy Studio' : activeTab === 'tradelab' ? 'Trade Lab & Journal' : 'Multi-Broker Accounts'}
             </Text>
           </View>
         </TouchableOpacity>
+        
         <View style={styles.headerRight}>
           <TouchableOpacity 
-            style={{ 
-              backgroundColor: isRefreshing ? '#065f46' : 'rgba(16, 185, 129, 0.15)', 
-              borderColor: isRefreshing ? '#34d399' : '#10b981',
-              borderWidth: 1,
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              justifyContent: 'center',
-              alignItems: 'center'
-            }} 
+            style={[styles.headerActionBtn, isRefreshing && styles.headerActionBtnActive]} 
             onPress={triggerManualRefresh}
             activeOpacity={0.6}
             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
           >
             <Text style={{ fontSize: 13 }}>🔄</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity 
+            style={styles.headerMenuBtn}
             onPress={() => setShowProfileModal(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
             activeOpacity={0.7}
           >
             <Text style={styles.menuDots}>⋮</Text>
@@ -5898,8 +5903,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#0a0d14',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0
+    backgroundColor: '#0a0d14'
   },
   header: {
     flexDirection: 'row',
@@ -5907,28 +5911,97 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#10141f',
+    backgroundColor: '#0e131d',
     borderBottomWidth: 1,
-    borderBottomColor: '#1a2233'
+    borderBottomColor: '#1a2333',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10
+    gap: 10,
+    flex: 1
+  },
+  headerLogoWrapper: {
+    position: 'relative',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#161c28',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  headerLiveDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10b981',
+    borderWidth: 1.5,
+    borderColor: '#0e131d'
   },
   headerTitle: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#ffffff'
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 0.3
+  },
+  headerBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4
+  },
+  headerBadgeText: {
+    color: '#10b981',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5
   },
   headerSubtitle: {
     fontSize: 11,
-    color: '#8a95a5'
+    color: '#8a95a5',
+    fontWeight: '500',
+    marginTop: 1
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8
+  },
+  headerActionBtn: {
+    backgroundColor: '#151c2a',
+    borderColor: '#233045',
+    borderWidth: 1,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  headerActionBtnActive: {
+    backgroundColor: '#065f46',
+    borderColor: '#10b981'
+  },
+  headerMenuBtn: {
+    backgroundColor: '#151c2a',
+    borderColor: '#233045',
+    borderWidth: 1,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   homeIconBtn: {
     backgroundColor: '#1c2436',
