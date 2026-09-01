@@ -19,6 +19,7 @@ import {
   Alert,
   FlatList
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Line as SvgLine, Text as SvgText, Circle, Rect, G, Defs, ClipPath, LinearGradient, Stop } from 'react-native-svg';
 import Constants from 'expo-constants';
 import { usePriceFeed } from './src/lib/priceFeed';
@@ -1294,7 +1295,30 @@ export default function App() {
     }
   }, [priceFeed?.marketOpen]);
 
-  // Periodic background portfolio & history poller (every 4000ms)
+  // Persistent position storage to ensure positions never disappear across restarts or day changes
+  useEffect(() => {
+    const loadStoredData = async () => {
+      try {
+        const storedPort = await AsyncStorage.getItem('@delta_portfolio_v2');
+        if (storedPort) {
+          const parsed = JSON.parse(storedPort);
+          if (parsed && parsed.baskets && parsed.baskets.length > 0) {
+            setPortfolio((prev: any) => (prev?.baskets?.length ? prev : parsed));
+          }
+        }
+        const storedHist = await AsyncStorage.getItem('@delta_order_history_v2');
+        if (storedHist) {
+          const parsedH = JSON.parse(storedHist);
+          if (Array.isArray(parsedH) && parsedH.length > 0) {
+            setOrderHistory((prev: any[]) => (prev?.length ? prev : parsedH));
+          }
+        }
+      } catch (e) {}
+    };
+    loadStoredData();
+  }, []);
+
+  // Periodic background portfolio & history poller (every 4000ms) with local sync
   useEffect(() => {
     let isMounted = true;
     const accId = activeAccountId || 1;
@@ -1303,14 +1327,31 @@ export default function App() {
       fetch(`${BACKEND_URL}/api/portfolio?account_id=${accId}`)
         .then(r => r.json())
         .then(data => {
-          if (isMounted && data) setPortfolio(data);
+          if (isMounted && data) {
+            if (data.baskets && data.baskets.length > 0) {
+              setPortfolio(data);
+              AsyncStorage.setItem('@delta_portfolio_v2', JSON.stringify(data)).catch(() => {});
+            } else {
+              setPortfolio((prev: any) => {
+                if (prev?.baskets?.length > 0) {
+                  return prev; // Preserve active positions
+                }
+                return data;
+              });
+            }
+          }
         })
         .catch(() => {});
 
       fetch(`${BACKEND_URL}/api/history?account_id=${accId}`)
         .then(r => r.json())
         .then(data => {
-          if (isMounted && Array.isArray(data)) setOrderHistory(data);
+          if (isMounted && Array.isArray(data)) {
+            setOrderHistory(data);
+            if (data.length > 0) {
+              AsyncStorage.setItem('@delta_order_history_v2', JSON.stringify(data)).catch(() => {});
+            }
+          }
         })
         .catch(() => {});
     };
@@ -4198,135 +4239,116 @@ export default function App() {
 
 
 
-          <View style={styles.executivePortfolioCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Executive Summary</Text>
-              <TouchableOpacity
-                onPress={triggerManualRefresh}
-                style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: '#10b981', width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}
-                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-              >
-                <Text style={{ fontSize: 12 }}>🔄</Text>
+          {/* Clean Zerodha / Angel One Style Total P&L Card */}
+          <View style={styles.cleanPnlCard}>
+            <Text style={styles.cleanPnlLabel}>Total P&L</Text>
+            <Text style={[styles.cleanPnlValue, { color: tradeLabStats.totalUnrealisedPnl >= 0 ? '#00c087' : '#f84960' }]}>
+              {tradeLabStats.totalUnrealisedPnl >= 0 ? `+${tradeLabStats.totalUnrealisedPnl.toFixed(2)}` : `-${Math.abs(tradeLabStats.totalUnrealisedPnl).toFixed(2)}`}
+            </Text>
+          </View>
+
+          {/* Action Toolbar Row (Search, Filter, Analyze, Analytics) */}
+          <View style={styles.pnlActionRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <TouchableOpacity onPress={triggerManualRefresh} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={{ fontSize: 16, color: '#38bdf8' }}>🔍</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={triggerManualRefresh} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={{ fontSize: 16, color: '#38bdf8' }}>⚡</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.execTopRow}>
-              <View style={{ flex: 1.2 }}>
-                <Text style={styles.execPortfolioValue}>
-                  {currSym}{tradeLabStats.totalPortfolio.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                  <Text style={styles.execSubtitle}>Total Portfolio ⓘ</Text>
-                  <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.12)', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4, borderWidth: 0.5, borderColor: 'rgba(56, 189, 248, 0.3)' }}>
-                    <Text style={{ color: '#38bdf8', fontSize: 9.5, fontWeight: '700' }} numberOfLines={1}>
-                      👤 {activeAccount?.name || 'Main Account'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View style={{ alignItems: 'flex-end', flex: 0.8 }}>
-                <Text style={[styles.execPnlValue, { color: tradeLabStats.totalUnrealisedPnl >= 0 ? '#00c087' : '#f84960' }]}>
-                  {tradeLabStats.totalUnrealisedPnl >= 0 ? `+${currSym}${tradeLabStats.totalUnrealisedPnl.toFixed(2)}` : `-${currSym}${Math.abs(tradeLabStats.totalUnrealisedPnl).toFixed(2)}`}
-                </Text>
-                <Text style={styles.execSubtitle}>Unrealised P&L</Text>
-              </View>
-            </View>
-
-            <View style={styles.execDivider} />
-
-            <View style={styles.execBottomRow}>
-              <View>
-                <Text style={styles.execLabelText}>Available Margin</Text>
-                <Text style={styles.execAmountText}>
-                  {currSym}{tradeLabStats.availableMargin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.execLabelText}>Invested Margin</Text>
-                <Text style={styles.execAmountText}>
-                  {currSym}{tradeLabStats.totalInvestedMargin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
-              </View>
+            <View style={styles.pnlActionBtnGroup}>
+              <TouchableOpacity
+                style={[styles.pnlActionBtn, styles.pnlActionBtnAnalyze]}
+                onPress={() => setActiveTab('strategy')}
+              >
+                <Text style={{ fontSize: 12 }}>🟧</Text>
+                <Text style={[styles.pnlActionBtnText, { color: '#f97316' }]}>Analyze</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pnlActionBtn, styles.pnlActionBtnAnalytics, tradeLabSubTab === 'performance' && { backgroundColor: 'rgba(56, 189, 248, 0.25)' }]}
+                onPress={() => setTradeLabSubTab(tradeLabSubTab === 'performance' ? 'positions' : 'performance')}
+              >
+                <Text style={{ fontSize: 12 }}>🔵</Text>
+                <Text style={[styles.pnlActionBtnText, { color: '#38bdf8' }]}>Analytics</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
           {/* TAB: ACTIVE POSITIONS */}
           {tradeLabSubTab === 'positions' && (
-            <View style={{ marginTop: 10 }}>
+            <View style={{ marginTop: 4 }}>
               {tradeLabStats.activePositionsList.length > 0 ? (
                 tradeLabStats.activePositionsList.map((pos, idx) => {
-                  const posSym = pos.currency === 'USD' ? '$' : '₹';
-                  const isCrypto = pos.currency === 'USD';
                   const isBuy = pos.side === 'BUY';
                   const hasActiveSL = pos.stoploss > 0;
                   const hasActiveTgt = pos.target > 0;
+                  const exchName = pos.underlying === 'SENSEX' ? 'BFO' : (pos.underlying === 'NIFTY' || pos.underlying === 'BANKNIFTY' ? 'NFO' : (pos.currency === 'USD' ? 'DELTA' : 'MCX'));
 
                   return (
-                      <View key={idx} style={[styles.tradeLabPositionCard, { padding: 12, paddingBottom: 16 }]}>
-                        {/* Header Row */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }}>{pos.symbol}</Text>
-                          </View>
-                          {pos.orderMode === 'AMO' && (
-                             <View style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                               <Text style={{ color: '#eab308', fontSize: 10, fontWeight: 'bold' }}>AMO</Text>
-                             </View>
-                          )}
-                        </View>
-
-                        {/* Leverage / Type Row */}
-                        <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 16 }}>
-                          {isCrypto ? 'Isolated 100.00x' : 'Delivery'}
+                    <View key={idx} style={styles.kitePositionCard}>
+                      {/* Top Row: Qty & Avg on Left, Product Tag on Right */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ color: '#8a95a5', fontSize: 12 }}>
+                          Qty. <Text style={{ color: '#ffffff', fontWeight: '700' }}>{pos.qty}</Text>   Avg. <Text style={{ color: '#ffffff', fontWeight: '700' }}>{pos.entry?.toFixed(2)}</Text>
                         </Text>
-
-                        {/* Stats Grid */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-                           <View>
-                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Position Size</Text>
-                             <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>{pos.qty}</Text>
-                           </View>
-                           <View>
-                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Entry Price</Text>
-                             <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>{posSym}{pos.entry?.toFixed(2)}</Text>
-                           </View>
-                           <View>
-                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Mark Price</Text>
-                             <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>{posSym}{pos.ltp?.toFixed(2)}</Text>
-                           </View>
-                           <View style={{ alignItems: 'flex-end' }}>
-                             <Text style={{ color: '#8a95a5', fontSize: 11, marginBottom: 4 }}>Unrealized P&L</Text>
-                             <Text style={{ color: pos.legPnl >= 0 ? '#00c087' : '#f84960', fontSize: 13, fontWeight: 'bold' }}>
-                               {pos.legPnl >= 0 ? '+' : '-'}{posSym}{Math.abs(pos.legPnl).toFixed(2)} <Text style={{ fontSize: 11, fontWeight: 'normal' }}>({pos.pctChange >= 0 ? '+' : ''}{pos.pctChange.toFixed(2)}%)</Text>
-                             </Text>
-                           </View>
-                        </View>
-
-                        {/* Buttons Row */}
-                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                           <TouchableOpacity
-                             style={{ flex: 1, backgroundColor: '#172033', paddingVertical: 10, borderRadius: 6, alignItems: 'center' }}
-                             onPress={() => openModifyPositionModal(pos)}
-                           >
-                             <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: '600' }}>
-                               {hasActiveSL || hasActiveTgt
-                                 ? `${hasActiveSL ? `${pos.stoplossType === 'PERCENT' ? `SL: ${pos.stoploss}%` : `SL: ${posSym}${pos.stoploss}`}` : 'SL: --'} | ${hasActiveTgt ? `${pos.targetType === 'PERCENT' ? `TP: ${pos.target}%` : `TP: ${posSym}${pos.target}`}` : 'TP: --'}`
-                                 : '⚙ Set SL / TP'}
-                             </Text>
-                           </TouchableOpacity>
-                           <TouchableOpacity
-                             style={{ flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.12)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.35)', paddingVertical: 10, borderRadius: 6, alignItems: 'center' }}
-                             onPress={() => handleCloseSinglePosition(pos.positionId, pos.symbol, pos.basketId)}
-                           >
-                             <Text style={{ color: '#f87171', fontSize: 12, fontWeight: '700' }}>🚪 Exit Position</Text>
-                           </TouchableOpacity>
+                        <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: 'rgba(56, 189, 248, 0.3)' }}>
+                          <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: '800' }}>{pos.productType || 'NRML'}</Text>
                         </View>
                       </View>
+
+                      {/* Middle Row: Symbol Name with Expiry on Left, P&L on Right */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>
+                          {pos.symbol}
+                        </Text>
+                        <Text style={{ color: pos.legPnl >= 0 ? '#00c087' : '#f84960', fontSize: 16, fontWeight: '900' }}>
+                          {pos.legPnl >= 0 ? `+${pos.legPnl.toFixed(2)}` : `-${Math.abs(pos.legPnl).toFixed(2)}`}
+                        </Text>
+                      </View>
+
+                      {/* Bottom Row: Exchange on Left, LTP on Right */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '700' }}>
+                          {exchName}
+                        </Text>
+                        <Text style={{ color: '#8a95a5', fontSize: 12 }}>
+                          LTP <Text style={{ color: '#ffffff', fontWeight: '700' }}>{pos.ltp?.toFixed(2)}</Text>
+                        </Text>
+                      </View>
+
+                      {/* Action buttons */}
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: '#1e293b' }}>
+                        <TouchableOpacity
+                          style={{ flex: 1, backgroundColor: '#172033', paddingVertical: 8, borderRadius: 6, alignItems: 'center' }}
+                          onPress={() => openModifyPositionModal(pos)}
+                        >
+                          <Text style={{ color: '#38bdf8', fontSize: 11.5, fontWeight: '700' }}>
+                            {hasActiveSL || hasActiveTgt
+                              ? `${hasActiveSL ? `SL: ${pos.stoploss}` : ''} ${hasActiveTgt ? `TP: ${pos.target}` : ''}`
+                              : '⚙ Set SL / TP'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.12)', borderWidth: 0.5, borderColor: 'rgba(239, 68, 68, 0.4)', paddingVertical: 8, borderRadius: 6, alignItems: 'center' }}
+                          onPress={() => handleCloseSinglePosition(pos.positionId, pos.symbol, pos.basketId)}
+                        >
+                          <Text style={{ color: '#f87171', fontSize: 11.5, fontWeight: '800' }}>🚪 Exit Position</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   );
                 })
               ) : (
                 <View style={{ padding: 30, alignItems: 'center' }}>
                   <Text style={styles.emptyNotice}>No active positions currently running.</Text>
                   <TouchableOpacity style={styles.openReadyModalBtn} onPress={() => setActiveTab('chain')}>
+                    <Text style={styles.openReadyModalBtnText}>📊 Go to Option Chain</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
                     <Text style={styles.openReadyModalBtnText}>📊 Go to Option Chain</Text>
                   </TouchableOpacity>
                 </View>
@@ -6921,6 +6943,71 @@ const styles = StyleSheet.create({
     color: '#707886',
     fontSize: 14,
     padding: 4
+  },
+  cleanPnlCard: {
+    backgroundColor: '#0d121f',
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  cleanPnlLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8a95a5',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4
+  },
+  cleanPnlValue: {
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 0.5
+  },
+  pnlActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    marginBottom: 10
+  },
+  pnlActionBtnGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  pnlActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1
+  },
+  pnlActionBtnAnalyze: {
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    borderColor: 'rgba(249, 115, 22, 0.4)'
+  },
+  pnlActionBtnAnalytics: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderColor: 'rgba(56, 189, 248, 0.4)'
+  },
+  pnlActionBtnText: {
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  kitePositionCard: {
+    backgroundColor: '#0d121f',
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10
   },
   executivePortfolioCard: {
     backgroundColor: '#121624',
