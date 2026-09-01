@@ -988,6 +988,7 @@ export default function App() {
   const [portfolio, setPortfolio] = useState<any>(null);
   const [orderHistory, setOrderHistory] = useState<any[]>([]);
   const [journalSelectedAccount, setJournalSelectedAccount] = useState<number | 'ALL'>('ALL');
+  const [journalCalendarMonth, setJournalCalendarMonth] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const currConfig = ASSET_CONFIG[activeAsset] || ASSET_CONFIG['NIFTY'];
@@ -2350,9 +2351,9 @@ export default function App() {
     const dates = heatmapDates;
     const map = dailyPnlMap;
 
-    const weeks = [];
-    for (let i = 0; i < 5; i++) {
-      weeks.push(dates.slice(i * 7, (i + 1) * 7));
+    const weeks: Date[][] = [];
+    for (let i = 0; i < dates.length; i += 7) {
+      weeks.push(dates.slice(i, i + 7));
     }
 
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -2362,13 +2363,36 @@ export default function App() {
     const todayD = String(now.getDate()).padStart(2, '0');
     const todayKey = `${todayY}-${todayM}-${todayD}`;
 
+    const currentViewMonth = journalCalendarMonth.getMonth();
+    const currentViewYear = journalCalendarMonth.getFullYear();
+    const monthYearStr = journalCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    let monthRealizedPnl = 0;
+    let monthTradedDays = 0;
+    let monthWinDays = 0;
+
+    Object.keys(map).forEach(dateKey => {
+      const parts = dateKey.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        if (y === currentViewYear && m === currentViewMonth) {
+          const val = map[dateKey];
+          monthRealizedPnl += val;
+          monthTradedDays++;
+          if (val > 0) monthWinDays++;
+        }
+      }
+    });
+
     const accLabel = journalSelectedAccount === 'ALL' 
       ? 'All Accounts' 
       : (accounts.find(a => a.id === journalSelectedAccount)?.name || `Account #${journalSelectedAccount}`);
 
     return (
       <View style={styles.heatmapCard}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        {/* Top Header: Account Title & Active Day Filter Clear */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <Text style={styles.heatmapTitle}>📅 {accLabel} • P&L Heatmap</Text>
           {selectedHeatmapDate && (
             <TouchableOpacity 
@@ -2379,14 +2403,69 @@ export default function App() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Real Calendar Month Switcher Bar (Back & Forth) */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#172033' }}>
+          {/* Previous Month Button */}
+          <TouchableOpacity 
+            onPress={() => setJournalCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+            style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: '#131927', borderWidth: 1, borderColor: '#223049', justifyContent: 'center', alignItems: 'center' }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={{ color: '#38bdf8', fontSize: 15, fontWeight: 'bold' }}>◀</Text>
+          </TouchableOpacity>
+
+          {/* Month & Year Title with Monthly P&L Summary */}
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ color: '#ffffff', fontSize: 14.5, fontWeight: '800', letterSpacing: 0.3 }}>
+              {monthYearStr}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 2 }}>
+              <Text style={{ color: monthRealizedPnl >= 0 ? '#00c087' : '#f84960', fontSize: 11, fontWeight: '700' }}>
+                Month P&L: {monthRealizedPnl >= 0 ? '+' : '-'}{currSym}{Math.abs(monthRealizedPnl).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Text>
+              {monthTradedDays > 0 && (
+                <Text style={{ color: '#8a95a5', fontSize: 10, fontWeight: '600' }}>
+                  ({monthWinDays}/{monthTradedDays} Win Days)
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Next Month Button & Quick Today Jump */}
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <TouchableOpacity 
+              onPress={() => {
+                setJournalCalendarMonth(new Date());
+                setSelectedHeatmapDate(null);
+              }}
+              style={{ paddingHorizontal: 7, paddingVertical: 5, borderRadius: 6, backgroundColor: 'rgba(234, 179, 8, 0.15)', borderWidth: 1, borderColor: 'rgba(234, 179, 8, 0.4)' }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: '#eab308', fontSize: 10, fontWeight: 'bold' }}>Today</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={() => setJournalCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: '#131927', borderWidth: 1, borderColor: '#223049', justifyContent: 'center', alignItems: 'center' }}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={{ color: '#38bdf8', fontSize: 15, fontWeight: 'bold' }}>▶</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         
         <View style={styles.heatmapGrid}>
+          {/* Weekday Labels (Mon - Sun) */}
           <View style={styles.weekdayHeaderRow}>
             {weekdays.map((day, idx) => (
-              <Text key={idx} style={styles.weekdayLabel}>{day[0]}</Text>
+              <Text key={idx} style={[styles.weekdayLabel, (day === 'Sat' || day === 'Sun') && { color: '#64748b' }]}>{day[0]}</Text>
             ))}
           </View>
 
+          {/* Real Calendar Grid Weeks */}
           {weeks.map((week, wIdx) => (
             <View key={wIdx} style={styles.heatmapRow}>
               {week.map((date, dIdx) => {
@@ -2395,12 +2474,13 @@ export default function App() {
                 const dd = String(date.getDate()).padStart(2, '0');
                 const dateKey = `${yyyy}-${mm}-${dd}`;
                 const isToday = dateKey === todayKey;
+                const isCurrentMonth = date.getMonth() === currentViewMonth;
                 
                 const pnl = map[dateKey] || 0;
                 const hasTrade = map[dateKey] !== undefined;
                 
-                let cellBg = '#0c101b'; // Base empty cells background
-                let cellBorder = isToday ? '#eab308' : '#172033'; // Highlight today with gold
+                let cellBg = isCurrentMonth ? '#0c101b' : '#070a12';
+                let cellBorder = isToday ? '#eab308' : (isCurrentMonth ? '#172033' : '#0f1422');
                 if (hasTrade) {
                   if (pnl > 0) {
                     if (pnl < 1000) {
@@ -2420,7 +2500,7 @@ export default function App() {
                       cellBg = '#f84960';
                     }
                   } else {
-                    cellBg = '#4b5563'; // Neutral gray
+                    cellBg = '#4b5563';
                   }
                 }
                 
@@ -2434,14 +2514,18 @@ export default function App() {
                       { backgroundColor: cellBg, borderColor: isSelected ? '#38bdf8' : cellBorder, borderWidth: isSelected ? 2 : (isToday ? 1.5 : 1) }
                     ]}
                     onPress={() => {
+                      if (!isCurrentMonth) {
+                        setJournalCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+                      }
                       if (hasTrade) {
                         setSelectedHeatmapDate(isSelected ? null : dateKey);
                       }
                     }}
+                    activeOpacity={0.7}
                   >
                     <Text style={[
                       styles.heatmapCellText, 
-                      { opacity: hasTrade || isToday ? 1 : 0.4 },
+                      { opacity: isCurrentMonth ? (hasTrade || isToday ? 1 : 0.6) : 0.2 },
                       isToday && { color: '#eab308', fontWeight: 'bold' },
                       isSelected && { color: '#38bdf8', fontWeight: 'bold' }
                     ]}>
@@ -2466,7 +2550,7 @@ export default function App() {
         ) : (
           <View style={styles.heatmapTooltipPlaceholder}>
             <Text style={styles.heatmapTooltipPlaceholderText}>
-              Gold border = Today ({now.getDate()} {now.toLocaleDateString('en-US', { month: 'short' })}) • Tap any traded day to filter
+              Gold border = Today ({now.getDate()} {now.toLocaleDateString('en-US', { month: 'short' })}) • Tap ◀ / ▶ to switch months • Tap any day to filter
             </Text>
           </View>
         )}
@@ -3216,22 +3300,38 @@ export default function App() {
   }, [orderHistory, journalSelectedAccount]);
 
   const heatmapDates = useMemo(() => {
-    const dates = [];
-    const start = new Date();
-    const day = start.getDay();
-    const diffToMonday = day === 0 ? 6 : day - 1;
+    const dates: Date[] = [];
+    const year = journalCalendarMonth.getFullYear();
+    const month = journalCalendarMonth.getMonth();
     
-    // Aligns grid: start from Monday of 4 weeks ago to show 5 complete weeks (Monday -> Sunday)
-    start.setDate(start.getDate() - diffToMonday - 28);
-    start.setHours(0, 0, 0, 0);
+    // First day of selected calendar month
+    const firstDay = new Date(year, month, 1);
+    const dayOfWeek = firstDay.getDay(); // 0 = Sun, 1 = Mon, ...
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    
+    // Start calendar grid from Monday of the first week
+    const gridStart = new Date(year, month, 1 - diffToMonday);
+    gridStart.setHours(0, 0, 0, 0);
 
+    // Generate 35 days (5 weeks) by default
     for (let i = 0; i < 35; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
+      const d = new Date(gridStart);
+      d.setDate(gridStart.getDate() + i);
       dates.push(d);
     }
+
+    // If month extends into 6th week, append week 6 (42 days total)
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    if (dates[dates.length - 1] < lastDayOfMonth) {
+      for (let i = 35; i < 42; i++) {
+        const d = new Date(gridStart);
+        d.setDate(gridStart.getDate() + i);
+        dates.push(d);
+      }
+    }
+
     return dates;
-  }, []);
+  }, [journalCalendarMonth]);
 
   const cumulativePnlPoints = useMemo(() => {
     const list = journalSelectedAccount === 'ALL' ? orderHistory : orderHistory.filter((h: any) => h.account_id === journalSelectedAccount);
