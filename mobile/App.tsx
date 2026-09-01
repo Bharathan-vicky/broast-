@@ -42,9 +42,42 @@ const getBackendUrl = () => {
 
 const BACKEND_URL = getBackendUrl();
 
+export const parseDateSafe = (dateStr: string | null): Date => {
+  if (!dateStr) return new Date();
+  try {
+    const clean = dateStr.split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d) && y >= 2025 && y <= 2030) {
+        return new Date(y, m, d);
+      }
+    }
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() >= 2025 && parsed.getFullYear() <= 2030) {
+      return parsed;
+    }
+  } catch {}
+  return new Date();
+};
+
+export const formatDisplayDate = (dateStr: string | null): string => {
+  if (!dateStr) return '';
+  const d = parseDateSafe(dateStr);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+export const formatDisplayDateShort = (dateStr: string | null): string => {
+  if (!dateStr) return '';
+  const d = parseDateSafe(dateStr);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+};
+
 const getDteLabel = (expiryDateStr: string | null) => {
   if (!expiryDateStr) return '0 DTE';
-  const expiryDate = new Date(expiryDateStr);
+  const expiryDate = parseDateSafe(expiryDateStr);
   const now = new Date();
 
   // Set both dates to midnight for true calendar day difference
@@ -1001,8 +1034,8 @@ export default function App() {
     const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
     const isStock = currConfig?.category === 'STOCKS';
     const defaultExps = generateDefaultExpiries(isCrypto, isStock, activeAsset);
-    setExpiries(prev => (prev.length === defaultExps.length && prev[0] === defaultExps[0] ? prev : defaultExps));
-    setActiveExpiry(prev => (prev && defaultExps.includes(prev) ? prev : defaultExps[0]));
+    setExpiries(defaultExps);
+    setActiveExpiry(defaultExps[0]);
 
     if (currConfig?.category && selectedMarket !== currConfig.category && selectedMarket !== null) {
       setSelectedMarket(currConfig.category);
@@ -1221,11 +1254,14 @@ export default function App() {
   useEffect(() => {
     const c = priceFeed.chain;
     if (c?.expiries && c.expiries.length > 0) {
-      setExpiries((prev) => {
-        if (prev.length === c.expiries.length && prev[0] === c.expiries[0]) return prev;
-        return c.expiries;
+      const validExps = c.expiries.filter((exp: string) => {
+        const d = parseDateSafe(exp);
+        return d.getFullYear() >= 2025 && d.getFullYear() <= 2030;
       });
-      setActiveExpiry((prev) => (prev && c.expiries.includes(prev)) ? prev : c.expiries[0]);
+      if (validExps.length > 0) {
+        setExpiries(validExps);
+        setActiveExpiry((prev) => (prev && validExps.includes(prev)) ? prev : validExps[0]);
+      }
     }
     if (c?.chainByExpiry && Object.keys(c.chainByExpiry).length > 0) {
       setChainByExpiry((prev: any) => (prev === c.chainByExpiry ? prev : c.chainByExpiry));
@@ -3446,7 +3482,7 @@ export default function App() {
                       const isCrypto = selectedMarket === 'CRYPTO' || activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
                       const isStock = currConfig?.category === 'STOCKS';
                       const activeExp = activeExpiry || (expiries.length > 0 ? expiries[0] : generateDefaultExpiries(isCrypto, isStock, activeAsset)[0]);
-                      return new Date(activeExp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                      return formatDisplayDateShort(activeExp);
                     })()}
                   </Text>
                   {selectedMarket !== 'CRYPTO' && (
@@ -5349,7 +5385,7 @@ export default function App() {
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.sheetOptionText, isSelected && { color: '#38bdf8' }]}>
-                        {new Date(exp).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                        {formatDisplayDate(exp)}
                       </Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
