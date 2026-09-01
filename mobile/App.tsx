@@ -1406,18 +1406,9 @@ export default function App() {
     const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock, activeAsset)[0];
     const sp = spotPrice || currConfig.defaultSpot;
 
-    if (!isCrypto) {
-      return synthesizeOptionChain(activeAsset, sp, strikeStep, activeExp);
-    }
-
-    const backendRows = chainByExpiry[activeExp];
-    const expLabel = (activeExp || '').replace(/-/g, '').slice(2);
-    if (backendRows && backendRows.length > 0 && backendRows[0]?.callSym?.includes(expLabel)) {
-      return fuseLiveOptionChain(backendRows, sp, strikeStep, activeExp, activeAsset);
-    }
-
+    // Instant 0ms on-device option chain computation for ALL assets (BTC, ETH, XAUT, NIFTY, SENSEX, BANKNIFTY)
     return synthesizeOptionChain(activeAsset, sp, strikeStep, activeExp);
-  }, [chainByExpiry, activeExpiry, expiries, activeAsset, spotPrice, strikeStep, currConfig]);
+  }, [activeExpiry, expiries, activeAsset, spotPrice, strikeStep, currConfig]);
 
   const maxOI = useMemo(() => Math.max(1, ...currentChain.map((r: any) => Math.max(r.callOI || 0, r.putOI || 0))), [currentChain]);
 
