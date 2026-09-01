@@ -434,10 +434,25 @@ export function synthesizeOptionChain(
       if (isNearKnownSpot && knownData?.strikes[strike]) {
         const kEntry = knownData.strikes[strike];
         const spotDiff = spot - knownData.baseSpot;
-        finalCallLtp = roundToTick(Math.max(tickSize, kEntry.callLtp + callRes.delta * spotDiff), tickSize);
-        finalPutLtp = roundToTick(Math.max(tickSize, kEntry.putLtp + putRes.delta * spotDiff), tickSize);
-        callPch = kEntry.callPchange || 0.0;
-        putPch = kEntry.putPchange || 0.0;
+
+        // Base DTE for calibration table (2 days for weekly near-term)
+        const baseDte = (asset === 'SENSEX' || asset === 'NIFTY') ? 2.0 : 4.0;
+        const dteMultiplier = Math.sqrt(Math.max(0.1, diffDays) / baseDte);
+
+        // Intrinsic value
+        const callIntrinsic = Math.max(0, spot - strike);
+        const putIntrinsic = Math.max(0, strike - spot);
+
+        const baseCallExtrinsic = Math.max(tickSize, kEntry.callLtp - Math.max(0, knownData.baseSpot - strike));
+        const basePutExtrinsic = Math.max(tickSize, kEntry.putLtp - Math.max(0, strike - knownData.baseSpot));
+
+        const scaledCallTimeVal = baseCallExtrinsic * dteMultiplier;
+        const scaledPutTimeVal = basePutExtrinsic * dteMultiplier;
+
+        finalCallLtp = roundToTick(Math.max(tickSize, callIntrinsic + scaledCallTimeVal + callRes.delta * spotDiff), tickSize);
+        finalPutLtp = roundToTick(Math.max(tickSize, putIntrinsic + scaledPutTimeVal + putRes.delta * spotDiff), tickSize);
+        callPch = Math.round((kEntry.callPchange || 0.0) / Math.max(1, dteMultiplier) * 100) / 100;
+        putPch = Math.round((kEntry.putPchange || 0.0) / Math.max(1, dteMultiplier) * 100) / 100;
       }
 
       const diff = Math.abs(strike - spot);
