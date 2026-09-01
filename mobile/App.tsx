@@ -4349,12 +4349,6 @@ export default function App() {
               )}
             </View>
           )}
-                    <Text style={styles.openReadyModalBtnText}>📊 Go to Option Chain</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )}
 
           {/* TAB: TRADE JOURNAL (PERMANENT CLOSED POSITIONS) */}
           {(tradeLabSubTab === 'journal' || tradeLabSubTab === 'discover') && (
