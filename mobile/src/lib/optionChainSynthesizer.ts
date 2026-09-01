@@ -304,6 +304,26 @@ export const ASSET_IV_MAP: Record<string, number> = {
 };
 
 export const KNOWN_EXPIRY_OPTION_PRICES: Record<string, Record<string, { baseSpot: number; strikes: Record<number, { callLtp: number; putLtp: number; callPchange?: number; putPchange?: number }> }>> = {
+  'BTC': {
+    '2026-09-01': {
+      baseSpot: 78650.0,
+      strikes: {
+        77200: { callLtp: 1551.5, putLtp: 9.0, callPchange: 32.1, putPchange: 35.1 },
+        77400: { callLtp: 1352.5, putLtp: 13.0, callPchange: 30.5, putPchange: 33.4 },
+        77600: { callLtp: 1161.0, putLtp: 18.5, callPchange: 30.5, putPchange: 31.5 },
+        77800: { callLtp: 971.0, putLtp: 28.0, callPchange: 29.7, putPchange: 30.2 },
+        78000: { callLtp: 785.5, putLtp: 46.0, callPchange: 28.7, putPchange: 29.2 },
+        78200: { callLtp: 613.0, putLtp: 73.0, callPchange: 28.1, putPchange: 28.1 },
+        78400: { callLtp: 458.5, putLtp: 115.5, callPchange: 28.2, putPchange: 27.2 },
+        78600: { callLtp: 321.5, putLtp: 181.5, callPchange: 27.0, putPchange: 26.5 },
+        78800: { callLtp: 214.5, putLtp: 274.5, callPchange: 26.5, putPchange: 26.1 },
+        79000: { callLtp: 134.5, putLtp: 394.0, callPchange: 26.3, putPchange: 25.8 },
+        79200: { callLtp: 80.5, putLtp: 538.0, callPchange: 26.6, putPchange: 25.7 },
+        79400: { callLtp: 48.0, putLtp: 705.0, callPchange: 27.3, putPchange: 25.8 },
+        79600: { callLtp: 27.0, putLtp: 887.0, callPchange: 27.0, putPchange: 25.8 }
+      }
+    }
+  },
   'NIFTY': {
     '2026-09-01': {
       baseSpot: 24066.30,
@@ -544,7 +564,7 @@ export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; str
 };
 
 export const ASSET_DEFAULT_STRIKE_STEPS: Record<string, number> = {
-  'BTC': 500,
+  'BTC': 200,
   'ETH': 50,
   'XAUT': 25,
   'NIFTY': 50,
