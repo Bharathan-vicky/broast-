@@ -589,14 +589,56 @@ export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; str
       58000: { callLtp: 653.15, putLtp: 797.65, callPchange: -5.43, putPchange: 0.97 }
     }
   },
-  'CRUDEOIL': {
-    baseSpot: 8315.0,
+  'BTC': {
+    baseSpot: 79040.0,
     strikes: {
-      8100: { callLtp: 320.0, putLtp: 105.0, callPchange: 5.2, putPchange: -12.4 },
-      8200: { callLtp: 245.0, putLtp: 130.0, callPchange: 4.8, putPchange: -10.1 },
-      8300: { callLtp: 180.0, putLtp: 165.0, callPchange: 3.5, putPchange: -8.5 },
-      8400: { callLtp: 125.0, putLtp: 210.0, callPchange: 2.1, putPchange: -6.2 },
-      8500: { callLtp: 85.0, putLtp: 270.0, callPchange: 0.5, putPchange: -4.1 }
+      77600: { callLtp: 1233.0, putLtp: 7.5, callPchange: 25.3, putPchange: 32.5 },
+      77800: { callLtp: 1233.0, putLtp: 7.5, callPchange: 25.3, putPchange: 32.5 },
+      78000: { callLtp: 1038.0, putLtp: 13.9, callPchange: 27.7, putPchange: 31.7 },
+      78200: { callLtp: 847.5, putLtp: 22.0, callPchange: 28.1, putPchange: 29.6 },
+      78400: { callLtp: 659.0, putLtp: 39.5, callPchange: 27.9, putPchange: 28.5 },
+      78600: { callLtp: 496.0, putLtp: 70.5, callPchange: 27.0, putPchange: 27.5 },
+      78800: { callLtp: 341.5, putLtp: 121.5, callPchange: 26.6, putPchange: 26.8 },
+      79000: { callLtp: 225.5, putLtp: 199.5, callPchange: 26.2, putPchange: 26.2 },
+      79200: { callLtp: 135.5, putLtp: 310.0, callPchange: 25.9, putPchange: 26.1 },
+      79400: { callLtp: 76.5, putLtp: 450.5, callPchange: 26.1, putPchange: 26.5 },
+      79600: { callLtp: 42.5, putLtp: 615.5, callPchange: 27.0, putPchange: 27.3 },
+      79800: { callLtp: 21.0, putLtp: 803.5, callPchange: 27.3, putPchange: 28.7 },
+      80000: { callLtp: 14.5, putLtp: 984.5, callPchange: 29.8, putPchange: 29.9 }
+    }
+  },
+  'ETH': {
+    baseSpot: 2480.0,
+    strikes: {
+      2440: { callLtp: 41.20, putLtp: 0.42, callPchange: 23.5, putPchange: 34.9 },
+      2450: { callLtp: 31.80, putLtp: 0.85, callPchange: 31.3, putPchange: 32.4 },
+      2460: { callLtp: 22.85, putLtp: 2.10, callPchange: 32.6, putPchange: 33.0 },
+      2470: { callLtp: 15.45, putLtp: 4.40, callPchange: 32.5, putPchange: 33.0 },
+      2480: { callLtp: 9.25, putLtp: 8.35, callPchange: 33.1, putPchange: 32.8 },
+      2490: { callLtp: 5.05, putLtp: 14.30, callPchange: 33.0, putPchange: 32.4 },
+      2500: { callLtp: 2.55, putLtp: 21.45, callPchange: 34.1, putPchange: 32.1 },
+      2510: { callLtp: 1.10, putLtp: 30.25, callPchange: 33.5, putPchange: 30.1 },
+      2520: { callLtp: 0.50, putLtp: 39.70, callPchange: 33.6, putPchange: 24.8 },
+      2530: { callLtp: 0.295, putLtp: 49.25, callPchange: 38.8, putPchange: 0.0 },
+      2540: { callLtp: 0.18, putLtp: 59.30, callPchange: 41.2, putPchange: 0.0 },
+      2560: { callLtp: 0.19, putLtp: 79.20, callPchange: 51.3, callPchange: 0.0 }
+    }
+  },
+  'XAUT': {
+    baseSpot: 4430.0,
+    strikes: {
+      4380: { callLtp: 54.40, putLtp: 1.35, callPchange: 0.0, putPchange: 23.6 },
+      4390: { callLtp: 45.35, putLtp: 2.45, callPchange: 20.1, callPchange: 24.6 },
+      4400: { callLtp: 36.80, putLtp: 3.70, callPchange: 21.0, callPchange: 23.4 },
+      4410: { callLtp: 28.95, putLtp: 5.85, callPchange: 22.4, callPchange: 23.3 },
+      4420: { callLtp: 21.95, putLtp: 8.85, callPchange: 22.8, callPchange: 22.8 },
+      4430: { callLtp: 15.90, putLtp: 13.20, callPchange: 22.9, callPchange: 23.7 },
+      4440: { callLtp: 11.15, putLtp: 18.05, callPchange: 22.8, callPchange: 22.6 },
+      4450: { callLtp: 7.65, putLtp: 24.55, callPchange: 23.4, callPchange: 21.7 },
+      4460: { callLtp: 5.00, putLtp: 31.90, callPchange: 23.4, callPchange: 20.9 },
+      4470: { callLtp: 3.19, putLtp: 40.05, callPchange: 23.7, callPchange: 19.0 },
+      4480: { callLtp: 2.00, putLtp: 48.90, callPchange: 23.9, callPchange: 13.9 },
+      4490: { callLtp: 1.25, putLtp: 58.05, callPchange: 24.2, callPchange: 0.0 }
     }
   }
 };
