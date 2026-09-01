@@ -1325,12 +1325,16 @@ export default function App() {
     const accId = activeAccountId || 1;
 
     const syncPortfolio = () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3500);
+
       // Synchronously poll account 1 (Indian indices/stocks), account 101 (Crypto), and account 201 (Commodities)
       Promise.all([
-        fetch(`${BACKEND_URL}/api/portfolio?account_id=1`).then(r => r.json()).catch(() => null),
-        fetch(`${BACKEND_URL}/api/portfolio?account_id=101`).then(r => r.json()).catch(() => null),
-        fetch(`${BACKEND_URL}/api/portfolio?account_id=201`).then(r => r.json()).catch(() => null)
+        fetch(`${BACKEND_URL}/api/portfolio?account_id=1`, { signal: controller.signal }).then(r => r.json()).catch(() => null),
+        fetch(`${BACKEND_URL}/api/portfolio?account_id=101`, { signal: controller.signal }).then(r => r.json()).catch(() => null),
+        fetch(`${BACKEND_URL}/api/portfolio?account_id=201`, { signal: controller.signal }).then(r => r.json()).catch(() => null)
       ]).then(([p1, p101, p201]) => {
+        clearTimeout(timer);
         if (!isMounted) return;
         const allBaskets: any[] = [];
         let totalBal = 0;
@@ -1360,14 +1364,19 @@ export default function App() {
             }
           }).catch(() => {});
         }
-      }).catch(() => {});
+      }).catch(() => {
+        clearTimeout(timer);
+      });
 
       // Poll history across all accounts
+      const hController = new AbortController();
+      const hTimer = setTimeout(() => hController.abort(), 3500);
       Promise.all([
-        fetch(`${BACKEND_URL}/api/history?account_id=1`).then(r => r.json()).catch(() => []),
-        fetch(`${BACKEND_URL}/api/history?account_id=101`).then(r => r.json()).catch(() => []),
-        fetch(`${BACKEND_URL}/api/history?account_id=201`).then(r => r.json()).catch(() => [])
+        fetch(`${BACKEND_URL}/api/history?account_id=1`, { signal: hController.signal }).then(r => r.json()).catch(() => []),
+        fetch(`${BACKEND_URL}/api/history?account_id=101`, { signal: hController.signal }).then(r => r.json()).catch(() => []),
+        fetch(`${BACKEND_URL}/api/history?account_id=201`, { signal: hController.signal }).then(r => r.json()).catch(() => [])
       ]).then(([h1, h101, h201]) => {
+        clearTimeout(hTimer);
         if (!isMounted) return;
         const combined = [
           ...(Array.isArray(h1) ? h1 : []),
@@ -1378,11 +1387,13 @@ export default function App() {
           setOrderHistory(combined);
           AsyncStorage.setItem('@delta_order_history_v2', JSON.stringify(combined)).catch(() => {});
         }
-      }).catch(() => {});
+      }).catch(() => {
+        clearTimeout(hTimer);
+      });
     };
 
     syncPortfolio();
-    const interval = setInterval(syncPortfolio, 4000);
+    const interval = setInterval(syncPortfolio, 6000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -1432,7 +1443,7 @@ export default function App() {
     const sp = spotPrice || currConfig.defaultSpot;
     const sorted = [...currentChain].sort((a, b) => a.strike - b.strike);
     let atmIdx = 0;
-    let minDiff = Infinity;
+    let minDiff = 999999;
     sorted.forEach((r, idx) => {
       const diff = Math.abs(r.strike - sp);
       if (diff < minDiff) {
@@ -1447,14 +1458,14 @@ export default function App() {
 
   useEffect(() => {
     const scrollKey = `${activeAsset}-${activeExpiry}`;
-    if (activeTab === 'chain' && currentChain.length > 0 && spotPrice > 0 && hasAutoScrolled.current !== scrollKey) {
+    if (activeTab === 'chain' && currentChain.length > 0 && hasAutoScrolled.current !== scrollKey) {
+      hasAutoScrolled.current = scrollKey;
       const timer = setTimeout(() => {
         scrollToAtm();
-        hasAutoScrolled.current = scrollKey;
-      }, 250);
+      }, 150);
       return () => clearTimeout(timer);
     }
-  }, [activeTab, activeAsset, activeExpiry, currentChain.length, spotPrice]);
+  }, [activeTab, activeAsset, activeExpiry]);
 
   const handleToggleLeg = (row: any, type: 'CALL' | 'PUT', side: 'BUY' | 'SELL') => {
     const symbol = type === 'CALL' ? row.callSym : row.putSym;
