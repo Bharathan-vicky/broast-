@@ -543,6 +543,33 @@ export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; str
   }
 };
 
+export const ASSET_DEFAULT_STRIKE_STEPS: Record<string, number> = {
+  'BTC': 500,
+  'ETH': 50,
+  'XAUT': 25,
+  'NIFTY': 50,
+  'BANKNIFTY': 100,
+  'SENSEX': 100,
+  'CRUDEOIL': 50,
+  'CRUDEOILM': 50,
+  'GOLD': 500,
+  'GOLDM': 500,
+  'SILVER': 250,
+  'SILVERM': 1000,
+  'NATURALGAS': 5,
+  'NATGASM': 5,
+  'RELIANCE': 20,
+  'TCS': 50,
+  'INFY': 20,
+  'HDFCBANK': 20,
+  'ICICIBANK': 20,
+  'SBIN': 10,
+  'TATAMOTORS': 10,
+  'BHARTIARTL': 20,
+  'ITC': 5,
+  'LT': 50
+};
+
 /**
  * Synthesize a full Option Chain for any asset in 0ms on device.
  * HARDENED: Never throws — always returns a valid (possibly empty) chain.
@@ -564,11 +591,12 @@ export function synthesizeOptionChain(
     if (typeof arg1 === 'string') {
       asset = arg1;
       spot = typeof arg2 === 'number' ? arg2 : 24000;
+      const defStep = ASSET_DEFAULT_STRIKE_STEPS[asset] || (asset === 'BTC' ? 500 : (asset === 'ETH' ? 50 : (asset === 'XAUT' ? 25 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50))));
       if (typeof arg3 === 'string') {
         expiry = arg3;
-        strikeStep = typeof arg4 === 'number' ? arg4 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50);
+        strikeStep = typeof arg4 === 'number' ? arg4 : defStep;
       } else {
-        strikeStep = typeof arg3 === 'number' ? arg3 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50);
+        strikeStep = typeof arg3 === 'number' && arg3 > 0 ? arg3 : defStep;
         expiry = typeof arg4 === 'string' ? arg4 : null;
       }
       tickSize = typeof arg5 === 'number' ? arg5 : (asset === 'BTC' ? 0.5 : (asset === 'XAUT' ? 0.1 : 0.05));
@@ -577,11 +605,15 @@ export function synthesizeOptionChain(
       strikeStep = typeof arg2 === 'number' ? arg2 : 50;
       expiry = typeof arg3 === 'string' ? arg3 : null;
       asset = typeof arg4 === 'string' ? arg4 : 'NIFTY';
+      const defStep = ASSET_DEFAULT_STRIKE_STEPS[asset] || (asset === 'BTC' ? 500 : (asset === 'ETH' ? 50 : (asset === 'XAUT' ? 25 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50))));
+      if (!strikeStep || strikeStep <= 0) strikeStep = defStep;
       tickSize = typeof arg5 === 'number' ? arg5 : (asset === 'BTC' ? 0.5 : (asset === 'XAUT' ? 0.1 : 0.05));
     }
 
     if (!isFinite(spot) || spot <= 0) return [];
-    if (!isFinite(strikeStep) || strikeStep <= 0) strikeStep = 50;
+    if (!isFinite(strikeStep) || strikeStep <= 0) {
+      strikeStep = ASSET_DEFAULT_STRIKE_STEPS[asset] || 50;
+    }
     if (!isFinite(tickSize) || tickSize <= 0) tickSize = 0.05;
 
     const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
