@@ -63,6 +63,18 @@ def get_current_price(symbol, side="BUY", underlying="NIFTY", strike=0, option_t
             elif 'CALL' in symbol.upper() or 'CE' in symbol.upper() or symbol.startswith('C-'):
                 parsed_opt = 'CALL'
 
+        if parsed_strike > 0:
+            is_call = parsed_opt in ["CALL", "CE"]
+            # Look up directly in Angel One / Synthesizer options chain
+            chain_data = angel_one.get_options_chain(und)
+            if chain_data and "chainByExpiry" in chain_data:
+                for exp_key, rows in chain_data["chainByExpiry"].items():
+                    for r in rows:
+                        if abs(r.get("strike", 0) - parsed_strike) < 0.1:
+                            target_p = r.get("callLtp" if is_call else "putLtp", 0.0)
+                            if target_p > 0:
+                                return float(target_p)
+
         if und in ["BTC", "ETH", "XAUT"]:
             spot = float(md.CRYPTO_SPOT_MAP.get(und, {}).get("spot_price", 0) or angel_one.get_spot_info(und).get("spot_price", 0))
         else:
@@ -207,12 +219,14 @@ def place_basket_order(basket_name, legs, account_id=1):
     total_margin = 0.0
     now_str = datetime.datetime.now().isoformat()
 
-    # 1. Calculate Required Margin
+    # 1. Calculate Required Margin & Lock in Instant Live Entry Price
     for leg in legs:
         sym = leg['symbol']
-        price = get_current_price(sym, leg['side'])
-        if price == 0:
-            price = float(leg.get('price', 0) or 0)
+        client_p = float(leg.get('price', 0.0) or 0.0)
+        if client_p > 0:
+            price = client_p
+        else:
+            price = get_current_price(sym, leg['side'], leg.get('underlying', 'NIFTY'), leg.get('strike', 0), leg.get('option_type', 'CALL'))
         leg['price'] = price
 
         lots = float(leg.get('size', 1) or 1)

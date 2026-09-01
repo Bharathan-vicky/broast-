@@ -2766,16 +2766,28 @@ export default function App() {
       const isIndianMarketClosed = !isAssetMarketOpen(activeAsset, marketOpen);
       const orderMode = isIndianMarketClosed ? 'AMO' : 'REGULAR';
 
-      const legsToExecute = stratBasket.map(l => ({
-        ...l,
-        size: l.size || 1,
-        stoploss: 0,
-        target: 0,
-        product_type: 'NRML',
-        order_mode: orderMode,
-        order_type: 'MARKET',
-        trigger_price: 0
-      }));
+      const legsToExecute = stratBasket.map(l => {
+        let p = l.price || 0;
+        if (!p || p === 0) {
+          const row = currentChain.find((r: any) => r.strike === l.strike);
+          if (row) {
+            p = l.side === 'BUY' 
+              ? (l.option_type === 'CALL' ? row.callAsk || row.callLtp : row.putAsk || row.putLtp)
+              : (l.option_type === 'CALL' ? row.callBid || row.callLtp : row.putBid || row.putLtp);
+          }
+        }
+        return {
+          ...l,
+          size: l.size || 1,
+          price: p,
+          stoploss: 0,
+          target: 0,
+          product_type: 'NRML',
+          order_mode: orderMode,
+          order_type: 'MARKET',
+          trigger_price: 0
+        };
+      });
 
       setStratBasket([]);
 
