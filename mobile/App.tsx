@@ -1249,11 +1249,26 @@ export default function App() {
 
   const fetchAccounts = useCallback(() => {
     if (!selectedMarket) return;
+
+    // 1. Immediately hydrate from local persistent storage so custom account names & balances never flicker to defaults
+    AsyncStorage.getItem(`@delta_accounts_${selectedMarket}`).then(cached => {
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAccounts(parsed);
+          }
+        } catch (e) {}
+      }
+    }).catch(() => {});
+
+    // 2. Fetch authoritative database accounts
     fetch(`${BACKEND_URL}/api/accounts?market=${selectedMarket}`)
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          setAccounts(prev => (prev.length === data.length && prev[0]?.id === data[0]?.id ? prev : data));
+          setAccounts(data);
+          AsyncStorage.setItem(`@delta_accounts_${selectedMarket}`, JSON.stringify(data)).catch(() => {});
           setActiveAccountsByMarket(prev => {
             const cur = prev[selectedMarket];
             if (cur && data.some((a: any) => a.id === cur)) {
@@ -2500,10 +2515,12 @@ export default function App() {
     const updatedBalance = parseFloat(editAccountBalance);
     const updatedName = editAccountName.trim();
     
-    // Immediate optimistic update in local state
-    setAccounts(prev => prev.map(a => a.id === editingAccount.id ? { ...a, name: updatedName, balance: updatedBalance } : a));
+    // Immediate optimistic update in local state & AsyncStorage
+    const updatedAccounts = accounts.map(a => a.id === editingAccount.id ? { ...a, name: updatedName, balance: updatedBalance } : a);
+    setAccounts(updatedAccounts);
+    AsyncStorage.setItem(`@delta_accounts_${selectedMarket}`, JSON.stringify(updatedAccounts)).catch(() => {});
     setEditingAccount(null);
-    setTradeMessage(`⚡ Account updated: ${updatedName} (Balance: ₹${updatedBalance.toLocaleString('en-IN')})`);
+    setTradeMessage(`⚡ Account updated: ${updatedName} (Balance: ${selectedMarket === 'CRYPTO' ? '$' : '₹'}${updatedBalance.toLocaleString('en-IN')})`);
     setTimeout(() => setTradeMessage(''), 3000);
 
     fetch(`${BACKEND_URL}/api/accounts/update`, {

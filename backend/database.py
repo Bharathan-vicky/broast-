@@ -28,11 +28,14 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
-    # Auto-migration check: If accounts table exists but lacks market column, drop it
+    # Safe migration: Ensure market column exists without dropping customized accounts
     c.execute("PRAGMA table_info(accounts)")
     cols = [r[1] for r in c.fetchall()]
     if len(cols) > 0 and "market" not in cols:
-        c.execute("DROP TABLE IF EXISTS accounts")
+        try:
+            c.execute("ALTER TABLE accounts ADD COLUMN market TEXT NOT NULL DEFAULT 'INDIAN'")
+        except Exception:
+            pass
         
     # Account table for multi-account balances
     c.execute('''
@@ -461,12 +464,10 @@ def clear_all_trade_data(account_id: int = None):
         c.execute("DELETE FROM trade_history WHERE basket_id IN (SELECT id FROM baskets WHERE account_id=?)", (account_id,))
         c.execute("DELETE FROM positions WHERE basket_id IN (SELECT id FROM baskets WHERE account_id=?)", (account_id,))
         c.execute("DELETE FROM baskets WHERE account_id=?", (account_id,))
-        c.execute("UPDATE accounts SET balance = CASE WHEN market='CRYPTO' THEN 100000.0 ELSE 2500000.0 END WHERE id=?", (account_id,))
     else:
         c.execute("DELETE FROM trade_history")
         c.execute("DELETE FROM positions")
         c.execute("DELETE FROM baskets")
-        c.execute("UPDATE accounts SET balance = CASE WHEN market='CRYPTO' THEN 100000.0 ELSE 2500000.0 END")
     conn.commit()
     conn.close()
 
