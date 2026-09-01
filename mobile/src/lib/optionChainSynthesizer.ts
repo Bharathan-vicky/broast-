@@ -306,21 +306,58 @@ export const ASSET_IV_MAP: Record<string, number> = {
 export const KNOWN_EXPIRY_OPTION_PRICES: Record<string, Record<string, { baseSpot: number; strikes: Record<number, { callLtp: number; putLtp: number; callPchange?: number; putPchange?: number }> }>> = {
   'BTC': {
     '2026-09-01': {
-      baseSpot: 78650.0,
+      baseSpot: 79800.0,
       strikes: {
-        77200: { callLtp: 1551.5, putLtp: 9.0, callPchange: 32.1, putPchange: 35.1 },
-        77400: { callLtp: 1352.5, putLtp: 13.0, callPchange: 30.5, putPchange: 33.4 },
-        77600: { callLtp: 1161.0, putLtp: 18.5, callPchange: 30.5, putPchange: 31.5 },
-        77800: { callLtp: 971.0, putLtp: 28.0, callPchange: 29.7, putPchange: 30.2 },
-        78000: { callLtp: 785.5, putLtp: 46.0, callPchange: 28.7, putPchange: 29.2 },
-        78200: { callLtp: 613.0, putLtp: 73.0, callPchange: 28.1, putPchange: 28.1 },
-        78400: { callLtp: 458.5, putLtp: 115.5, callPchange: 28.2, putPchange: 27.2 },
-        78600: { callLtp: 321.5, putLtp: 181.5, callPchange: 27.0, putPchange: 26.5 },
-        78800: { callLtp: 214.5, putLtp: 274.5, callPchange: 26.5, putPchange: 26.1 },
-        79000: { callLtp: 134.5, putLtp: 394.0, callPchange: 26.3, putPchange: 25.8 },
-        79200: { callLtp: 80.5, putLtp: 538.0, callPchange: 26.6, putPchange: 25.7 },
-        79400: { callLtp: 48.0, putLtp: 705.0, callPchange: 27.3, putPchange: 25.8 },
-        79600: { callLtp: 27.0, putLtp: 887.0, callPchange: 27.0, putPchange: 25.8 }
+        78200: { callLtp: 968.5, putLtp: 21.0, callPchange: 29.6, putPchange: 30.4 },
+        78400: { callLtp: 782.0, putLtp: 36.0, callPchange: 28.6, putPchange: 29.5 },
+        78600: { callLtp: 607.5, putLtp: 60.5, callPchange: 28.2, putPchange: 28.4 },
+        78800: { callLtp: 453.0, putLtp: 100.0, callPchange: 27.7, putPchange: 27.5 },
+        79000: { callLtp: 310.5, putLtp: 162.5, callPchange: 26.9, putPchange: 26.8 },
+        79200: { callLtp: 201.5, putLtp: 254.5, callPchange: 26.8, putPchange: 26.2 },
+        79400: { callLtp: 121.5, putLtp: 376.0, callPchange: 26.5, putPchange: 26.0 },
+        79600: { callLtp: 70.0, putLtp: 522.0, callPchange: 26.9, putPchange: 25.8 },
+        79800: { callLtp: 40.0, putLtp: 695.0, callPchange: 27.4, putPchange: 26.0 },
+        80000: { callLtp: 21.5, putLtp: 874.0, callPchange: 28.0, putPchange: 25.2 },
+        80200: { callLtp: 11.1, putLtp: 1063.0, callPchange: 28.5, putPchange: 18.7 },
+        80400: { callLtp: 5.1, putLtp: 1261.0, callPchange: 28.3, putPchange: 0.0 }
+      }
+    }
+  },
+  'ETH': {
+    '2026-09-01': {
+      baseSpot: 2480.0,
+      strikes: {
+        2440: { callLtp: 41.20, putLtp: 0.42, callPchange: 23.5, callPchange_put: 34.9 },
+        2450: { callLtp: 31.80, putLtp: 0.85, callPchange: 31.3, callPchange_put: 32.4 },
+        2460: { callLtp: 22.85, putLtp: 2.10, callPchange: 32.6, callPchange_put: 33.0 },
+        2470: { callLtp: 15.45, putLtp: 4.40, callPchange: 32.5, callPchange_put: 33.0 },
+        2480: { callLtp: 9.25, putLtp: 8.35, callPchange: 33.1, callPchange_put: 32.8 },
+        2490: { callLtp: 5.05, putLtp: 14.30, callPchange: 33.0, callPchange_put: 32.4 },
+        2500: { callLtp: 2.55, putLtp: 21.45, callPchange: 34.1, callPchange_put: 32.1 },
+        2510: { callLtp: 1.10, putLtp: 30.25, callPchange: 33.5, callPchange_put: 30.1 },
+        2520: { callLtp: 0.50, putLtp: 39.70, callPchange: 33.6, callPchange_put: 24.8 },
+        2530: { callLtp: 0.295, putLtp: 49.25, callPchange: 38.8, callPchange_put: 0.0 },
+        2540: { callLtp: 0.18, putLtp: 59.30, callPchange: 41.2, callPchange_put: 0.0 },
+        2560: { callLtp: 0.19, putLtp: 79.20, callPchange: 51.3, callPchange_put: 0.0 }
+      }
+    }
+  },
+  'XAUT': {
+    '2026-09-01': {
+      baseSpot: 4430.0,
+      strikes: {
+        4380: { callLtp: 54.40, putLtp: 1.35, callPchange: 0.0, callPchange_put: 23.6 },
+        4390: { callLtp: 45.35, putLtp: 2.45, callPchange: 20.1, callPchange_put: 24.6 },
+        4400: { callLtp: 36.80, putLtp: 3.70, callPchange: 21.0, callPchange_put: 23.4 },
+        4410: { callLtp: 28.95, putLtp: 5.85, callPchange: 22.4, callPchange_put: 23.3 },
+        4420: { callLtp: 21.95, putLtp: 8.85, callPchange: 22.8, callPchange_put: 22.8 },
+        4430: { callLtp: 15.90, putLtp: 13.20, callPchange: 22.9, callPchange_put: 23.7 },
+        4440: { callLtp: 11.15, putLtp: 18.05, callPchange: 22.8, callPchange_put: 22.6 },
+        4450: { callLtp: 7.65, putLtp: 24.55, callPchange: 23.4, callPchange_put: 21.7 },
+        4460: { callLtp: 5.00, putLtp: 31.90, callPchange: 23.4, callPchange_put: 20.9 },
+        4470: { callLtp: 3.19, putLtp: 40.05, callPchange: 23.7, callPchange_put: 19.0 },
+        4480: { callLtp: 2.00, putLtp: 48.90, callPchange: 23.9, callPchange_put: 13.9 },
+        4490: { callLtp: 1.25, putLtp: 58.05, callPchange: 24.2, callPchange_put: 0.0 }
       }
     }
   },
@@ -565,8 +602,8 @@ export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; str
 
 export const ASSET_DEFAULT_STRIKE_STEPS: Record<string, number> = {
   'BTC': 200,
-  'ETH': 50,
-  'XAUT': 25,
+  'ETH': 10,
+  'XAUT': 10,
   'NIFTY': 50,
   'BANKNIFTY': 100,
   'SENSEX': 100,
