@@ -279,7 +279,7 @@ export function generateDefaultExpiries(isCrypto: boolean = false, isStock: bool
 export const ASSET_IV_MAP: Record<string, number> = {
   'NIFTY': 0.102,
   'BANKNIFTY': 0.135,
-  'SENSEX': 0.109,
+  'SENSEX': 0.158,
   'RELIANCE': 0.225,
   'TCS': 0.245,
   'INFY': 0.240,
@@ -318,16 +318,19 @@ export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; str
     }
   },
   'SENSEX': {
-    baseSpot: 77264.51,
+    baseSpot: 76957.27,
     strikes: {
-      76900: { callLtp: 782.40, putLtp: 167.30, callPchange: 10.06, putPchange: -29.00 },
-      77000: { callLtp: 705.30, putLtp: 193.70, callPchange: 8.13, putPchange: -26.31 },
-      77100: { callLtp: 632.15, putLtp: 224.65, callPchange: 6.19, putPchange: -24.42 },
-      77200: { callLtp: 568.50, putLtp: 256.20, callPchange: 5.42, putPchange: -22.01 },
-      77300: { callLtp: 507.15, putLtp: 291.60, callPchange: 6.05, putPchange: -23.52 },
-      77400: { callLtp: 445.75, putLtp: 335.40, callPchange: 4.32, putPchange: -22.10 },
-      77500: { callLtp: 394.10, putLtp: 378.40, callPchange: 4.16, putPchange: -20.90 },
-      77600: { callLtp: 343.35, putLtp: 425.85, callPchange: 3.79, putPchange: -20.38 }
+      76500: { callLtp: 818.50, putLtp: 118.20, callPchange: -24.50, putPchange: 28.40 },
+      76600: { callLtp: 746.25, putLtp: 140.60, callPchange: -26.36, putPchange: 30.91 },
+      76700: { callLtp: 675.50, putLtp: 165.40, callPchange: -28.13, putPchange: 32.74 },
+      76800: { callLtp: 600.50, putLtp: 194.25, callPchange: -29.79, putPchange: 33.78 },
+      76900: { callLtp: 532.10, putLtp: 224.70, callPchange: -31.99, putPchange: 34.31 },
+      77000: { callLtp: 465.50, putLtp: 261.10, callPchange: -34.00, putPchange: 34.80 },
+      77100: { callLtp: 406.90, putLtp: 300.25, callPchange: -35.63, putPchange: 33.65 },
+      77200: { callLtp: 351.05, putLtp: 345.30, callPchange: -38.25, putPchange: 31.78 },
+      77300: { callLtp: 301.50, putLtp: 395.40, callPchange: -40.55, putPchange: 35.60 },
+      77400: { callLtp: 256.80, putLtp: 450.10, callPchange: -42.10, putPchange: 37.20 },
+      77500: { callLtp: 217.40, putLtp: 510.30, callPchange: -44.50, putPchange: 38.90 }
     }
   },
   'BANKNIFTY': {
@@ -360,23 +363,44 @@ export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; str
  * HARDENED: Never throws — always returns a valid (possibly empty) chain.
  */
 export function synthesizeOptionChain(
-  asset: string,
-  spot: number,
-  strikeStep: number,
-  expiry: string
+  arg1: string | number,
+  arg2?: number,
+  arg3?: number | string,
+  arg4?: string,
+  arg5?: number
 ): OptionRowData[] {
   try {
-    if (!isFinite(spot) || spot <= 0 || !isFinite(strikeStep) || strikeStep <= 0) return [];
+    let asset = 'NIFTY';
+    let spot = 24000;
+    let strikeStep = 50;
+    let expiry: string | null = null;
+    let tickSize = 0.05;
 
-    const isCrypto = asset === 'BTC' || asset === 'ETH' || asset === 'XAUT';
-    const tickSize = asset === 'BTC' ? 0.5 : (asset === 'ETH' ? 0.05 : (asset === 'XAUT' ? 0.1 : 0.05));
-    const iv = ASSET_IV_MAP[asset] || (isCrypto ? 0.48 : (asset === 'BANKNIFTY' ? 0.14 : (asset === 'SENSEX' ? 0.11 : 0.105)));
-    const rate = isCrypto ? 0.04 : 0.05;
+    if (typeof arg1 === 'string') {
+      asset = arg1;
+      spot = typeof arg2 === 'number' ? arg2 : 24000;
+      strikeStep = typeof arg3 === 'number' ? arg3 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50);
+      expiry = typeof arg4 === 'string' ? arg4 : null;
+      tickSize = typeof arg5 === 'number' ? arg5 : (asset === 'BTC' ? 0.5 : (asset === 'XAUT' ? 0.1 : 0.05));
+    } else {
+      spot = typeof arg1 === 'number' ? arg1 : 24000;
+      strikeStep = typeof arg2 === 'number' ? arg2 : 50;
+      expiry = typeof arg3 === 'string' ? arg3 : null;
+      asset = typeof arg4 === 'string' ? arg4 : 'NIFTY';
+      tickSize = typeof arg5 === 'number' ? arg5 : (asset === 'BTC' ? 0.5 : (asset === 'XAUT' ? 0.1 : 0.05));
+    }
+
+    if (!isFinite(spot) || spot <= 0) return [];
+    if (!isFinite(strikeStep) || strikeStep <= 0) strikeStep = 50;
+    if (!isFinite(tickSize) || tickSize <= 0) tickSize = 0.05;
+
+    const iv = ASSET_IV_MAP[asset] || 0.12;
+    const rate = 0.065; // RBI repo risk-free rate 6.5%
 
     const now = new Date();
     let expDate: Date;
     try {
-      expDate = expiry.includes('T') ? new Date(expiry) : (isCrypto ? new Date(`${expiry}T08:00:00Z`) : new Date(`${expiry}T15:30:00`));
+      expDate = expiry ? new Date(expiry) : new Date(now.getTime() + 7 * 24 * 3600 * 1000);
       if (isNaN(expDate.getTime())) expDate = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
     } catch {
       expDate = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
@@ -390,7 +414,7 @@ export function synthesizeOptionChain(
     const expLabel = (expiry || '').replace(/-/g, '').slice(2);
 
     const knownData = KNOWN_CLOSING_OPTION_PRICES[asset];
-    const threshold = (asset === 'SENSEX' || asset === 'BANKNIFTY') ? 300 : 75;
+    const threshold = (asset === 'SENSEX' || asset === 'BANKNIFTY') ? 2500 : 75;
     const isNearKnownSpot = knownData && Math.abs(spot - knownData.baseSpot) < threshold;
 
     const strikeSpan = (asset === 'BANKNIFTY' || asset === 'SENSEX') ? 22 : 16;
