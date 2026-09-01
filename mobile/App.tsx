@@ -2975,6 +2975,44 @@ export default function App() {
     return READY_STRATEGIES.filter(s => s.view === selectedMarketView);
   }, [selectedMarketView]);
 
+  const formatCleanContractSymbol = (leg: any) => {
+    const und = (leg.underlying || 'NIFTY').toUpperCase();
+    const strike = leg.strike || 0;
+    const isCall = leg.option_type === 'CALL' || leg.option_type === 'CE' || leg.symbol?.startsWith('C-') || leg.symbol?.includes('CALL') || leg.symbol?.includes('CE');
+    const opt = isCall ? 'CE' : 'PE';
+    
+    // Format expiry nicely (e.g. 01st SEP or 24th SEP)
+    let expStr = '';
+    if (leg.expiry) {
+      try {
+        const d = new Date(leg.expiry);
+        if (!isNaN(d.getTime())) {
+          const day = d.getDate();
+          const suffix = (day === 1 || day === 21 || day === 31) ? 'st' : (day === 2 || day === 22) ? 'nd' : (day === 3 || day === 23) ? 'rd' : 'th';
+          const dayStr = String(day).padStart(2, '0') + suffix;
+          const monthStr = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+          expStr = `${dayStr} ${monthStr}`;
+        }
+      } catch (e) {}
+    }
+    
+    if (!expStr && typeof leg.expiry === 'string' && leg.expiry.length > 0) {
+      const parts = leg.expiry.trim().split(' ');
+      if (parts.length >= 2) {
+        const dayNum = parseInt(parts[0], 10);
+        if (!isNaN(dayNum)) {
+          const suffix = (dayNum === 1 || dayNum === 21 || dayNum === 31) ? 'st' : (dayNum === 2 || dayNum === 22) ? 'nd' : (dayNum === 3 || dayNum === 23) ? 'rd' : 'th';
+          expStr = `${String(dayNum).padStart(2, '0')}${suffix} ${parts[1].toUpperCase()}`;
+        }
+      }
+    }
+
+    if (expStr) {
+      return `${und} ${expStr} ${strike} ${opt}`;
+    }
+    return `${und} ${strike} ${opt}`;
+  };
+
   const tradeLabStats = useMemo(() => {
     const rawBalance = Number(activeAccount?.balance) || 1000000;
     let totalInvestedMargin = 0;
@@ -2996,28 +3034,32 @@ export default function App() {
             (legAsset === 'ETH' ? 0.01 : 1.0))))))
           );
 
-          const chain = chainByExpiry[leg.expiry] || [];
-          const row = chain.find((r: any) => r.strike === leg.strike);
-          
-          let ltp = row ? (leg.option_type === 'CALL' ? (row.callMark || row.callLtp || 0) : (row.putMark || row.putLtp || 0)) : (leg.current_price || 0);
-
-          // Real-time live valuation fallback if chain row is not currently loaded in view
-          if (!ltp || ltp <= 0) {
-            const currentSpot = allLiveSpots[legAsset]?.spot || ASSET_CONFIG[legAsset]?.defaultSpot || 0;
-            if (currentSpot > 0 && leg.strike > 0) {
-              const isCrypto = legAsset === 'BTC' || legAsset === 'ETH' || legAsset === 'XAUT';
-              const tickSize = legAsset === 'BTC' ? 0.5 : 0.05;
-              const iv = ASSET_IV_MAP[legAsset] || (isCrypto ? 0.48 : 0.175);
-              const now = new Date();
-              let expDate = leg.expiry ? new Date(leg.expiry) : new Date(now.getTime() + 7 * 86400000);
-              if (isNaN(expDate.getTime())) expDate = new Date(now.getTime() + 7 * 86400000);
-              const diffDays = Math.max(isCrypto ? 0.02 : 0.15, (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-              const T = Math.max(0.0005, diffDays / 365.0);
-              const bsRes = calculateBSPrice(currentSpot, leg.strike, T, 0, iv, leg.option_type === 'CALL' ? 'CALL' : 'PUT', tickSize);
-              ltp = bsRes.price;
+          // 1. Search in cached chainByExpiry
+          let chain = chainByExpiry[leg.expiry];
+          if (!chain || chain.length === 0) {
+            for (const k of Object.keys(chainByExpiry)) {
+              if (k === leg.expiry || (leg.expiry && k.includes(leg.expiry.slice(0, 10))) || (leg.expiry && leg.expiry.includes(k))) {
+                chain = chainByExpiry[k];
+                break;
+              }
             }
           }
 
+          let row = chain?.find((r: any) => r.strike === leg.strike);
+
+          // 2. Synthesize dynamically with calibrated Angel One matrix if not in memory
+          if (!row) {
+            const currentSpot = allLiveSpots[legAsset]?.spot || spotPrice || ASSET_CONFIG[legAsset]?.defaultSpot || 0;
+            const synth = synthesizeOptionChain(legAsset, currentSpot, leg.expiry || activeExpiry);
+            row = synth.find((r: any) => r.strike === leg.strike);
+          }
+
+          let ltp = 0;
+          if (row) {
+            ltp = (leg.option_type === 'CALL' || leg.option_type === 'CE') ? (row.callMark || row.callLtp || 0) : (row.putMark || row.putLtp || 0);
+          }
+
+          // 3. Prevent artificial entry discrepancy (if LTP is missing, fallback to entry_price)
           if (!ltp || ltp <= 0) {
             ltp = leg.entry_price || 0;
           }
@@ -3039,7 +3081,7 @@ export default function App() {
           activePositionsList.push({
             basketId: b.id,
             positionId: leg.id,
-            symbol: leg.symbol || `${legAsset} ${leg.expiry ? new Date(leg.expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase() : ''} ${leg.strike} ${leg.option_type === 'CALL' ? 'CE' : 'PE'}`,
+            symbol: formatCleanContractSymbol(leg),
             underlying: legAsset,
             strike: leg.strike,
             expiry: leg.expiry,
