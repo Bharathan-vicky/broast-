@@ -403,6 +403,54 @@ export const KNOWN_EXPIRY_OPTION_PRICES: Record<string, Record<string, { baseSpo
         77400: { callLtp: 541.20, putLtp: 575.80, callPchange: -24.10, putPchange: 29.10 },
         77500: { callLtp: 498.50, putLtp: 632.40, callPchange: -24.80, putPchange: 30.20 }
       }
+    },
+    '2026-09-17': {
+      baseSpot: 76957.27,
+      strikes: {
+        76500: { callLtp: 1385.00, putLtp: 385.40, callPchange: -12.40, putPchange: 22.10 },
+        76600: { callLtp: 1310.00, putLtp: 412.00, callPchange: -13.10, putPchange: 22.80 },
+        76700: { callLtp: 1240.00, putLtp: 440.50, callPchange: -13.80, putPchange: 23.50 },
+        76800: { callLtp: 1170.00, putLtp: 472.00, callPchange: -14.60, putPchange: 24.20 },
+        76900: { callLtp: 1102.50, putLtp: 505.00, callPchange: -15.40, putPchange: 25.00 },
+        77000: { callLtp: 1038.00, putLtp: 540.00, callPchange: -16.20, putPchange: 25.80 },
+        77100: { callLtp: 975.00, putLtp: 578.00, callPchange: -17.10, putPchange: 26.60 },
+        77200: { callLtp: 915.00, putLtp: 618.00, callPchange: -18.00, putPchange: 27.50 },
+        77300: { callLtp: 856.00, putLtp: 660.00, callPchange: -19.00, putPchange: 28.40 },
+        77400: { callLtp: 800.00, putLtp: 705.00, callPchange: -20.00, putPchange: 29.30 },
+        77500: { callLtp: 746.00, putLtp: 752.00, callPchange: -21.00, putPchange: 30.20 }
+      }
+    },
+    '2026-09-24': {
+      baseSpot: 76957.27,
+      strikes: {
+        76500: { callLtp: 1620.00, putLtp: 520.00, callPchange: -10.50, putPchange: 18.60 },
+        76600: { callLtp: 1540.00, putLtp: 552.00, callPchange: -11.20, putPchange: 19.20 },
+        76700: { callLtp: 1465.00, putLtp: 585.00, callPchange: -11.80, putPchange: 19.80 },
+        76800: { callLtp: 1390.00, putLtp: 620.00, callPchange: -12.50, putPchange: 20.50 },
+        76900: { callLtp: 1318.00, putLtp: 656.00, callPchange: -13.20, putPchange: 21.20 },
+        77000: { callLtp: 1250.00, putLtp: 695.00, callPchange: -14.00, putPchange: 22.00 },
+        77100: { callLtp: 1184.00, putLtp: 735.00, callPchange: -14.80, putPchange: 22.80 },
+        77200: { callLtp: 1120.00, putLtp: 778.00, callPchange: -15.60, putPchange: 23.60 },
+        77300: { callLtp: 1058.00, putLtp: 822.00, callPchange: -16.40, putPchange: 24.40 },
+        77400: { callLtp: 998.00, putLtp: 870.00, callPchange: -17.20, putPchange: 25.20 },
+        77500: { callLtp: 940.00, putLtp: 920.00, callPchange: -18.10, putPchange: 26.10 }
+      }
+    },
+    '2026-10-01': {
+      baseSpot: 76957.27,
+      strikes: {
+        76500: { callLtp: 1840.00, putLtp: 645.00, callPchange: -9.20, putPchange: 16.20 },
+        76600: { callLtp: 1760.00, putLtp: 680.00, callPchange: -9.80, putPchange: 16.80 },
+        76700: { callLtp: 1680.00, putLtp: 718.00, callPchange: -10.40, putPchange: 17.40 },
+        76800: { callLtp: 1600.00, putLtp: 758.00, callPchange: -11.00, putPchange: 18.00 },
+        76900: { callLtp: 1525.00, putLtp: 800.00, callPchange: -11.60, putPchange: 18.60 },
+        77000: { callLtp: 1452.00, putLtp: 844.00, callPchange: -12.30, putPchange: 19.30 },
+        77100: { callLtp: 1382.00, putLtp: 890.00, callPchange: -13.00, putPchange: 20.00 },
+        77200: { callLtp: 1315.00, putLtp: 938.00, callPchange: -13.70, putPchange: 20.70 },
+        77300: { callLtp: 1250.00, putLtp: 988.00, callPchange: -14.50, putPchange: 21.50 },
+        77400: { callLtp: 1188.00, putLtp: 1040.00, callPchange: -15.30, putPchange: 22.30 },
+        77500: { callLtp: 1128.00, putLtp: 1095.00, callPchange: -16.10, putPchange: 23.10 }
+      }
     }
   },
   'BANKNIFTY': {
