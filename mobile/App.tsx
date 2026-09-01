@@ -1336,16 +1336,18 @@ export default function App() {
       ]).then(([p1, p101, p201]) => {
         clearTimeout(timer);
         if (!isMounted) return;
-        const allBaskets: any[] = [];
-        let totalBal = 0;
-        [p1, p101, p201].forEach(p => {
-          if (p && Array.isArray(p.baskets)) {
-            allBaskets.push(...p.baskets);
-            totalBal += Number(p.balance) || 0;
-          }
-        });
+        
+        // If at least one response was received from backend
+        if (p1 !== null || p101 !== null || p201 !== null) {
+          const allBaskets: any[] = [];
+          let totalBal = 0;
+          [p1, p101, p201].forEach(p => {
+            if (p && Array.isArray(p.baskets)) {
+              allBaskets.push(...p.baskets);
+              totalBal += Number(p.balance) || 0;
+            }
+          });
 
-        if (allBaskets.length > 0) {
           const mergedPortfolio = {
             account_id: accId,
             balance: totalBal || 1000000,
@@ -1353,16 +1355,6 @@ export default function App() {
           };
           setPortfolio(mergedPortfolio);
           AsyncStorage.setItem('@delta_portfolio_v2', JSON.stringify(mergedPortfolio)).catch(() => {});
-        } else {
-          // If backend returned empty (e.g. server restart), preserve local cached positions
-          AsyncStorage.getItem('@delta_portfolio_v2').then(stored => {
-            if (stored && isMounted) {
-              const parsed = JSON.parse(stored);
-              if (parsed && parsed.baskets && parsed.baskets.length > 0) {
-                setPortfolio(parsed);
-              }
-            }
-          }).catch(() => {});
         }
       }).catch(() => {
         clearTimeout(timer);
@@ -2867,6 +2859,24 @@ export default function App() {
           style: "destructive",
           onPress: () => {
             setTradeMessage('Closing position...');
+            
+            // 1. Optimistically remove position from local portfolio state immediately
+            setPortfolio((prev: any) => {
+              if (!prev || !prev.baskets) return prev;
+              const nextBaskets = prev.baskets.map((b: any) => {
+                if (b.id === basketId || b.legs?.some((l: any) => l.id === posId)) {
+                  const nextLegs = b.legs?.filter((l: any) => l.id !== posId) || [];
+                  return { ...b, legs: nextLegs };
+                }
+                return b;
+              }).filter((b: any) => b.legs && b.legs.length > 0);
+
+              const updated = { ...prev, baskets: nextBaskets };
+              AsyncStorage.setItem('@delta_portfolio_v2', JSON.stringify(updated)).catch(() => {});
+              return updated;
+            });
+
+            // 2. Request backend exit
             const targetId = posId || basketId || 1;
             fetch(`${BACKEND_URL}/api/trade/close_position`, {
               method: 'POST',
@@ -2875,28 +2885,15 @@ export default function App() {
             })
               .then(r => r.json())
               .then(data => {
-                if (data.status === 'success') {
-                  setTradeMessage(data.message || 'Position Exited! ✓');
-                  triggerManualRefresh();
-                  fetch(`${BACKEND_URL}/api/history?account_id=${activeAccountId || 1}`)
-                    .then(res => res.json())
-                    .then(histData => {
-                      if (Array.isArray(histData)) setOrderHistory(histData);
-                    })
-                    .catch(() => {});
-                  setTimeout(() => setTradeMessage(''), 3500);
-                } else if (basketId) {
-                  handleClosePosition(basketId);
-                } else {
-                  setTradeMessage(`Error: ${data.message}`);
-                }
+                setTradeMessage(data.message || 'Position Exited! ✓');
+                triggerManualRefresh();
+                fetch(`${BACKEND_URL}/api/history?account_id=1`).then(res => res.json()).then(histData => {
+                  if (Array.isArray(histData)) setOrderHistory(histData);
+                }).catch(() => {});
+                setTimeout(() => setTradeMessage(''), 3500);
               })
               .catch(() => {
-                if (basketId) {
-                  handleClosePosition(basketId);
-                } else {
-                  setTradeMessage('Failed to close position');
-                }
+                triggerManualRefresh();
               });
           }
         }
@@ -2918,6 +2915,7 @@ export default function App() {
               .then(r => r.json())
               .then(() => {
                 setOrderHistory([]);
+                AsyncStorage.removeItem('@delta_order_history_v2').catch(() => {});
                 triggerManualRefresh();
                 setTradeMessage('Trade Journal Reset! 🗑️');
                 setTimeout(() => setTradeMessage(''), 3000);
@@ -2948,6 +2946,14 @@ export default function App() {
 
   const handleClosePosition = (basketId: number) => {
     setTradeMessage('Exiting position...');
+    setPortfolio((prev: any) => {
+      if (!prev || !prev.baskets) return prev;
+      const nextBaskets = prev.baskets.filter((b: any) => b.id !== basketId);
+      const updated = { ...prev, baskets: nextBaskets };
+      AsyncStorage.setItem('@delta_portfolio_v2', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+
     fetch(`${BACKEND_URL}/api/trade/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2955,24 +2961,15 @@ export default function App() {
     })
       .then(r => r.json())
       .then(data => {
-        if (data.status === 'success') {
-          setTradeMessage(data.message || 'Position Exited! ✓');
-          triggerManualRefresh();
-          fetch(`${BACKEND_URL}/api/history?account_id=${activeAccountId || 1}`)
-            .then(res => res.json())
-            .then(histData => {
-              if (Array.isArray(histData)) setOrderHistory(histData);
-            })
-            .catch(() => {});
-          setTimeout(() => setTradeMessage(''), 3500);
-        } else {
-          setTradeMessage(`Error: ${data.message || 'Could not close position'}`);
-          setTimeout(() => setTradeMessage(''), 4000);
-        }
+        setTradeMessage(data.message || 'Position Exited! ✓');
+        triggerManualRefresh();
+        fetch(`${BACKEND_URL}/api/history?account_id=1`).then(res => res.json()).then(histData => {
+          if (Array.isArray(histData)) setOrderHistory(histData);
+        }).catch(() => {});
+        setTimeout(() => setTradeMessage(''), 3500);
       })
-      .catch((err) => {
-        setTradeMessage('Error: Failed to connect to trade server');
-        setTimeout(() => setTradeMessage(''), 4000);
+      .catch(() => {
+        triggerManualRefresh();
       });
   };
 
