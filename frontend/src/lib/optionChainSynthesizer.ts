@@ -303,6 +303,71 @@ export const ASSET_IV_MAP: Record<string, number> = {
   'XAUT': 0.220
 };
 
+export const KNOWN_EXPIRY_OPTION_PRICES: Record<string, Record<string, { baseSpot: number; strikes: Record<number, { callLtp: number; putLtp: number; callPchange?: number; putPchange?: number }> }>> = {
+  'SENSEX': {
+    '2026-09-03': {
+      baseSpot: 76957.27,
+      strikes: {
+        76500: { callLtp: 818.50, putLtp: 118.20, callPchange: -24.50, putPchange: 28.40 },
+        76600: { callLtp: 746.25, putLtp: 140.60, callPchange: -26.36, putPchange: 30.91 },
+        76700: { callLtp: 675.50, putLtp: 165.40, callPchange: -28.13, putPchange: 32.74 },
+        76800: { callLtp: 600.50, putLtp: 194.25, callPchange: -29.79, putPchange: 33.78 },
+        76900: { callLtp: 532.10, putLtp: 224.70, callPchange: -31.99, putPchange: 34.31 },
+        77000: { callLtp: 465.50, putLtp: 261.10, callPchange: -34.00, putPchange: 34.80 },
+        77100: { callLtp: 406.90, putLtp: 300.25, callPchange: -35.63, putPchange: 33.65 },
+        77200: { callLtp: 351.05, putLtp: 345.30, callPchange: -38.25, putPchange: 31.78 },
+        77300: { callLtp: 301.50, putLtp: 395.40, callPchange: -40.55, putPchange: 35.60 },
+        77400: { callLtp: 256.80, putLtp: 450.10, callPchange: -42.10, putPchange: 37.20 },
+        77500: { callLtp: 217.40, putLtp: 510.30, callPchange: -44.50, putPchange: 38.90 }
+      }
+    },
+    '2026-09-10': {
+      baseSpot: 76957.27,
+      strikes: {
+        76500: { callLtp: 1105.00, putLtp: 242.10, callPchange: -15.20, putPchange: 25.40 },
+        76600: { callLtp: 1041.90, putLtp: 264.85, callPchange: -16.65, putPchange: 27.06 },
+        76700: { callLtp: 989.75, putLtp: 291.45, callPchange: -16.11, putPchange: 22.97 },
+        76800: { callLtp: 885.45, putLtp: 325.10, callPchange: -20.10, putPchange: 27.44 },
+        76900: { callLtp: 811.40, putLtp: 356.20, callPchange: -20.20, putPchange: 23.08 },
+        77000: { callLtp: 745.20, putLtp: 390.25, callPchange: -22.98, putPchange: 26.01 },
+        77100: { callLtp: 689.65, putLtp: 430.60, callPchange: -22.92, putPchange: 25.56 },
+        77200: { callLtp: 639.00, putLtp: 469.20, callPchange: -23.25, putPchange: 26.52 },
+        77300: { callLtp: 588.40, putLtp: 521.70, callPchange: -23.63, putPchange: 28.21 },
+        77400: { callLtp: 541.20, putLtp: 575.80, callPchange: -24.10, putPchange: 29.10 },
+        77500: { callLtp: 498.50, putLtp: 632.40, callPchange: -24.80, putPchange: 30.20 }
+      }
+    }
+  },
+  'BANKNIFTY': {
+    '2026-09-29': {
+      baseSpot: 57496.30,
+      strikes: {
+        57300: { callLtp: 1047.95, putLtp: 501.40, callPchange: -4.58, putPchange: 0.75 },
+        57400: { callLtp: 987.40, putLtp: 536.85, callPchange: -4.87, putPchange: -0.23 },
+        57500: { callLtp: 923.05, putLtp: 570.55, callPchange: -4.66, putPchange: 0.33 },
+        57600: { callLtp: 868.25, putLtp: 613.10, callPchange: -5.04, putPchange: 1.10 },
+        57700: { callLtp: 810.30, putLtp: 659.50, callPchange: -5.60, putPchange: 1.92 },
+        57800: { callLtp: 756.05, putLtp: 701.85, callPchange: -5.68, putPchange: 1.56 },
+        57900: { callLtp: 704.60, putLtp: 747.95, callPchange: -5.64, putPchange: 0.88 },
+        58000: { callLtp: 653.15, putLtp: 797.65, callPchange: -5.43, putPchange: 0.97 }
+      }
+    },
+    '2026-10-27': {
+      baseSpot: 57496.30,
+      strikes: {
+        57300: { callLtp: 1580.40, putLtp: 890.20, callPchange: -3.20, putPchange: 2.10 },
+        57400: { callLtp: 1510.10, putLtp: 935.50, callPchange: -3.40, putPchange: 2.30 },
+        57500: { callLtp: 1445.60, putLtp: 982.00, callPchange: -3.50, putPchange: 2.40 },
+        57600: { callLtp: 1382.30, putLtp: 1030.80, callPchange: -3.60, putPchange: 2.50 },
+        57700: { callLtp: 1320.00, putLtp: 1081.20, callPchange: -3.80, putPchange: 2.70 },
+        57800: { callLtp: 1260.50, putLtp: 1133.00, callPchange: -3.90, putPchange: 2.80 },
+        57900: { callLtp: 1202.80, putLtp: 1186.40, callPchange: -4.00, putPchange: 2.90 },
+        58000: { callLtp: 1146.90, putLtp: 1241.50, callPchange: -4.10, putPchange: 3.00 }
+      }
+    }
+  }
+};
+
 export const KNOWN_CLOSING_OPTION_PRICES: Record<string, { baseSpot: number; strikes: Record<number, { callLtp: number; putLtp: number; callPchange?: number; putPchange?: number }> }> = {
   'NIFTY': {
     baseSpot: 24175.65,
@@ -414,7 +479,9 @@ export function synthesizeOptionChain(
     const rows: OptionRowData[] = [];
     const expLabel = (expiry || '').replace(/-/g, '').slice(2);
 
-    const knownData = KNOWN_CLOSING_OPTION_PRICES[asset];
+    const cleanExp = (expiry || '').split('T')[0];
+    const expirySpecificData = KNOWN_EXPIRY_OPTION_PRICES[asset]?.[cleanExp];
+    const knownData = expirySpecificData || KNOWN_CLOSING_OPTION_PRICES[asset];
     const threshold = (asset === 'SENSEX' || asset === 'BANKNIFTY') ? 2500 : 75;
     const isNearKnownSpot = knownData && Math.abs(spot - knownData.baseSpot) < threshold;
 
@@ -436,24 +503,32 @@ export function synthesizeOptionChain(
         const kEntry = knownData.strikes[strike];
         const spotDiff = spot - knownData.baseSpot;
 
-        // Base DTE for calibration table (2 days for weekly near-term)
-        const baseDte = (asset === 'SENSEX' || asset === 'NIFTY') ? 2.0 : 4.0;
-        const dteMultiplier = Math.sqrt(Math.max(0.1, diffDays) / baseDte);
+        if (expirySpecificData) {
+          // Exact calibrated prices for this specific expiry
+          finalCallLtp = roundToTick(Math.max(tickSize, kEntry.callLtp + callRes.delta * spotDiff), tickSize);
+          finalPutLtp = roundToTick(Math.max(tickSize, kEntry.putLtp + putRes.delta * spotDiff), tickSize);
+          callPch = kEntry.callPchange || 0.0;
+          putPch = kEntry.putPchange || 0.0;
+        } else {
+          // Base DTE for calibration table (2 days for weekly near-term)
+          const baseDte = (asset === 'SENSEX' || asset === 'NIFTY') ? 2.0 : 4.0;
+          const dteMultiplier = Math.sqrt(Math.max(0.1, diffDays) / baseDte);
 
-        // Intrinsic value
-        const callIntrinsic = Math.max(0, spot - strike);
-        const putIntrinsic = Math.max(0, strike - spot);
+          // Intrinsic value
+          const callIntrinsic = Math.max(0, spot - strike);
+          const putIntrinsic = Math.max(0, strike - spot);
 
-        const baseCallExtrinsic = Math.max(tickSize, kEntry.callLtp - Math.max(0, knownData.baseSpot - strike));
-        const basePutExtrinsic = Math.max(tickSize, kEntry.putLtp - Math.max(0, strike - knownData.baseSpot));
+          const baseCallExtrinsic = Math.max(tickSize, kEntry.callLtp - Math.max(0, knownData.baseSpot - strike));
+          const basePutExtrinsic = Math.max(tickSize, kEntry.putLtp - Math.max(0, strike - knownData.baseSpot));
 
-        const scaledCallTimeVal = baseCallExtrinsic * dteMultiplier;
-        const scaledPutTimeVal = basePutExtrinsic * dteMultiplier;
+          const scaledCallTimeVal = baseCallExtrinsic * dteMultiplier;
+          const scaledPutTimeVal = basePutExtrinsic * dteMultiplier;
 
-        finalCallLtp = roundToTick(Math.max(tickSize, callIntrinsic + scaledCallTimeVal + callRes.delta * spotDiff), tickSize);
-        finalPutLtp = roundToTick(Math.max(tickSize, putIntrinsic + scaledPutTimeVal + putRes.delta * spotDiff), tickSize);
-        callPch = Math.round((kEntry.callPchange || 0.0) / Math.max(1, dteMultiplier) * 100) / 100;
-        putPch = Math.round((kEntry.putPchange || 0.0) / Math.max(1, dteMultiplier) * 100) / 100;
+          finalCallLtp = roundToTick(Math.max(tickSize, callIntrinsic + scaledCallTimeVal + callRes.delta * spotDiff), tickSize);
+          finalPutLtp = roundToTick(Math.max(tickSize, putIntrinsic + scaledPutTimeVal + putRes.delta * spotDiff), tickSize);
+          callPch = Math.round((kEntry.callPchange || 0.0) / Math.max(1, dteMultiplier) * 100) / 100;
+          putPch = Math.round((kEntry.putPchange || 0.0) / Math.max(1, dteMultiplier) * 100) / 100;
+        }
       }
 
       const diff = Math.abs(strike - spot);
