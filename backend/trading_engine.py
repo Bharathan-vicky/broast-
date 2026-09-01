@@ -458,14 +458,18 @@ def close_single_position(position_id: int, exit_reason: str = "MANUAL"):
 def check_sl_target_triggers():
     """
     Background automated MTM monitoring loop: checks Stoploss and Target triggers for all open positions.
+    STRICT SAFETY: Only triggers if the user has explicitly set a positive, valid Stoploss or Target.
     """
     try:
         conn = db.get_db_connection()
         conn.row_factory = db.sqlite3.Row
         c = conn.cursor()
-        c.execute("SELECT id, symbol, side, entry_price, stoploss, target, stoploss_type, target_type, underlying, strike, option_type FROM positions WHERE status='OPEN'")
+        c.execute("SELECT id, symbol, side, entry_price, stoploss, target, stoploss_type, target_type, underlying, strike, option_type FROM positions WHERE status='OPEN' AND (stoploss > 0 OR target > 0)")
         open_positions = [dict(r) for r in c.fetchall()]
         conn.close()
+
+        if not open_positions:
+            return
 
         for pos in open_positions:
             pos_id = pos['id']
@@ -487,33 +491,35 @@ def check_sl_target_triggers():
             if current_p <= 0:
                 continue
 
-            # 1. Stoploss Check
+            # 1. User-Configured Stoploss Check
             if sl > 0:
                 if sl_type == 'PERCENT':
                     sl_thresh = entry_p * (1.0 - (sl / 100.0)) if side == 'BUY' else entry_p * (1.0 + (sl / 100.0))
                 else:
                     sl_thresh = sl
 
-                if side == 'BUY' and current_p <= sl_thresh:
-                    close_single_position(pos_id, exit_reason=f"STOPLOSS HIT ({sl_thresh:.2f})")
-                    continue
-                elif side == 'SELL' and current_p >= sl_thresh:
-                    close_single_position(pos_id, exit_reason=f"STOPLOSS HIT ({sl_thresh:.2f})")
-                    continue
+                if sl_thresh > 0:
+                    if side == 'BUY' and current_p <= sl_thresh and (entry_p - current_p) > 0.1:
+                        close_single_position(pos_id, exit_reason=f"STOPLOSS HIT ({sl_thresh:.2f})")
+                        continue
+                    elif side == 'SELL' and current_p >= sl_thresh and (current_p - entry_p) > 0.1:
+                        close_single_position(pos_id, exit_reason=f"STOPLOSS HIT ({sl_thresh:.2f})")
+                        continue
 
-            # 2. Target Check
+            # 2. User-Configured Target Check
             if tgt > 0:
                 if tgt_type == 'PERCENT':
                     tgt_thresh = entry_p * (1.0 + (tgt / 100.0)) if side == 'BUY' else entry_p * (1.0 - (tgt / 100.0))
                 else:
                     tgt_thresh = tgt
 
-                if side == 'BUY' and current_p >= tgt_thresh:
-                    close_single_position(pos_id, exit_reason=f"TARGET REACHED ({tgt_thresh:.2f})")
-                    continue
-                elif side == 'SELL' and current_p <= tgt_thresh:
-                    close_single_position(pos_id, exit_reason=f"TARGET REACHED ({tgt_thresh:.2f})")
-                    continue
+                if tgt_thresh > 0:
+                    if side == 'BUY' and current_p >= tgt_thresh and (current_p - entry_p) > 0.1:
+                        close_single_position(pos_id, exit_reason=f"TARGET REACHED ({tgt_thresh:.2f})")
+                        continue
+                    elif side == 'SELL' and current_p <= tgt_thresh and (entry_p - current_p) > 0.1:
+                        close_single_position(pos_id, exit_reason=f"TARGET REACHED ({tgt_thresh:.2f})")
+                        continue
     except Exception:
         pass
 

@@ -2775,7 +2775,7 @@ export default function App() {
 
       setStratBasket([]);
 
-      const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} ${orderMode === 'AMO' ? 'AMO' : ''} NRML`;
+      const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} ${orderMode === 'AMO' ? 'AMO' : ''}`.trim();
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -2853,7 +2853,7 @@ export default function App() {
       }));
     }
 
-    const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} ${orderMode === 'AMO' ? 'AMO' : ''} ${productType}`;
+    const orderBasketName = `${activeAsset} ${legsToExecute[0]?.option_type || 'OPT'} ${orderMode === 'AMO' ? 'AMO' : ''}`.trim();
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -4490,14 +4490,11 @@ export default function App() {
 
                   return (
                     <View key={idx} style={styles.kitePositionCard}>
-                      {/* Top Row: Qty & Avg on Left, Product Tag on Right */}
+                      {/* Top Row: Qty & Avg on Left */}
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                         <Text style={{ color: '#8a95a5', fontSize: 12 }}>
                           Qty. <Text style={{ color: '#ffffff', fontWeight: '700' }}>{pos.qty}</Text>   Avg. <Text style={{ color: '#ffffff', fontWeight: '700' }}>{pos.entry?.toFixed(2)}</Text>
                         </Text>
-                        <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: 'rgba(56, 189, 248, 0.3)' }}>
-                          <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: '800' }}>{pos.productType || 'NRML'}</Text>
-                        </View>
                       </View>
 
                       {/* Middle Row: Symbol Name with Expiry on Left, P&L on Right */}
