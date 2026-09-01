@@ -1518,6 +1518,18 @@ export default function App() {
     if (cat && selectedMarket !== cat) {
       setSelectedMarket(cat);
     }
+    const isCrypto = assetKey === 'BTC' || assetKey === 'ETH' || assetKey === 'XAUT';
+    const isStock = cat === 'STOCKS';
+    const defaultExps = generateDefaultExpiries(isCrypto, isStock, assetKey);
+    setExpiries(defaultExps);
+    const exp = defaultExps[0];
+    setActiveExpiry(exp);
+    const sp = ASSET_CONFIG[assetKey]?.defaultSpot || 24000;
+    const step = ASSET_CONFIG[assetKey]?.strikeStep || 50;
+    const freshChain = synthesizeOptionChain(assetKey, sp, step, exp);
+    if (freshChain && freshChain.length > 0) {
+      setChainByExpiry({ [exp]: freshChain });
+    }
     setStratBasket([]);
     setCursorSpotOffset(0);
     setActiveTab('chain');
@@ -5396,6 +5408,11 @@ export default function App() {
                     onPress={() => {
                       setActiveExpiry(exp);
                       setShowExpiryModal(false);
+                      const sp = spotPrice || currConfig.defaultSpot;
+                      const freshChain = synthesizeOptionChain(activeAsset, sp, strikeStep, exp);
+                      if (freshChain && freshChain.length > 0) {
+                        setChainByExpiry((prev: any) => ({ ...prev, [exp]: freshChain }));
+                      }
                     }}
                   >
                     <View style={{ flex: 1 }}>
