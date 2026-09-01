@@ -559,8 +559,13 @@ export function synthesizeOptionChain(
     if (typeof arg1 === 'string') {
       asset = arg1;
       spot = typeof arg2 === 'number' ? arg2 : 24000;
-      strikeStep = typeof arg3 === 'number' ? arg3 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50);
-      expiry = typeof arg4 === 'string' ? arg4 : null;
+      if (typeof arg3 === 'string') {
+        expiry = arg3;
+        strikeStep = typeof arg4 === 'number' ? arg4 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50);
+      } else {
+        strikeStep = typeof arg3 === 'number' ? arg3 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50);
+        expiry = typeof arg4 === 'string' ? arg4 : null;
+      }
       tickSize = typeof arg5 === 'number' ? arg5 : (asset === 'BTC' ? 0.5 : (asset === 'XAUT' ? 0.1 : 0.05));
     } else {
       spot = typeof arg1 === 'number' ? arg1 : 24000;

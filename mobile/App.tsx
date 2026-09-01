@@ -1395,6 +1395,10 @@ export default function App() {
     const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock, activeAsset)[0];
     const sp = spotPrice || currConfig.defaultSpot;
 
+    if (!isCrypto) {
+      return synthesizeOptionChain(activeAsset, sp, strikeStep, activeExp);
+    }
+
     const backendRows = chainByExpiry[activeExp];
     const expLabel = (activeExp || '').replace(/-/g, '').slice(2);
     if (backendRows && backendRows.length > 0 && backendRows[0]?.callSym?.includes(expLabel)) {
