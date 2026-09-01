@@ -1318,42 +1318,66 @@ export default function App() {
     loadStoredData();
   }, []);
 
-  // Periodic background portfolio & history poller (every 4000ms) with local sync
+  // Periodic background portfolio & history poller across all accounts with persistent local sync
   useEffect(() => {
     let isMounted = true;
     const accId = activeAccountId || 1;
 
     const syncPortfolio = () => {
-      fetch(`${BACKEND_URL}/api/portfolio?account_id=${accId}`)
-        .then(r => r.json())
-        .then(data => {
-          if (isMounted && data) {
-            if (data.baskets && data.baskets.length > 0) {
-              setPortfolio(data);
-              AsyncStorage.setItem('@delta_portfolio_v2', JSON.stringify(data)).catch(() => {});
-            } else {
-              setPortfolio((prev: any) => {
-                if (prev?.baskets?.length > 0) {
-                  return prev; // Preserve active positions
-                }
-                return data;
-              });
-            }
+      // Synchronously poll account 1 (Indian indices/stocks), account 101 (Crypto), and account 201 (Commodities)
+      Promise.all([
+        fetch(`${BACKEND_URL}/api/portfolio?account_id=1`).then(r => r.json()).catch(() => null),
+        fetch(`${BACKEND_URL}/api/portfolio?account_id=101`).then(r => r.json()).catch(() => null),
+        fetch(`${BACKEND_URL}/api/portfolio?account_id=201`).then(r => r.json()).catch(() => null)
+      ]).then(([p1, p101, p201]) => {
+        if (!isMounted) return;
+        const allBaskets: any[] = [];
+        let totalBal = 0;
+        [p1, p101, p201].forEach(p => {
+          if (p && Array.isArray(p.baskets)) {
+            allBaskets.push(...p.baskets);
+            totalBal += Number(p.balance) || 0;
           }
-        })
-        .catch(() => {});
+        });
 
-      fetch(`${BACKEND_URL}/api/history?account_id=${accId}`)
-        .then(r => r.json())
-        .then(data => {
-          if (isMounted && Array.isArray(data)) {
-            setOrderHistory(data);
-            if (data.length > 0) {
-              AsyncStorage.setItem('@delta_order_history_v2', JSON.stringify(data)).catch(() => {});
+        if (allBaskets.length > 0) {
+          const mergedPortfolio = {
+            account_id: accId,
+            balance: totalBal || 1000000,
+            baskets: allBaskets
+          };
+          setPortfolio(mergedPortfolio);
+          AsyncStorage.setItem('@delta_portfolio_v2', JSON.stringify(mergedPortfolio)).catch(() => {});
+        } else {
+          // If backend returned empty (e.g. server restart), preserve local cached positions
+          AsyncStorage.getItem('@delta_portfolio_v2').then(stored => {
+            if (stored && isMounted) {
+              const parsed = JSON.parse(stored);
+              if (parsed && parsed.baskets && parsed.baskets.length > 0) {
+                setPortfolio(parsed);
+              }
             }
-          }
-        })
-        .catch(() => {});
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+
+      // Poll history across all accounts
+      Promise.all([
+        fetch(`${BACKEND_URL}/api/history?account_id=1`).then(r => r.json()).catch(() => []),
+        fetch(`${BACKEND_URL}/api/history?account_id=101`).then(r => r.json()).catch(() => []),
+        fetch(`${BACKEND_URL}/api/history?account_id=201`).then(r => r.json()).catch(() => [])
+      ]).then(([h1, h101, h201]) => {
+        if (!isMounted) return;
+        const combined = [
+          ...(Array.isArray(h1) ? h1 : []),
+          ...(Array.isArray(h101) ? h101 : []),
+          ...(Array.isArray(h201) ? h201 : [])
+        ];
+        if (combined.length > 0) {
+          setOrderHistory(combined);
+          AsyncStorage.setItem('@delta_order_history_v2', JSON.stringify(combined)).catch(() => {});
+        }
+      }).catch(() => {});
     };
 
     syncPortfolio();
@@ -4239,40 +4263,12 @@ export default function App() {
 
 
 
-          {/* Clean Zerodha / Angel One Style Total P&L Card */}
+          {/* Clean Zerodha / Angel One Style Total P&L Header */}
           <View style={styles.cleanPnlCard}>
             <Text style={styles.cleanPnlLabel}>Total P&L</Text>
             <Text style={[styles.cleanPnlValue, { color: tradeLabStats.totalUnrealisedPnl >= 0 ? '#00c087' : '#f84960' }]}>
               {tradeLabStats.totalUnrealisedPnl >= 0 ? `+${tradeLabStats.totalUnrealisedPnl.toFixed(2)}` : `-${Math.abs(tradeLabStats.totalUnrealisedPnl).toFixed(2)}`}
             </Text>
-          </View>
-
-          {/* Action Toolbar Row (Search, Filter, Analyze, Analytics) */}
-          <View style={styles.pnlActionRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <TouchableOpacity onPress={triggerManualRefresh} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={{ fontSize: 16, color: '#38bdf8' }}>🔍</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={triggerManualRefresh} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={{ fontSize: 16, color: '#38bdf8' }}>⚡</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.pnlActionBtnGroup}>
-              <TouchableOpacity
-                style={[styles.pnlActionBtn, styles.pnlActionBtnAnalyze]}
-                onPress={() => setActiveTab('strategy')}
-              >
-                <Text style={{ fontSize: 12 }}>🟧</Text>
-                <Text style={[styles.pnlActionBtnText, { color: '#f97316' }]}>Analyze</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.pnlActionBtn, styles.pnlActionBtnAnalytics, tradeLabSubTab === 'performance' && { backgroundColor: 'rgba(56, 189, 248, 0.25)' }]}
-                onPress={() => setTradeLabSubTab(tradeLabSubTab === 'performance' ? 'positions' : 'performance')}
-              >
-                <Text style={{ fontSize: 12 }}>🔵</Text>
-                <Text style={[styles.pnlActionBtnText, { color: '#38bdf8' }]}>Analytics</Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* TAB: ACTIVE POSITIONS */}
@@ -6942,24 +6938,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#0d121f',
     borderWidth: 1,
     borderColor: '#1e293b',
-    borderRadius: 12,
-    paddingVertical: 18,
+    borderRadius: 8,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 12
   },
   cleanPnlLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '500',
     color: '#8a95a5',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
     marginBottom: 4
   },
   cleanPnlValue: {
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: 0.5
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 0.3
   },
   pnlActionRow: {
     flexDirection: 'row',
