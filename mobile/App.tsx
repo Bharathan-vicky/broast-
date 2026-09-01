@@ -990,6 +990,7 @@ export default function App() {
   
   const [portfolio, setPortfolio] = useState<any>(null);
   const [orderHistory, setOrderHistory] = useState<any[]>([]);
+  const [journalSelectedAccount, setJournalSelectedAccount] = useState<number | 'ALL'>('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const currConfig = ASSET_CONFIG[activeAsset] || ASSET_CONFIG['NIFTY'];
@@ -2345,10 +2346,29 @@ export default function App() {
     }
 
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const now = new Date();
+    const todayY = now.getFullYear();
+    const todayM = String(now.getMonth() + 1).padStart(2, '0');
+    const todayD = String(now.getDate()).padStart(2, '0');
+    const todayKey = `${todayY}-${todayM}-${todayD}`;
+
+    const accLabel = journalSelectedAccount === 'ALL' 
+      ? 'All Accounts' 
+      : (accounts.find(a => a.id === journalSelectedAccount)?.name || `Account #${journalSelectedAccount}`);
 
     return (
       <View style={styles.heatmapCard}>
-        <Text style={styles.heatmapTitle}>📅 P&L Daily Heatmap (Last 5 Weeks)</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={styles.heatmapTitle}>📅 {accLabel} • P&L Heatmap</Text>
+          {selectedHeatmapDate && (
+            <TouchableOpacity 
+              onPress={() => setSelectedHeatmapDate(null)}
+              style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#38bdf8' }}
+            >
+              <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: 'bold' }}>✕ Clear Day Filter</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         
         <View style={styles.heatmapGrid}>
           <View style={styles.weekdayHeaderRow}>
@@ -2364,35 +2384,35 @@ export default function App() {
                 const mm = String(date.getMonth() + 1).padStart(2, '0');
                 const dd = String(date.getDate()).padStart(2, '0');
                 const dateKey = `${yyyy}-${mm}-${dd}`;
+                const isToday = dateKey === todayKey;
                 
                 const pnl = map[dateKey] || 0;
                 const hasTrade = map[dateKey] !== undefined;
                 
-                 let cellBg = '#0c101b'; // Base empty cells background
-                 let cellBorder = '#172033'; // Border to match card styling
-                 if (hasTrade) {
-                   cellBorder = 'transparent';
-                   if (pnl > 0) {
-                     if (pnl < 1000) {
-                       cellBg = 'rgba(16, 185, 129, 0.22)';
-                     } else if (pnl < 5000) {
-                       cellBg = 'rgba(16, 185, 129, 0.6)';
-                     } else {
-                       cellBg = '#00c087';
-                     }
-                   } else if (pnl < 0) {
-                     const absVal = Math.abs(pnl);
-                     if (absVal < 1000) {
-                       cellBg = 'rgba(239, 68, 68, 0.22)';
-                     } else if (absVal < 5000) {
-                       cellBg = 'rgba(239, 68, 68, 0.6)';
-                     } else {
-                       cellBg = '#f84960';
-                     }
-                   } else {
-                     cellBg = '#4b5563'; // Neutral gray
-                   }
-                 }
+                let cellBg = '#0c101b'; // Base empty cells background
+                let cellBorder = isToday ? '#eab308' : '#172033'; // Highlight today with gold
+                if (hasTrade) {
+                  if (pnl > 0) {
+                    if (pnl < 1000) {
+                      cellBg = 'rgba(16, 185, 129, 0.35)';
+                    } else if (pnl < 5000) {
+                      cellBg = 'rgba(16, 185, 129, 0.7)';
+                    } else {
+                      cellBg = '#00c087';
+                    }
+                  } else if (pnl < 0) {
+                    const absVal = Math.abs(pnl);
+                    if (absVal < 1000) {
+                      cellBg = 'rgba(239, 68, 68, 0.35)';
+                    } else if (absVal < 5000) {
+                      cellBg = 'rgba(239, 68, 68, 0.7)';
+                    } else {
+                      cellBg = '#f84960';
+                    }
+                  } else {
+                    cellBg = '#4b5563'; // Neutral gray
+                  }
+                }
                 
                 const isSelected = selectedHeatmapDate === dateKey;
 
@@ -2401,8 +2421,7 @@ export default function App() {
                     key={dIdx}
                     style={[
                       styles.heatmapCell, 
-                      { backgroundColor: cellBg, borderColor: cellBorder, borderWidth: 1 },
-                      isSelected && { borderColor: '#38bdf8', borderWidth: 1.5 }
+                      { backgroundColor: cellBg, borderColor: isSelected ? '#38bdf8' : cellBorder, borderWidth: isSelected ? 2 : (isToday ? 1.5 : 1) }
                     ]}
                     onPress={() => {
                       if (hasTrade) {
@@ -2410,7 +2429,12 @@ export default function App() {
                       }
                     }}
                   >
-                    <Text style={[styles.heatmapCellText, { opacity: hasTrade ? 1 : 0.4 }]}>
+                    <Text style={[
+                      styles.heatmapCellText, 
+                      { opacity: hasTrade || isToday ? 1 : 0.4 },
+                      isToday && { color: '#eab308', fontWeight: 'bold' },
+                      isSelected && { color: '#38bdf8', fontWeight: 'bold' }
+                    ]}>
                       {date.getDate()}
                     </Text>
                   </TouchableOpacity>
@@ -2423,15 +2447,17 @@ export default function App() {
         {selectedHeatmapDate && map[selectedHeatmapDate] !== undefined ? (
           <View style={styles.heatmapTooltip}>
             <Text style={styles.heatmapTooltipDate}>
-              Date: {new Date(selectedHeatmapDate).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short' })}
+              Filtered Date: {new Date(selectedHeatmapDate).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short' })}
             </Text>
             <Text style={[styles.heatmapTooltipPnl, { color: map[selectedHeatmapDate] >= 0 ? '#00c087' : '#f84960' }]}>
-              Daily P&L: {map[selectedHeatmapDate] >= 0 ? '+' : '-'}{currSym}{Math.abs(map[selectedHeatmapDate]).toFixed(2)}
+              Day Realised P&L: {map[selectedHeatmapDate] >= 0 ? '+' : '-'}{currSym}{Math.abs(map[selectedHeatmapDate]).toFixed(2)}
             </Text>
           </View>
         ) : (
           <View style={styles.heatmapTooltipPlaceholder}>
-            <Text style={styles.heatmapTooltipPlaceholderText}>Tap any green/red day cell to view net P&L</Text>
+            <Text style={styles.heatmapTooltipPlaceholderText}>
+              Gold border = Today ({now.getDate()} {now.toLocaleDateString('en-US', { month: 'short' })}) • Tap any traded day to filter
+            </Text>
           </View>
         )}
       </View>
@@ -3071,9 +3097,53 @@ export default function App() {
     };
   }, [portfolio, orderHistory, chainByExpiry, activeAccount, lotSize, activeAsset]);
 
+  const filteredJournalOrders = useMemo(() => {
+    let list = orderHistory;
+    if (journalSelectedAccount !== 'ALL') {
+      list = list.filter((h: any) => h.account_id === journalSelectedAccount);
+    }
+    if (selectedHeatmapDate) {
+      list = list.filter((h: any) => {
+        if (!h.closed_at) return false;
+        const d = new Date(h.closed_at);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}` === selectedHeatmapDate;
+      });
+    }
+    return list;
+  }, [orderHistory, journalSelectedAccount, selectedHeatmapDate]);
+
+  const journalStats = useMemo(() => {
+    const list = journalSelectedAccount === 'ALL' ? orderHistory : orderHistory.filter((h: any) => h.account_id === journalSelectedAccount);
+    let totalRealisedPnl = 0;
+    let winCount = 0;
+    let bestTrade = 0;
+    let worstTrade = 0;
+
+    list.forEach((h: any) => {
+      const pnl = Number(h.realized_pnl) || 0;
+      totalRealisedPnl += pnl;
+      if (pnl > 0) winCount++;
+      if (pnl > bestTrade) bestTrade = pnl;
+      if (pnl < worstTrade) worstTrade = pnl;
+    });
+
+    const winRate = list.length > 0 ? (winCount / list.length) * 100 : 0;
+    return {
+      totalRealisedPnl,
+      winRate,
+      totalTrades: list.length,
+      bestTrade,
+      worstTrade
+    };
+  }, [orderHistory, journalSelectedAccount]);
+
   const dailyPnlMap = useMemo(() => {
     const map: { [dateKey: string]: number } = {};
-    orderHistory.forEach((item: any) => {
+    const list = journalSelectedAccount === 'ALL' ? orderHistory : orderHistory.filter((h: any) => h.account_id === journalSelectedAccount);
+    list.forEach((item: any) => {
       if (!item.closed_at) return;
       const dateObj = new Date(item.closed_at);
       const yyyy = dateObj.getFullYear();
@@ -3084,7 +3154,7 @@ export default function App() {
       map[dateKey] = (map[dateKey] || 0) + pnl;
     });
     return map;
-  }, [orderHistory]);
+  }, [orderHistory, journalSelectedAccount]);
 
   const heatmapDates = useMemo(() => {
     const dates = [];
@@ -3105,7 +3175,8 @@ export default function App() {
   }, []);
 
   const cumulativePnlPoints = useMemo(() => {
-    const sortedTrades = [...orderHistory]
+    const list = journalSelectedAccount === 'ALL' ? orderHistory : orderHistory.filter((h: any) => h.account_id === journalSelectedAccount);
+    const sortedTrades = [...list]
       .filter((item: any) => item.closed_at)
       .sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
 
@@ -3120,7 +3191,7 @@ export default function App() {
     });
 
     return [{ index: 0, pnl: 0, timestamp: 'Start' }, ...points];
-  }, [orderHistory]);
+  }, [orderHistory, journalSelectedAccount]);
 
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -4348,24 +4419,56 @@ export default function App() {
 
           {/* TAB: TRADE JOURNAL (PERMANENT CLOSED POSITIONS) */}
           {(tradeLabSubTab === 'journal' || tradeLabSubTab === 'discover') && (
-            <View style={{ marginTop: 10 }}>
+            <View style={{ marginTop: 6 }}>
+              {/* Account Filter Bar */}
+              <View style={styles.journalAccountFilterContainer}>
+                <Text style={styles.journalAccountFilterTitle}>Filter Account:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                  <TouchableOpacity
+                    style={[styles.journalAccPill, journalSelectedAccount === 'ALL' && styles.journalAccPillActive]}
+                    onPress={() => setJournalSelectedAccount('ALL')}
+                  >
+                    <Text style={[styles.journalAccPillText, journalSelectedAccount === 'ALL' && styles.journalAccPillTextActive]}>
+                      🌐 All Accounts ({orderHistory.length})
+                    </Text>
+                  </TouchableOpacity>
+                  {accounts.map(acc => {
+                    const count = orderHistory.filter(h => h.account_id === acc.id).length;
+                    const isSel = journalSelectedAccount === acc.id;
+                    const flag = acc.id === 1 ? '🇮🇳' : acc.id === 101 ? '⚡' : '🛢️';
+                    return (
+                      <TouchableOpacity
+                        key={acc.id}
+                        style={[styles.journalAccPill, isSel && styles.journalAccPillActive]}
+                        onPress={() => setJournalSelectedAccount(acc.id)}
+                      >
+                        <Text style={[styles.journalAccPillText, isSel && styles.journalAccPillTextActive]}>
+                          {flag} {acc.name} ({count})
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Performance Metrics for Selected Account */}
               <View style={styles.perfSummaryGrid}>
                 <View style={styles.perfMetricBox}>
                   <Text style={styles.perfMetricLabel}>Journal Realised P&L</Text>
-                  <Text style={[styles.perfMetricVal, { color: tradeLabStats.totalRealisedPnl >= 0 ? '#00c087' : '#f84960' }]}>
-                    {tradeLabStats.totalRealisedPnl >= 0 ? `+${currSym}${tradeLabStats.totalRealisedPnl.toFixed(2)}` : `-${currSym}${Math.abs(tradeLabStats.totalRealisedPnl).toFixed(2)}`}
+                  <Text style={[styles.perfMetricVal, { color: journalStats.totalRealisedPnl >= 0 ? '#00c087' : '#f84960' }]}>
+                    {journalStats.totalRealisedPnl >= 0 ? `+${currSym}${journalStats.totalRealisedPnl.toFixed(2)}` : `-${currSym}${Math.abs(journalStats.totalRealisedPnl).toFixed(2)}`}
                   </Text>
                 </View>
                 <View style={styles.perfMetricBox}>
                   <Text style={styles.perfMetricLabel}>Win Rate</Text>
                   <Text style={[styles.perfMetricVal, { color: '#38bdf8' }]}>
-                    {tradeLabStats.winRate.toFixed(1)}%
+                    {journalStats.winRate.toFixed(1)}%
                   </Text>
                 </View>
                 <View style={styles.perfMetricBox}>
                   <Text style={styles.perfMetricLabel}>Closed Trades</Text>
                   <Text style={styles.perfMetricVal}>
-                    {orderHistory.length}
+                    {filteredJournalOrders.length}
                   </Text>
                 </View>
               </View>
@@ -4375,9 +4478,9 @@ export default function App() {
 
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 8 }}>
                 <Text style={[styles.sectionHeader, { marginTop: 0, fontSize: 13 }]}>
-                  📓 Logged Closed Positions ({orderHistory.length})
+                  📓 Past Closed Trades {selectedHeatmapDate ? `(${selectedHeatmapDate})` : `(${filteredJournalOrders.length})`}
                 </Text>
-                {orderHistory.length > 0 && (
+                {filteredJournalOrders.length > 0 && (
                   <TouchableOpacity 
                     onPress={handleResetTradeHistory}
                     style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.35)' }}
@@ -4388,15 +4491,15 @@ export default function App() {
                 )}
               </View>
 
-              {orderHistory.length > 0 ? (
-                orderHistory.map((item: any, idx: number) => {
+              {filteredJournalOrders.length > 0 ? (
+                filteredJournalOrders.map((item: any, idx: number) => {
                   const pnl = Number(item.realized_pnl) || 0;
                   const roi = Number(item.roi_pct) || 0;
                   const legs = item.legs || [];
                   const closedTime = item.closed_at ? new Date(item.closed_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Recently';
                   const closedDate = item.closed_at ? new Date(item.closed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '';
 
-                  const firstLegAsset = legs[0]?.underlying || 'BTC';
+                  const firstLegAsset = legs[0]?.underlying || 'NIFTY';
                   const isCrypto = firstLegAsset === 'BTC' || firstLegAsset === 'ETH' || firstLegAsset === 'XAUT';
                   const posSym = isCrypto ? '$' : '₹';
                   return (
@@ -4410,7 +4513,7 @@ export default function App() {
                             </Text>
                           </View>
                           <Text style={styles.journalTimestampText}>
-                            Settle: {closedDate} {closedTime} • ID: #{item.id}
+                            Settle: {closedDate} {closedTime} • ID: #{item.id} {item.account_id ? `• Acc #${item.account_id}` : ''}
                           </Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
@@ -4455,9 +4558,9 @@ export default function App() {
                 })
               ) : (
                 <View style={{ padding: 24, alignItems: 'center' }}>
-                  <Text style={styles.emptyNotice}>No closed trades logged yet.</Text>
+                  <Text style={styles.emptyNotice}>No closed trades for this selection.</Text>
                   <Text style={[styles.emptyNotice, { fontSize: 11, marginTop: 4 }]}>
-                    When you close any active position, its full P&L and execution history will automatically appear here.
+                    {selectedHeatmapDate ? `No trades were settled on ${selectedHeatmapDate}. Tap 'Clear Day Filter' above to view all trades.` : 'Trades closed in this account will automatically record and reflect in the heatmap.'}
                   </Text>
                 </View>
               )}
@@ -5606,6 +5709,42 @@ const styles = StyleSheet.create({
     color: '#8a95a5',
     alignSelf: 'flex-start',
     marginBottom: 8
+  },
+  journalAccountFilterContainer: {
+    marginBottom: 10,
+    backgroundColor: '#0c101b',
+    borderWidth: 1,
+    borderColor: '#172033',
+    borderRadius: 8,
+    padding: 10
+  },
+  journalAccountFilterTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8a95a5',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  journalAccPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#161c28',
+    borderWidth: 1,
+    borderColor: '#232c3d'
+  },
+  journalAccPillActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38bdf8'
+  },
+  journalAccPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#8a95a5'
+  },
+  journalAccPillTextActive: {
+    color: '#38bdf8'
   },
   heatmapCard: {
     backgroundColor: '#0c101b',
