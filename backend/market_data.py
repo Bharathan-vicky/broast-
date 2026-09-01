@@ -6,8 +6,19 @@ import websockets
 import threading
 import config
 
-REST_BASE_URL = "https://api.india.delta.exchange"
-WS_URL = "wss://socket.india.delta.exchange"
+DELTA_REST_ENDPOINTS = [
+    "https://api.india.delta.exchange",
+    "https://api.delta.exchange",
+    "https://cdn.india.delta.exchange",
+    "https://cdn.delta.exchange"
+]
+REST_BASE_URL = DELTA_REST_ENDPOINTS[0]
+
+DELTA_WS_ENDPOINTS = [
+    "wss://socket.india.delta.exchange",
+    "wss://socket.delta.exchange"
+]
+WS_URL = DELTA_WS_ENDPOINTS[0]
 
 # Global cache for live prices
 # Format: {"C-BTC-100000-011024": {"bid": 500, "ask": 510, "mark": 505}}
@@ -32,26 +43,32 @@ def fetch_options_chain(underlying_asset="BTC"):
     
     if not PRODUCTS_CACHE:
         import requests
-        url = f"{REST_BASE_URL}/v2/products"
-        response = requests.get(url, timeout=4)
-        if response.status_code == 200:
-            data = response.json().get("result", [])
-            for product in data:
-                if product.get("contract_type") in ["call_options", "put_options"]:
-                    und = product.get("underlying_asset", {}).get("symbol", "")
-                    sym = product.get("symbol", "")
-                    if not und:
-                        if "XAUT" in sym:
-                            und = "XAUT"
-                        elif "BTC" in sym:
-                            und = "BTC"
-                        elif "ETH" in sym:
-                            und = "ETH"
-                    if und not in PRODUCTS_CACHE:
-                        PRODUCTS_CACHE[und] = []
-                    PRODUCTS_CACHE[und].append(product)
-                    if sym:
-                        SUBSCRIBED_SYMBOLS.add(sym)
+        for baseUrl in DELTA_REST_ENDPOINTS:
+            try:
+                url = f"{baseUrl}/v2/products"
+                response = requests.get(url, timeout=3.5)
+                if response.status_code == 200:
+                    data = response.json().get("result", [])
+                    for product in data:
+                        if product.get("contract_type") in ["call_options", "put_options"]:
+                            und = product.get("underlying_asset", {}).get("symbol", "")
+                            sym = product.get("symbol", "")
+                            if not und:
+                                if "XAUT" in sym:
+                                    und = "XAUT"
+                                elif "BTC" in sym:
+                                    und = "BTC"
+                                elif "ETH" in sym:
+                                    und = "ETH"
+                            if und not in PRODUCTS_CACHE:
+                                PRODUCTS_CACHE[und] = []
+                            PRODUCTS_CACHE[und].append(product)
+                            if sym:
+                                SUBSCRIBED_SYMBOLS.add(sym)
+                    if PRODUCTS_CACHE:
+                        break
+            except Exception:
+                continue
                     
     if underlying_asset == "NIFTY" and "NIFTY" not in PRODUCTS_CACHE:
         nifty_products = []

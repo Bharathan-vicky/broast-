@@ -9,10 +9,15 @@
 
 const DELTA_REST_URLS = [
   'https://api.india.delta.exchange',
-  'https://api.delta.exchange'
+  'https://api.delta.exchange',
+  'https://cdn.india.delta.exchange',
+  'https://cdn.delta.exchange'
 ];
 
-const DELTA_WS_URL = 'wss://socket.india.delta.exchange';
+const DELTA_WS_URLS = [
+  'wss://socket.india.delta.exchange',
+  'wss://socket.delta.exchange'
+];
 
 export interface DeltaSpotData {
   spot: number;
@@ -180,11 +185,14 @@ export function subscribeDirectDeltaWS(
   let timer: any = null;
   let heartbeat: any = null;
   let isClosed = false;
+  let wsIndex = 0;
 
   const connect = () => {
     if (isClosed) return;
     try {
-      ws = new WebSocket(DELTA_WS_URL);
+      const activeWsUrl = DELTA_WS_URLS[wsIndex % DELTA_WS_URLS.length];
+      wsIndex++;
+      ws = new WebSocket(activeWsUrl);
 
       ws.onopen = () => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;

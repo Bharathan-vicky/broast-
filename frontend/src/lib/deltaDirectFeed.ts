@@ -9,10 +9,15 @@
 
 const DELTA_REST_URLS = [
   'https://api.india.delta.exchange',
-  'https://api.delta.exchange'
+  'https://api.delta.exchange',
+  'https://cdn.india.delta.exchange',
+  'https://cdn.delta.exchange'
 ];
 
-const DELTA_WS_URL = 'wss://socket.india.delta.exchange';
+const DELTA_WS_URLS = [
+  'wss://socket.india.delta.exchange',
+  'wss://socket.delta.exchange'
+];
 
 export interface DeltaSpotData {
   spot: number;
