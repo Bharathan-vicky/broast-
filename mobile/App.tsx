@@ -172,26 +172,14 @@ interface Account {
   margin_type: 'Cross' | 'Isolated';
   balance: number;
   currency: 'INR' | 'USD';
-  market: 'CRYPTO' | 'INDIAN' | 'STOCKS' | 'COMMODITY';
+  market: 'CRYPTO' | 'INDIAN' | 'STOCKS';
 }
 
-const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; lotUnit: string; symbol: string; name: string; tag: string; category: 'INDIAN' | 'STOCKS' | 'CRYPTO' | 'COMMODITY'; strikeStep: number; defaultSpot: number; exchange: string; settlementCurrency?: string }> = {
+const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; lotUnit: string; symbol: string; name: string; tag: string; category: 'INDIAN' | 'STOCKS' | 'CRYPTO'; strikeStep: number; defaultSpot: number; exchange: string; settlementCurrency?: string }> = {
   // Benchmark Indices (Exact Angel One Closing Spot Prices)
   'NIFTY': { currency: 'INR', lotSize: 65, lotUnit: 'units', symbol: '₹', name: 'NIFTY 50 Index', tag: 'NSE India', category: 'INDIAN', strikeStep: 50, defaultSpot: 24175.65, exchange: 'NSE' },
   'BANKNIFTY': { currency: 'INR', lotSize: 30, lotUnit: 'units', symbol: '₹', name: 'BANK NIFTY Index', tag: 'NSE India', category: 'INDIAN', strikeStep: 100, defaultSpot: 57496.30, exchange: 'NSE' },
   'SENSEX': { currency: 'INR', lotSize: 20, lotUnit: 'units', symbol: '₹', name: 'BSE SENSEX Index', tag: 'BSE India', category: 'INDIAN', strikeStep: 100, defaultSpot: 77264.51, exchange: 'BSE' },
-  
-  // MCX Commodities (Exact MCX Market Prices & Steps)
-  // Standard Lots (Top 4)
-  'CRUDEOIL': { currency: 'INR', lotSize: 100, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 50, defaultSpot: 8315.0, exchange: 'MCX' },
-  'GOLD': { currency: 'INR', lotSize: 100, lotUnit: 'grams', symbol: '₹', name: 'Gold Standard', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 500, defaultSpot: 161690.0, exchange: 'MCX' },
-  'SILVER': { currency: 'INR', lotSize: 30, lotUnit: 'kg', symbol: '₹', name: 'Silver Standard', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 250, defaultSpot: 246274.0, exchange: 'MCX' },
-  'NATURALGAS': { currency: 'INR', lotSize: 1250, lotUnit: 'mmBtu', symbol: '₹', name: 'Natural Gas', tag: 'MCX Main', category: 'COMMODITY', strikeStep: 5, defaultSpot: 264.5, exchange: 'MCX' },
-  // Mini Lots (Below)
-  'CRUDEOILM': { currency: 'INR', lotSize: 10, lotUnit: 'bbl', symbol: '₹', name: 'Crude Oil Mini', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 50, defaultSpot: 8315.0, exchange: 'MCX' },
-  'GOLDM': { currency: 'INR', lotSize: 10, lotUnit: 'grams', symbol: '₹', name: 'Gold Mini (10g)', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 500, defaultSpot: 161690.0, exchange: 'MCX' },
-  'SILVERM': { currency: 'INR', lotSize: 5, lotUnit: 'kg', symbol: '₹', name: 'Silver Mini (5kg)', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 1000, defaultSpot: 246274.0, exchange: 'MCX' },
-  'NATGASM': { currency: 'INR', lotSize: 250, lotUnit: 'mmBtu', symbol: '₹', name: 'Natural Gas Mini', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 5, defaultSpot: 264.5, exchange: 'MCX' },
   
   // Crypto Derivatives (Exact Delta Exchange Live Specs)
   'BTC': { currency: 'USD', lotSize: 0.001, lotUnit: 'BTC', symbol: '$', name: 'Bitcoin Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 200, defaultSpot: 79040.0, exchange: 'DELTA', settlementCurrency: 'INR' },
@@ -883,7 +871,7 @@ const OptionChainRow = React.memo(({
 
 export default function App() {
 
-  const [selectedMarket, setSelectedMarket] = useState<'CRYPTO' | 'INDIAN' | 'STOCKS' | 'COMMODITY' | null>('INDIAN');
+  const [selectedMarket, setSelectedMarket] = useState<'CRYPTO' | 'INDIAN' | 'STOCKS' | null>('INDIAN');
   const [activeAsset, setActiveAsset] = useState<string>('NIFTY');
   const [cryptoLeverage, setCryptoLeverage] = useState<number>(200);
   const [activeExpiry, setActiveExpiry] = useState<string>('');
@@ -907,12 +895,9 @@ export default function App() {
     'BHARTIARTL': { spot: 1902.10, change: -44.90, pctChange: -2.31 },
     'ITC': { spot: 270.25, change: -1.15, pctChange: -0.42 },
     'LT': { spot: 4038.10, change: -80.90, pctChange: -1.96 },
-    'CRUDEOIL': { spot: 8315.0, change: 0.0, pctChange: 0.0 },
-    'GOLD': { spot: 161690.0, change: 0.0, pctChange: 0.0 },
-    'SILVER': { spot: 246274.0, change: 0.0, pctChange: 0.0 },
-    'BTC': { spot: 76406.20, change: 6811.70, pctChange: 9.64 },
-    'ETH': { spot: 2375.46, change: 127.96, pctChange: 5.59 },
-    'XAUT': { spot: 2521.80, change: 12.40, pctChange: 0.49 }
+    'BTC': { spot: 79040.00, change: 1150.00, pctChange: 1.46 },
+    'ETH': { spot: 2480.00, change: 32.50, pctChange: 1.33 },
+    'XAUT': { spot: 4430.00, change: 14.20, pctChange: 0.32 }
   });
 
   const [activeTab, setActiveTab] = useState<'home' | 'chain' | 'strategy' | 'tradelab' | 'accounts'>('home');
@@ -981,8 +966,7 @@ export default function App() {
   const [activeAccountsByMarket, setActiveAccountsByMarket] = useState<{ [market: string]: number }>({
     CRYPTO: 101,
     INDIAN: 1,
-    STOCKS: 1,
-    COMMODITY: 201
+    STOCKS: 1
   });
   
   const [portfolio, setPortfolio] = useState<any>(null);
@@ -3503,20 +3487,6 @@ export default function App() {
             <Text style={{ color: '#4b5563', fontSize: 20 }}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={{ backgroundColor: '#131926', padding: 18, borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#222f46', flexDirection: 'row', alignItems: 'center' }}
-            onPress={() => { setSelectedMarket('COMMODITY'); setActiveAsset('CRUDEOIL'); setActiveTab('home'); }}
-            activeOpacity={0.75}
-          >
-            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(234, 179, 8, 0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-              <Text style={{ fontSize: 22 }}>🛢️</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#facc15', fontSize: 17, fontWeight: 'bold' }}>MCX Commodities</Text>
-              <Text style={{ color: '#8a95a5', fontSize: 12, marginTop: 2 }}>CRUDEOIL, GOLD, SILVER, NATURALGAS (Standard & Mini)</Text>
-            </View>
-            <Text style={{ color: '#4b5563', fontSize: 20 }}>›</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity 
             style={{ backgroundColor: '#131926', padding: 18, borderRadius: 16, borderWidth: 1, borderColor: '#222f46', flexDirection: 'row', alignItems: 'center' }}
@@ -5179,30 +5149,6 @@ export default function App() {
                   {selectedMarket === 'INDIAN' && <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>✓</Text>}
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: selectedMarket === 'COMMODITY' ? '#162842' : '#0c121d',
-                    borderWidth: 1,
-                    borderColor: selectedMarket === 'COMMODITY' ? '#0284c7' : '#1e293b',
-                    padding: 11,
-                    borderRadius: 10,
-                    marginBottom: 8,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}
-                  onPress={() => {
-                    setSelectedMarket('COMMODITY');
-                    setActiveAsset('CRUDEOIL');
-                    setShowProfileModal(false);
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ fontSize: 16 }}>🛢️</Text>
-                    <Text style={{ color: 'white', fontSize: 13, fontWeight: 'bold' }}>MCX Commodities</Text>
-                  </View>
-                  {selectedMarket === 'COMMODITY' && <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>✓</Text>}
-                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={{
@@ -5619,24 +5565,6 @@ export default function App() {
                     </TouchableOpacity>
                   );
                 };
-
-                if (marketCat === 'COMMODITY') {
-                  const standardAssets = assetsInCat.filter(k => !ASSET_CONFIG[k].tag.includes('Mini'));
-                  const miniAssets = assetsInCat.filter(k => ASSET_CONFIG[k].tag.includes('Mini'));
-                  return (
-                    <View key={marketCat} style={{ marginBottom: 16 }}>
-                      <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 8, paddingHorizontal: 4 }}>
-                        🛢️ MCX COMMODITIES - STANDARD LOTS
-                      </Text>
-                      {standardAssets.map(renderAssetOption)}
-                      
-                      <Text style={{ color: '#eab308', fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginTop: 12, marginBottom: 8, paddingHorizontal: 4 }}>
-                        🛢️ MCX COMMODITIES - MINI LOTS
-                      </Text>
-                      {miniAssets.map(renderAssetOption)}
-                    </View>
-                  );
-                }
 
                 const catTitle = 
                   marketCat === 'INDIAN' ? '🇮🇳 INDIAN BENCHMARK INDICES (NSE & BSE)' : '🌐 CRYPTO DERIVATIVES';

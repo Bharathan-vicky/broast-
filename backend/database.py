@@ -163,23 +163,6 @@ def init_db():
         ]
         c.executemany("INSERT INTO accounts (id, name, margin_type, balance, currency, market) VALUES (?, ?, ?, ?, ?, ?)", crypto_presets)
         
-    # Seed 10 MCX Commodities INR Sub-Accounts (Acc 1 to Acc 10)
-    c.execute("SELECT COUNT(*) FROM accounts WHERE market='COMMODITY'")
-    if c.fetchone()[0] == 0:
-        commodity_presets = [
-            (201, 'Acc 1', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (202, 'Acc 2', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (203, 'Acc 3', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (204, 'Acc 4', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (205, 'Acc 5', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (206, 'Acc 6', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (207, 'Acc 7', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (208, 'Acc 8', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (209, 'Acc 9', 'Cross', 1000000.0, 'INR', 'COMMODITY'),
-            (210, 'Acc 10', 'Cross', 1000000.0, 'INR', 'COMMODITY')
-        ]
-        c.executemany("INSERT INTO accounts (id, name, margin_type, balance, currency, market) VALUES (?, ?, ?, ?, ?, ?)", commodity_presets)
-
     # High-Performance Database Indices (Zerodha-grade fast lookups)
     c.execute("CREATE INDEX IF NOT EXISTS idx_baskets_account_status ON baskets(account_id, status)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_positions_basket_status ON positions(basket_id, status)")
