@@ -1055,10 +1055,22 @@ export default function App() {
     setIsCalibrating(true);
     setIsRefreshing(true);
     try {
-      const directSpots: Record<string, any> = await fetchAllDirectSpots().catch(() => ({}));
-      const backendData = await fetch(`${BACKEND_URL}/api/sync/live?asset=${activeAsset}&account_id=${activeAccountId}&force=true`)
+      const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
+      const isStock = currConfig?.category === 'STOCKS';
+      const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock, activeAsset)[0];
+
+      const directSpotsPromise = fetchAllDirectSpots().catch(() => ({}));
+      const t = Date.now();
+      const backendPromise = fetch(`${BACKEND_URL}/api/sync/live?asset=${encodeURIComponent(activeAsset)}&expiry=${encodeURIComponent(activeExp)}&account_id=${activeAccountId}&force=true&_t=${t}`, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      })
         .then(r => r.json())
         .catch(() => null);
+
+      const [directSpots, backendData] = await Promise.all([directSpotsPromise, backendPromise]);
 
       const mergedSpots = {
         ...liveMarketPrices,
@@ -1067,30 +1079,38 @@ export default function App() {
       };
       setLiveMarketPrices(mergedSpots);
 
-      // Instantly re-synthesize options chain for active asset at newly calibrated spot
-      const currentSp = mergedSpots[activeAsset]?.spot || spotPrice || currConfig.defaultSpot;
-      const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
-      const isStock = currConfig?.category === 'STOCKS';
-      const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock, activeAsset)[0];
-      const newChain = synthesizeOptionChain(activeAsset, currentSp, strikeStep, activeExp);
-      if (newChain && newChain.length > 0) {
-        setChainByExpiry((prev: Record<string, any[]>) => ({
-          ...prev,
-          [activeExp]: newChain
-        }));
+      // If backend returned real live exchange chain for this expiry, use it directly
+      if (backendData?.chain?.chainByExpiry && Object.keys(backendData.chain.chainByExpiry).length > 0) {
+        setChainByExpiry((prev: any) => ({ ...prev, ...backendData.chain.chainByExpiry }));
+      } else {
+        // Instantly re-synthesize options chain for active asset at newly calibrated spot
+        const currentSp = mergedSpots[activeAsset]?.spot || spotPrice || currConfig.defaultSpot;
+        const newChain = synthesizeOptionChain(activeAsset, currentSp, strikeStep, activeExp);
+        if (newChain && newChain.length > 0) {
+          setChainByExpiry((prev: Record<string, any[]>) => ({
+            ...prev,
+            [activeExp]: newChain
+          }));
+        }
       }
 
-      const dispSpot = currentSp.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-      setTradeMessage(`⚡ Spot & LTP Synced: ${activeAsset} @ ₹${dispSpot}`);
-      setTimeout(() => setTradeMessage(''), 3000);
+      const currentSp = mergedSpots[activeAsset]?.spot || spotPrice || currConfig.defaultSpot;
+      const dispSpot = currentSp.toLocaleString('en-IN', { minimumFractionDigits: selectedMarket === 'CRYPTO' ? 1 : 2 });
+      setTradeMessage(`⚡ Live Sync: ${activeAsset} @ ₹${dispSpot}`);
+      setTimeout(() => setTradeMessage(''), 2500);
     } catch {
       setTradeMessage('⚡ Spot Feed Refreshed');
-      setTimeout(() => setTradeMessage(''), 2500);
+      setTimeout(() => setTradeMessage(''), 2000);
     } finally {
       setIsCalibrating(false);
       setIsRefreshing(false);
     }
-  }, [activeAsset, activeAccountId, liveMarketPrices, spotPrice, currConfig, activeExpiry, expiries, strikeStep]);
+  }, [activeAsset, activeAccountId, liveMarketPrices, spotPrice, currConfig, activeExpiry, expiries, strikeStep, selectedMarket]);
+
+  // Instant live fetch from Angel One whenever Asset or Expiry dropdown is changed
+  useEffect(() => {
+    troubleshootLtpSpotLag();
+  }, [activeAsset, activeExpiry]);
 
   const troubleshootOptionChainLag = useCallback(async () => {
     setIsCalibrating(true);
