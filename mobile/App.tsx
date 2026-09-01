@@ -1411,15 +1411,16 @@ export default function App() {
     return closest;
   }, [currentChain, spotPrice, currConfig.defaultSpot]);
 
+  const userScrolledRef = useRef(false);
   const hasAutoScrolled = useRef<string>('');
 
-  const scrollToAtm = () => {
+  const scrollToAtm = (force = false) => {
     if (!currentChain || currentChain.length === 0) return;
+    if (userScrolledRef.current && !force) return;
     const sp = spotPrice || currConfig.defaultSpot;
-    const sorted = [...currentChain].sort((a, b) => a.strike - b.strike);
     let atmIdx = 0;
     let minDiff = 999999;
-    sorted.forEach((r, idx) => {
+    currentChain.forEach((r: any, idx: number) => {
       const diff = Math.abs(r.strike - sp);
       if (diff < minDiff) {
         minDiff = diff;
@@ -1427,7 +1428,7 @@ export default function App() {
       }
     });
 
-    const targetY = Math.max(0, (atmIdx * 50) - 180);
+    const targetY = Math.max(0, (atmIdx * 52) - 150);
     chainScrollRef.current?.scrollToOffset({ offset: targetY, animated: true });
   };
 
@@ -1435,12 +1436,13 @@ export default function App() {
     const scrollKey = `${activeAsset}-${activeExpiry}`;
     if (activeTab === 'chain' && currentChain.length > 0 && hasAutoScrolled.current !== scrollKey) {
       hasAutoScrolled.current = scrollKey;
+      userScrolledRef.current = false;
       const timer = setTimeout(() => {
-        scrollToAtm();
-      }, 150);
+        scrollToAtm(true);
+      }, 200);
       return () => clearTimeout(timer);
     }
-  }, [activeTab, activeAsset, activeExpiry]);
+  }, [activeTab, activeAsset, activeExpiry, currentChain.length]);
 
   const handleToggleLeg = (row: any, type: 'CALL' | 'PUT', side: 'BUY' | 'SELL') => {
     const symbol = type === 'CALL' ? row.callSym : row.putSym;
@@ -2647,15 +2649,30 @@ export default function App() {
     setTradeLabSubTab('positions');
     setTradeMessage(`⚡ Placing 24/7 Crypto Order (${legs[0]?.symbol || activeAsset})...`);
 
-    const legsToExecute = legs.map(l => ({
-      ...l,
-      size: l.size || 1,
-      price: l.price || 0,
-      product_type: 'NRML',
-      order_mode: 'REGULAR',
-      order_type: 'MARKET',
-      leverage: cryptoLeverage || 100
-    }));
+    const legsToExecute = legs.map(l => {
+      let p = l.price || 0;
+      if (!p || p === 0) {
+        const row = currentChain.find((r: any) => r.strike === l.strike);
+        if (row) {
+          p = l.side === 'BUY' 
+            ? (l.option_type === 'CALL' ? row.callAsk || row.callMark || row.callLtp : row.putAsk || row.putMark || row.putLtp)
+            : (l.option_type === 'CALL' ? row.callBid || row.callMark || row.callLtp : row.putBid || row.putMark || row.putLtp);
+        }
+      }
+      return {
+        ...l,
+        size: l.size || 1,
+        price: p,
+        stoploss: 0,
+        target: 0,
+        stoploss_type: 'PERCENT',
+        target_type: 'PERCENT',
+        product_type: 'NRML',
+        order_mode: 'REGULAR',
+        order_type: 'MARKET',
+        leverage: cryptoLeverage || 100
+      };
+    });
 
     setStratBasket([]);
 
@@ -3873,6 +3890,9 @@ export default function App() {
             maxToRenderPerBatch={16}
             windowSize={11}
             removeClippedSubviews={Platform.OS === 'android'}
+            onScrollBeginDrag={() => {
+              userScrolledRef.current = true;
+            }}
             getItemLayout={(_data, index) => ({
               length: 52,
               offset: 52 * index,
