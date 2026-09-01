@@ -123,8 +123,8 @@ const getRealisticOptionPchange = (
   ltp: number,
   feedPchange: number
 ) => {
-  if (feedPchange !== 0) {
-    return feedPchange;
+  if (feedPchange !== undefined && feedPchange !== 0) {
+    return Math.max(-95.0, Math.min(180.0, feedPchange));
   }
   if (!spot || spotPct === 0) return 0;
 
@@ -132,20 +132,17 @@ const getRealisticOptionPchange = (
   let delta = 0.5;
 
   if (isCall) {
-    delta = 1 / (1 + Math.exp(distancePct * 15));
+    delta = 1 / (1 + Math.exp(distancePct * 12));
   } else {
-    delta = -1 / (1 + Math.exp(-distancePct * 15));
+    delta = -1 / (1 + Math.exp(-distancePct * 12));
   }
 
-  const spotChangeVal = spot * (spotPct / 100);
-  const optChangeVal = delta * spotChangeVal;
+  // Calculate realistic derivative percentage change relative to spot move
+  const spotMove = spot * (spotPct / 100);
+  const approxPrevLtp = Math.max(0.2, ltp - (delta * spotMove));
+  const realisticPct = ((ltp - approxPrevLtp) / approxPrevLtp) * 100;
 
-  if (ltp <= 0.05) {
-    return spotPct > 0 ? (isCall ? 99.9 : -99.9) : (isCall ? -99.9 : 99.9);
-  }
-
-  const calculatedPct = (optChangeVal / ltp) * 100;
-  return Math.max(-99.9, Math.min(999.9, calculatedPct));
+  return Math.round(Math.max(-88.5, Math.min(145.0, realisticPct)) * 10) / 10;
 };
 
 interface OptionLeg {
@@ -3749,7 +3746,7 @@ export default function App() {
                     {currSym}{spotPrice ? spotPrice.toLocaleString('en-IN', { minimumFractionDigits: selectedMarket === 'CRYPTO' ? 1 : 2 }) : '24,246.70'}
                   </Text>
                   <Text style={[styles.spotChangeTextSide, { color: spotChange >= 0 ? '#00c087' : '#f84960', marginLeft: 4 }]}>
-                    {spotChange >= 0 ? `+${spotChange.toFixed(2)}` : spotChange.toFixed(2)} ({spotPercentChange >= 0 ? `+${spotPercentChange.toFixed(2)}%` : spotPercentChange.toFixed(2)}%)
+                    {spotChange >= 0 ? `+${spotChange.toFixed(2)}` : spotChange.toFixed(2)} ({spotPercentChange >= 0 ? `+${spotPercentChange.toFixed(2)}` : spotPercentChange.toFixed(2)}%)
                   </Text>
                   <TouchableOpacity 
                     onPress={triggerManualRefresh} 
