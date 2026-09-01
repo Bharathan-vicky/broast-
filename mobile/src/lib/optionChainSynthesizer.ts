@@ -306,20 +306,21 @@ export const ASSET_IV_MAP: Record<string, number> = {
 export const KNOWN_EXPIRY_OPTION_PRICES: Record<string, Record<string, { baseSpot: number; strikes: Record<number, { callLtp: number; putLtp: number; callPchange?: number; putPchange?: number }> }>> = {
   'BTC': {
     '2026-09-01': {
-      baseSpot: 79800.0,
+      baseSpot: 79040.0,
       strikes: {
-        78200: { callLtp: 968.5, putLtp: 21.0, callPchange: 29.6, putPchange: 30.4 },
-        78400: { callLtp: 782.0, putLtp: 36.0, callPchange: 28.6, putPchange: 29.5 },
-        78600: { callLtp: 607.5, putLtp: 60.5, callPchange: 28.2, putPchange: 28.4 },
-        78800: { callLtp: 453.0, putLtp: 100.0, callPchange: 27.7, putPchange: 27.5 },
-        79000: { callLtp: 310.5, putLtp: 162.5, callPchange: 26.9, putPchange: 26.8 },
-        79200: { callLtp: 201.5, putLtp: 254.5, callPchange: 26.8, putPchange: 26.2 },
-        79400: { callLtp: 121.5, putLtp: 376.0, callPchange: 26.5, putPchange: 26.0 },
-        79600: { callLtp: 70.0, putLtp: 522.0, callPchange: 26.9, putPchange: 25.8 },
-        79800: { callLtp: 40.0, putLtp: 695.0, callPchange: 27.4, putPchange: 26.0 },
-        80000: { callLtp: 21.5, putLtp: 874.0, callPchange: 28.0, putPchange: 25.2 },
-        80200: { callLtp: 11.1, putLtp: 1063.0, callPchange: 28.5, putPchange: 18.7 },
-        80400: { callLtp: 5.1, putLtp: 1261.0, callPchange: 28.3, putPchange: 0.0 }
+        77600: { callLtp: 1233.0, putLtp: 7.5, callPchange: 25.3, putPchange: 32.5 },
+        77800: { callLtp: 1233.0, putLtp: 7.5, callPchange: 25.3, putPchange: 32.5 },
+        78000: { callLtp: 1038.0, putLtp: 13.9, callPchange: 27.7, putPchange: 31.7 },
+        78200: { callLtp: 847.5, putLtp: 22.0, callPchange: 28.1, putPchange: 29.6 },
+        78400: { callLtp: 659.0, putLtp: 39.5, callPchange: 27.9, putPchange: 28.5 },
+        78600: { callLtp: 496.0, putLtp: 70.5, callPchange: 27.0, putPchange: 27.5 },
+        78800: { callLtp: 341.5, putLtp: 121.5, callPchange: 26.6, putPchange: 26.8 },
+        79000: { callLtp: 225.5, putLtp: 199.5, callPchange: 26.2, putPchange: 26.2 },
+        79200: { callLtp: 135.5, putLtp: 310.0, callPchange: 25.9, putPchange: 26.1 },
+        79400: { callLtp: 76.5, putLtp: 450.5, callPchange: 26.1, putPchange: 26.5 },
+        79600: { callLtp: 42.5, putLtp: 615.5, callPchange: 27.0, putPchange: 27.3 },
+        79800: { callLtp: 21.0, putLtp: 803.5, callPchange: 27.3, putPchange: 28.7 },
+        80000: { callLtp: 14.5, putLtp: 984.5, callPchange: 29.8, putPchange: 29.9 }
       }
     }
   },

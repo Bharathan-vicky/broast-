@@ -95,7 +95,7 @@ DEFAULT_SPOT_FALLBACKS = {
     "ITC": {"spot_price": 490.0, "change": 1.5, "percent_change": 0.31},
     "LT": {"spot_price": 3600.0, "change": -18.0, "percent_change": -0.50},
     "BTC": {
-        "spot_price": _float_env("DEFAULT_BTC_SPOT", 79800.0),
+        "spot_price": _float_env("DEFAULT_BTC_SPOT", 79040.0),
         "change": _float_env("DEFAULT_BTC_CHANGE", 1150.0),
         "percent_change": _float_env("DEFAULT_BTC_PCT", 1.46),
     },

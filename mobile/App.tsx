@@ -194,7 +194,7 @@ const ASSET_CONFIG: Record<string, { currency: 'INR' | 'USD'; lotSize: number; l
   'NATGASM': { currency: 'INR', lotSize: 250, lotUnit: 'mmBtu', symbol: '₹', name: 'Natural Gas Mini', tag: 'MCX Mini', category: 'COMMODITY', strikeStep: 5, defaultSpot: 264.5, exchange: 'MCX' },
   
   // Crypto Derivatives (Exact Delta Exchange Live Specs)
-  'BTC': { currency: 'USD', lotSize: 0.001, lotUnit: 'BTC', symbol: '$', name: 'Bitcoin Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 200, defaultSpot: 79800.0, exchange: 'DELTA', settlementCurrency: 'INR' },
+  'BTC': { currency: 'USD', lotSize: 0.001, lotUnit: 'BTC', symbol: '$', name: 'Bitcoin Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 200, defaultSpot: 79040.0, exchange: 'DELTA', settlementCurrency: 'INR' },
   'ETH': { currency: 'USD', lotSize: 0.01, lotUnit: 'ETH', symbol: '$', name: 'Ethereum Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 10, defaultSpot: 2480.0, exchange: 'DELTA', settlementCurrency: 'INR' },
   'XAUT': { currency: 'USD', lotSize: 1, lotUnit: 'oz', symbol: '$', name: 'Tether Gold Options', tag: 'Delta Exchange', category: 'CRYPTO', strikeStep: 10, defaultSpot: 4430.0, exchange: 'DELTA', settlementCurrency: 'USD' }
 };
