@@ -1094,13 +1094,8 @@ export default function App() {
         }
       }
 
-      const currentSp = mergedSpots[activeAsset]?.spot || spotPrice || currConfig.defaultSpot;
-      const dispSpot = currentSp.toLocaleString('en-IN', { minimumFractionDigits: selectedMarket === 'CRYPTO' ? 1 : 2 });
-      setTradeMessage(`⚡ Live Sync: ${activeAsset} @ ₹${dispSpot}`);
-      setTimeout(() => setTradeMessage(''), 2500);
     } catch {
-      setTradeMessage('⚡ Spot Feed Refreshed');
-      setTimeout(() => setTradeMessage(''), 2000);
+      // Silent background refresh
     } finally {
       setIsCalibrating(false);
       setIsRefreshing(false);
@@ -2092,7 +2087,7 @@ export default function App() {
               </LinearGradient>
             </Defs>
             <SvgLine x1={padding} y1={zeroY} x2={chartW - padding} y2={zeroY} stroke="#334155" strokeDasharray="4,4" strokeWidth="1" />
-            <SvgText x={chartW - padding + 2} y={zeroY + 3} fill="#64748b" fontSize="9">₹0</SvgText>
+            <SvgText x={chartW - padding + 2} y={zeroY + 3} fill="#64748b" fontSize="9">{currSym}0</SvgText>
 
             {/* Profit Area Shade (Green) */}
             {!!profitPathD && (
@@ -5598,7 +5593,7 @@ export default function App() {
                             <Text style={{ color: isMini ? '#eab308' : '#94a3b8', fontSize: 9.5, fontWeight: 'bold' }}>{conf.tag}</Text>
                           </View>
                         </View>
-                        <Text style={styles.sheetOptionSubText}>{conf.name} • Lot: {conf.lotSize} {conf.lotUnit} • Step: ₹{conf.strikeStep}</Text>
+                        <Text style={styles.sheetOptionSubText}>{conf.name} • Lot: {conf.lotSize} {conf.lotUnit} • Step: {conf.symbol}{conf.strikeStep}</Text>
                       </View>
                       <View style={{ alignItems: 'flex-end', marginRight: isSelected ? 8 : 0 }}>
                         <Text style={{ color: isUp ? '#00c087' : '#f84960', fontSize: 13, fontWeight: 'bold' }}>
