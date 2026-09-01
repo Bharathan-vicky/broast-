@@ -1324,20 +1324,15 @@ export default function App() {
   }, [activeAccountId]);
 
   const currentChain = useMemo(() => {
-    let rows: any[] = [];
-    if (!activeExpiry && expiries.length > 0) {
-      rows = chainByExpiry[expiries[0]] || [];
-    } else if (activeExpiry) {
-      rows = chainByExpiry[activeExpiry] || [];
-    }
-
     const isCrypto = activeAsset === 'BTC' || activeAsset === 'ETH' || activeAsset === 'XAUT';
     const isStock = currConfig?.category === 'STOCKS';
     const activeExp = activeExpiry || expiries[0] || generateDefaultExpiries(isCrypto, isStock, activeAsset)[0];
     const sp = spotPrice || currConfig.defaultSpot;
 
-    if (rows && rows.length > 0) {
-      return fuseLiveOptionChain(rows, sp, strikeStep, activeExp, activeAsset);
+    const backendRows = chainByExpiry[activeExp];
+    const expLabel = (activeExp || '').replace(/-/g, '').slice(2);
+    if (backendRows && backendRows.length > 0 && backendRows[0]?.callSym?.includes(expLabel)) {
+      return fuseLiveOptionChain(backendRows, sp, strikeStep, activeExp, activeAsset);
     }
 
     return synthesizeOptionChain(activeAsset, sp, strikeStep, activeExp);
