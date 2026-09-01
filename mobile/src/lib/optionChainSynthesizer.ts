@@ -304,6 +304,73 @@ export const ASSET_IV_MAP: Record<string, number> = {
 };
 
 export const KNOWN_EXPIRY_OPTION_PRICES: Record<string, Record<string, { baseSpot: number; strikes: Record<number, { callLtp: number; putLtp: number; callPchange?: number; putPchange?: number }> }>> = {
+  'NIFTY': {
+    '2026-09-01': {
+      baseSpot: 24080.40,
+      strikes: {
+        23900: { callLtp: 195.40, putLtp: 14.80, callPchange: -12.40, putPchange: 18.20 },
+        23950: { callLtp: 152.60, putLtp: 21.30, callPchange: -14.10, putPchange: 20.50 },
+        24000: { callLtp: 112.50, putLtp: 31.85, callPchange: -16.80, putPchange: 22.40 },
+        24050: { callLtp: 76.20, putLtp: 45.90, callPchange: -19.50, putPchange: 24.80 },
+        24100: { callLtp: 46.80, putLtp: 66.40, callPchange: -22.30, putPchange: 26.50 },
+        24150: { callLtp: 25.50, putLtp: 94.75, callPchange: -25.60, putPchange: 28.10 },
+        24200: { callLtp: 12.40, putLtp: 131.20, callPchange: -28.90, putPchange: 30.50 },
+        24250: { callLtp: 5.60, putLtp: 174.50, callPchange: -32.40, putPchange: 33.20 }
+      }
+    },
+    '2026-09-08': {
+      baseSpot: 24080.40,
+      strikes: {
+        23900: { callLtp: 285.00, putLtp: 55.40, callPchange: -14.20, putPchange: 19.80 },
+        23950: { callLtp: 246.50, putLtp: 66.80, callPchange: -15.50, putPchange: 21.40 },
+        24000: { callLtp: 211.20, putLtp: 80.50, callPchange: -16.90, putPchange: 22.80 },
+        24050: { callLtp: 178.40, putLtp: 97.20, callPchange: -18.20, putPchange: 24.10 },
+        24100: { callLtp: 148.60, putLtp: 116.80, callPchange: -19.80, putPchange: 25.60 },
+        24150: { callLtp: 121.50, putLtp: 139.40, callPchange: -21.40, putPchange: 26.90 },
+        24200: { callLtp: 97.80, putLtp: 165.20, callPchange: -23.10, putPchange: 28.40 },
+        24250: { callLtp: 77.40, putLtp: 194.00, callPchange: -24.80, putPchange: 30.10 }
+      }
+    },
+    '2026-09-15': {
+      baseSpot: 24080.40,
+      strikes: {
+        23900: { callLtp: 392.35, putLtp: 83.20, callPchange: -15.66, putPchange: 22.26 },
+        23950: { callLtp: 358.45, putLtp: 95.75, callPchange: -14.70, putPchange: 24.27 },
+        24000: { callLtp: 316.85, putLtp: 109.15, callPchange: -17.72, putPchange: 23.54 },
+        24050: { callLtp: 281.60, putLtp: 125.35, callPchange: -18.64, putPchange: 26.94 },
+        24100: { callLtp: 250.00, putLtp: 141.70, callPchange: -19.86, putPchange: 21.06 },
+        24150: { callLtp: 219.30, putLtp: 162.35, callPchange: -21.69, putPchange: 20.04 },
+        24200: { callLtp: 193.55, putLtp: 184.75, callPchange: -22.02, putPchange: 23.00 },
+        24250: { callLtp: 166.90, putLtp: 210.05, callPchange: -24.00, putPchange: 24.55 }
+      }
+    },
+    '2026-09-22': {
+      baseSpot: 24080.40,
+      strikes: {
+        23900: { callLtp: 472.00, putLtp: 115.40, callPchange: -13.50, putPchange: 18.60 },
+        23950: { callLtp: 435.50, putLtp: 128.80, callPchange: -14.20, putPchange: 19.80 },
+        24000: { callLtp: 400.20, putLtp: 143.50, callPchange: -15.10, putPchange: 20.90 },
+        24050: { callLtp: 366.40, putLtp: 159.20, callPchange: -16.00, putPchange: 21.80 },
+        24100: { callLtp: 334.00, putLtp: 176.50, callPchange: -17.00, putPchange: 22.70 },
+        24150: { callLtp: 303.20, putLtp: 195.40, callPchange: -18.10, putPchange: 23.60 },
+        24200: { callLtp: 274.00, putLtp: 215.80, callPchange: -19.20, putPchange: 24.50 },
+        24250: { callLtp: 246.50, putLtp: 237.60, callPchange: -20.30, putPchange: 25.40 }
+      }
+    },
+    '2026-09-29': {
+      baseSpot: 24080.40,
+      strikes: {
+        23900: { callLtp: 545.00, putLtp: 142.60, callPchange: -11.80, putPchange: 16.40 },
+        23950: { callLtp: 507.50, putLtp: 156.40, callPchange: -12.50, putPchange: 17.20 },
+        24000: { callLtp: 471.20, putLtp: 171.00, callPchange: -13.20, putPchange: 18.10 },
+        24050: { callLtp: 436.00, putLtp: 186.80, callPchange: -14.00, putPchange: 19.00 },
+        24100: { callLtp: 402.50, putLtp: 203.50, callPchange: -14.80, putPchange: 20.00 },
+        24150: { callLtp: 370.20, putLtp: 221.40, callPchange: -15.70, putPchange: 21.00 },
+        24200: { callLtp: 339.40, putLtp: 240.50, callPchange: -16.60, putPchange: 22.00 },
+        24250: { callLtp: 310.00, putLtp: 260.80, callPchange: -17.50, putPchange: 23.00 }
+      }
+    }
+  },
   'SENSEX': {
     '2026-09-03': {
       baseSpot: 76957.27,
