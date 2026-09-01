@@ -197,8 +197,22 @@ export function generateDefaultExpiries(isCrypto: boolean = false, _isStock: boo
       const iso = formatDateIso(d);
       if (!expiries.includes(iso)) expiries.push(iso);
     }
+  } else if (asset === 'NIFTY') {
+    // NIFTY 50: Weekly every Tuesday & Monthly on last Tuesday of the month
+    const todayIso = formatDateIso(now);
+    if (now.getDay() === 2 && (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30))) {
+      expiries.push(todayIso);
+    }
+    const daysUntilTuesday = (2 - now.getDay() + 7) % 7;
+    const offset = daysUntilTuesday === 0 ? 7 : daysUntilTuesday;
+    for (let w = 0; w < 5; w++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + (expiries.includes(todayIso) ? (w + 1) * 7 : offset + (w * 7)));
+      const iso = formatDateIso(d);
+      if (!expiries.includes(iso)) expiries.push(iso);
+    }
   } else if (asset === 'SENSEX') {
-    // SENSEX weekly expiry: Thursday (matching BSE/Angel One exact schedule)
+    // SENSEX (BSE): Weekly & Monthly every Thursday (matching BSE/Angel One exact schedule)
     const todayIso = formatDateIso(now);
     if (now.getDay() === 4 && (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30))) {
       expiries.push(todayIso);
@@ -212,18 +226,20 @@ export function generateDefaultExpiries(isCrypto: boolean = false, _isStock: boo
       if (!expiries.includes(iso)) expiries.push(iso);
     }
   } else if (asset === 'BANKNIFTY') {
-    // BANKNIFTY weekly & monthly expiries: Wednesday (matching NSE/Angel One schedule)
-    const todayIso = formatDateIso(now);
-    if (now.getDay() === 3 && (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30))) {
-      expiries.push(todayIso);
-    }
-    const daysUntilWednesday = (3 - now.getDay() + 7) % 7;
-    const offset = daysUntilWednesday === 0 ? 7 : daysUntilWednesday;
-    for (let w = 0; w < 5; w++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() + (expiries.includes(todayIso) ? (w + 1) * 7 : offset + (w * 7)));
-      const iso = formatDateIso(d);
-      if (!expiries.includes(iso)) expiries.push(iso);
+    // BANKNIFTY: Weekly discontinued per SEBI. Monthly contracts expire on last Tuesday of the month
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+    for (let m = 0; m < 5; m++) {
+      const targetMonth = (curMonth + m) % 12;
+      const targetYear = curYear + Math.floor((curMonth + m) / 12);
+      const lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0);
+      const lastDayOfWeek = lastDayOfMonth.getDay();
+      const daysBack = (lastDayOfWeek - 2 + 7) % 7; // 2 = Tuesday
+      const expDate = new Date(targetYear, targetMonth, lastDayOfMonth.getDate() - daysBack);
+      if (expDate.getTime() >= now.getTime() - 86400000) {
+        const iso = formatDateIso(expDate);
+        if (!expiries.includes(iso)) expiries.push(iso);
+      }
     }
   } else if (asset.startsWith('CRUDE') || asset.startsWith('NAT') || asset.startsWith('GOLD') || asset.startsWith('SILVER')) {
     // MCX Commodities delivery contract expiries (Monthly/Bi-monthly)
@@ -240,18 +256,20 @@ export function generateDefaultExpiries(isCrypto: boolean = false, _isStock: boo
       }
     }
   } else {
-    // NIFTY & OTHERS weekly expiry: Thursday
-    const todayIso = formatDateIso(now);
-    if (now.getDay() === 4 && (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() <= 30))) {
-      expiries.push(todayIso);
-    }
-    const daysUntilThursday = (4 - now.getDay() + 7) % 7;
-    const offset = daysUntilThursday === 0 ? 7 : daysUntilThursday;
-    for (let w = 0; w < 5; w++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() + (expiries.includes(todayIso) ? (w + 1) * 7 : offset + (w * 7)));
-      const iso = formatDateIso(d);
-      if (!expiries.includes(iso)) expiries.push(iso);
+    // Stock Options & Others: Last Thursday of the month
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+    for (let m = 0; m < 4; m++) {
+      const targetMonth = (curMonth + m) % 12;
+      const targetYear = curYear + Math.floor((curMonth + m) / 12);
+      const lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0);
+      const lastDayOfWeek = lastDayOfMonth.getDay();
+      const daysBack = (lastDayOfWeek - 4 + 7) % 7; // 4 = Thursday
+      const expDate = new Date(targetYear, targetMonth, lastDayOfMonth.getDate() - daysBack);
+      if (expDate.getTime() >= now.getTime() - 86400000) {
+        const iso = formatDateIso(expDate);
+        if (!expiries.includes(iso)) expiries.push(iso);
+      }
     }
   }
 

@@ -365,7 +365,7 @@ def _load_real_instruments(force_refresh=False):
                     exp_str, strike_str, opt_type = m.groups()
                     try:
                         exp_dt = datetime.datetime.strptime(exp_str, "%d%b%y")
-                        if exp_dt.date() >= now.date():
+                        if 2025 <= exp_dt.year <= 2030 and exp_dt.date() >= now.date():
                             instruments_nifty[sym] = {
                                 "symbol": sym,
                                 "token": str(item.get("symboltoken", "")),
@@ -393,7 +393,7 @@ def _load_real_instruments(force_refresh=False):
                     exp_str, strike_str, opt_type = m_bn.groups()
                     try:
                         exp_dt = datetime.datetime.strptime(exp_str, "%d%b%y")
-                        if exp_dt.date() >= now.date():
+                        if 2025 <= exp_dt.year <= 2030 and exp_dt.date() >= now.date():
                             instruments_banknifty[sym] = {
                                 "symbol": sym,
                                 "token": str(item.get("symboltoken", "")),
@@ -421,7 +421,7 @@ def _load_real_instruments(force_refresh=False):
                     exp_str, strike_str, opt_type = m_sx.groups()
                     try:
                         exp_dt = datetime.datetime.strptime(exp_str, "%d%b%y")
-                        if exp_dt.date() >= now.date():
+                        if 2025 <= exp_dt.year <= 2030 and exp_dt.date() >= now.date():
                             instruments_sensex[sym] = {
                                 "symbol": sym,
                                 "token": str(item.get("symboltoken", "")),
