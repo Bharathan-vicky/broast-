@@ -306,16 +306,21 @@ export const ASSET_IV_MAP: Record<string, number> = {
 export const KNOWN_EXPIRY_OPTION_PRICES: Record<string, Record<string, { baseSpot: number; strikes: Record<number, { callLtp: number; putLtp: number; callPchange?: number; putPchange?: number }> }>> = {
   'NIFTY': {
     '2026-09-01': {
-      baseSpot: 24080.40,
+      baseSpot: 24066.30,
       strikes: {
-        23900: { callLtp: 195.40, putLtp: 14.80, callPchange: -12.40, putPchange: 18.20 },
-        23950: { callLtp: 152.60, putLtp: 21.30, callPchange: -14.10, putPchange: 20.50 },
-        24000: { callLtp: 112.50, putLtp: 31.85, callPchange: -16.80, putPchange: 22.40 },
-        24050: { callLtp: 76.20, putLtp: 45.90, callPchange: -19.50, putPchange: 24.80 },
-        24100: { callLtp: 46.80, putLtp: 66.40, callPchange: -22.30, putPchange: 26.50 },
-        24150: { callLtp: 25.50, putLtp: 94.75, callPchange: -25.60, putPchange: 28.10 },
-        24200: { callLtp: 12.40, putLtp: 131.20, callPchange: -28.90, putPchange: 30.50 },
-        24250: { callLtp: 5.60, putLtp: 174.50, callPchange: -32.40, putPchange: 33.20 }
+        23800: { callLtp: 268.50, putLtp: 1.65, callPchange: -16.20, putPchange: -75.40 },
+        23850: { callLtp: 221.40, putLtp: 2.60, callPchange: -19.29, putPchange: -70.29 },
+        23900: { callLtp: 175.05, putLtp: 4.70, callPchange: -23.49, putPchange: -64.66 },
+        23950: { callLtp: 129.95, putLtp: 9.10, callPchange: -30.49, putPchange: -54.73 },
+        24000: { callLtp: 88.50, putLtp: 19.15, callPchange: -38.99, putPchange: -36.48 },
+        24050: { callLtp: 54.65, putLtp: 35.60, callPchange: -49.68, putPchange: -19.27 },
+        24100: { callLtp: 32.45, putLtp: 62.30, callPchange: -57.69, putPchange: -0.64 },
+        24150: { callLtp: 17.20, putLtp: 99.00, callPchange: -66.63, putPchange: 12.96 },
+        24200: { callLtp: 9.80, putLtp: 140.35, callPchange: -71.64, putPchange: 17.40 },
+        24250: { callLtp: 5.70, putLtp: 185.60, callPchange: -74.32, putPchange: 18.48 },
+        24300: { callLtp: 3.55, putLtp: 233.85, callPchange: -74.64, putPchange: 17.22 },
+        24350: { callLtp: 2.50, putLtp: 282.90, callPchange: -72.07, putPchange: 16.42 },
+        24400: { callLtp: 1.80, putLtp: 331.50, callPchange: -74.50, putPchange: 15.80 }
       }
     },
     '2026-09-08': {
