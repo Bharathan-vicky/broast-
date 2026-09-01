@@ -308,21 +308,48 @@ def _load_instruments_from_disk_cache():
         if not nifty_raw and not bn_raw and not sensex_raw:
             return False
 
-        # Convert date strings back to datetime objects
+        # Convert date strings back to datetime objects and filter valid items
+        nifty_clean = []
         for x in nifty_raw:
-            x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+            try:
+                x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+                if 2025 <= x["expiry_dt"].year <= 2030 and x.get("strike", 0) > 0:
+                    nifty_clean.append(x)
+            except Exception:
+                pass
+
+        bn_clean = []
         for x in bn_raw:
-            x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+            try:
+                x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+                if 2025 <= x["expiry_dt"].year <= 2030 and x.get("strike", 0) > 0:
+                    bn_clean.append(x)
+            except Exception:
+                pass
+
+        sensex_clean = []
         for x in sensex_raw:
-            x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+            try:
+                x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+                if 2025 <= x["expiry_dt"].year <= 2030 and x.get("strike", 0) > 0:
+                    sensex_clean.append(x)
+            except Exception:
+                pass
+
+        mcx_clean = []
         for x in mcx_raw:
-            x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+            try:
+                x["expiry_dt"] = datetime.datetime.fromisoformat(x["expiry_iso"].replace("Z", "+00:00")).replace(tzinfo=None)
+                if 2025 <= x["expiry_dt"].year <= 2030 and x.get("strike", 0) > 0:
+                    mcx_clean.append(x)
+            except Exception:
+                pass
 
         with _LOCK:
-            NIFTY_REAL_INSTRUMENTS = nifty_raw
-            BANKNIFTY_REAL_INSTRUMENTS = bn_raw
-            SENSEX_REAL_INSTRUMENTS = sensex_raw
-            MCX_REAL_INSTRUMENTS = mcx_raw
+            NIFTY_REAL_INSTRUMENTS = nifty_clean
+            BANKNIFTY_REAL_INSTRUMENTS = bn_clean
+            SENSEX_REAL_INSTRUMENTS = sensex_clean
+            MCX_REAL_INSTRUMENTS = mcx_clean
             MCX_SPOT_TOKENS = mcx_spots
 
             for inst in NIFTY_REAL_INSTRUMENTS + BANKNIFTY_REAL_INSTRUMENTS + SENSEX_REAL_INSTRUMENTS + MCX_REAL_INSTRUMENTS:
