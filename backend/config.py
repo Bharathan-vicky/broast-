@@ -95,19 +95,19 @@ DEFAULT_SPOT_FALLBACKS = {
     "ITC": {"spot_price": 490.0, "change": 1.5, "percent_change": 0.31},
     "LT": {"spot_price": 3600.0, "change": -18.0, "percent_change": -0.50},
     "BTC": {
-        "spot_price": _float_env("DEFAULT_BTC_SPOT", 77216.40),
-        "change": _float_env("DEFAULT_BTC_CHANGE", 5928.40),
-        "percent_change": _float_env("DEFAULT_BTC_PCT", 8.22),
+        "spot_price": _float_env("DEFAULT_BTC_SPOT", 79800.0),
+        "change": _float_env("DEFAULT_BTC_CHANGE", 1150.0),
+        "percent_change": _float_env("DEFAULT_BTC_PCT", 1.46),
     },
     "ETH": {
-        "spot_price": _float_env("DEFAULT_ETH_SPOT", 2387.32),
-        "change": _float_env("DEFAULT_ETH_CHANGE", 107.32),
-        "percent_change": _float_env("DEFAULT_ETH_PCT", 4.78),
+        "spot_price": _float_env("DEFAULT_ETH_SPOT", 2480.0),
+        "change": _float_env("DEFAULT_ETH_CHANGE", 32.5),
+        "percent_change": _float_env("DEFAULT_ETH_PCT", 1.33),
     },
     "XAUT": {
-        "spot_price": _float_env("DEFAULT_XAUT_SPOT", 4592.69),
-        "change": _float_env("DEFAULT_XAUT_CHANGE", -35.10),
-        "percent_change": _float_env("DEFAULT_XAUT_PCT", -0.76),
+        "spot_price": _float_env("DEFAULT_XAUT_SPOT", 4430.0),
+        "change": _float_env("DEFAULT_XAUT_CHANGE", 14.2),
+        "percent_change": _float_env("DEFAULT_XAUT_PCT", 0.32),
     },
 }
 

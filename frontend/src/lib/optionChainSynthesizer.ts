@@ -648,7 +648,7 @@ export function synthesizeOptionChain(
     if (typeof arg1 === 'string') {
       asset = arg1;
       spot = typeof arg2 === 'number' ? arg2 : 24000;
-      const defStep = ASSET_DEFAULT_STRIKE_STEPS[asset] || (asset === 'BTC' ? 500 : (asset === 'ETH' ? 50 : (asset === 'XAUT' ? 25 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50))));
+      const defStep = ASSET_DEFAULT_STRIKE_STEPS[asset] || (asset === 'BTC' ? 200 : (asset === 'ETH' ? 10 : (asset === 'XAUT' ? 10 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50))));
       if (typeof arg3 === 'string') {
         expiry = arg3;
         strikeStep = typeof arg4 === 'number' ? arg4 : defStep;
@@ -662,7 +662,7 @@ export function synthesizeOptionChain(
       strikeStep = typeof arg2 === 'number' ? arg2 : 50;
       expiry = typeof arg3 === 'string' ? arg3 : null;
       asset = typeof arg4 === 'string' ? arg4 : 'NIFTY';
-      const defStep = ASSET_DEFAULT_STRIKE_STEPS[asset] || (asset === 'BTC' ? 500 : (asset === 'ETH' ? 50 : (asset === 'XAUT' ? 25 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50))));
+      const defStep = ASSET_DEFAULT_STRIKE_STEPS[asset] || (asset === 'BTC' ? 200 : (asset === 'ETH' ? 10 : (asset === 'XAUT' ? 10 : (asset === 'SENSEX' || asset === 'BANKNIFTY' ? 100 : 50))));
       if (!strikeStep || strikeStep <= 0) strikeStep = defStep;
       tickSize = typeof arg5 === 'number' ? arg5 : (asset === 'BTC' ? 0.5 : (asset === 'XAUT' ? 0.1 : 0.05));
     }
@@ -696,7 +696,7 @@ export function synthesizeOptionChain(
     const cleanExp = (expiry || '').split('T')[0];
     const expirySpecificData = KNOWN_EXPIRY_OPTION_PRICES[asset]?.[cleanExp];
     const knownData = expirySpecificData || KNOWN_CLOSING_OPTION_PRICES[asset];
-    const threshold = (asset === 'SENSEX' || asset === 'BANKNIFTY') ? 2500 : 75;
+    const threshold = (asset === 'SENSEX' || asset === 'BANKNIFTY') ? 2500 : (asset === 'BTC' ? 4000 : (asset === 'ETH' ? 250 : (asset === 'XAUT' ? 300 : 150)));
     const isNearKnownSpot = knownData && Math.abs(spot - knownData.baseSpot) < threshold;
 
     const strikeSpan = (asset === 'BANKNIFTY' || asset === 'SENSEX') ? 22 : 16;
