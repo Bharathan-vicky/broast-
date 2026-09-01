@@ -1242,19 +1242,31 @@ export default function App() {
       }
     }).catch(() => {});
 
-    // 2. Fetch authoritative database accounts
+    // 2. Fetch authoritative database accounts and preserve customized names/balances
     fetch(`${BACKEND_URL}/api/accounts?market=${selectedMarket}`)
       .then(r => r.json())
-      .then(data => {
+      .then(async (data) => {
         if (Array.isArray(data) && data.length > 0) {
-          setAccounts(data);
-          AsyncStorage.setItem(`@delta_accounts_${selectedMarket}`, JSON.stringify(data)).catch(() => {});
+          const customMetaStr = await AsyncStorage.getItem(`@delta_custom_meta_${selectedMarket}`).catch(() => null);
+          const customMeta: Record<number, { name?: string; balance?: number }> = customMetaStr ? JSON.parse(customMetaStr) : {};
+
+          const merged = data.map((a: any) => {
+            const override = customMeta[a.id];
+            return {
+              ...a,
+              name: override?.name || a.name,
+              balance: override?.balance !== undefined ? override.balance : a.balance
+            };
+          });
+
+          setAccounts(merged);
+          AsyncStorage.setItem(`@delta_accounts_${selectedMarket}`, JSON.stringify(merged)).catch(() => {});
           setActiveAccountsByMarket(prev => {
             const cur = prev[selectedMarket];
-            if (cur && data.some((a: any) => a.id === cur)) {
+            if (cur && merged.some((a: any) => a.id === cur)) {
               return prev; // Retain current active account!
             }
-            return { ...prev, [selectedMarket]: data[0].id };
+            return { ...prev, [selectedMarket]: merged[0].id };
           });
         }
       })
@@ -1412,9 +1424,9 @@ export default function App() {
   }, [currentChain, spotPrice, currConfig.defaultSpot]);
 
   const userScrolledRef = useRef(false);
-  const hasAutoScrolled = useRef<string>('');
+  const autoScrolledKeysRef = useRef<Set<string>>(new Set());
 
-  const scrollToAtm = (force = false) => {
+  const scrollToAtm = useCallback((force = false) => {
     if (!currentChain || currentChain.length === 0) return;
     if (userScrolledRef.current && !force) return;
     const sp = spotPrice || currConfig.defaultSpot;
@@ -1429,20 +1441,23 @@ export default function App() {
     });
 
     const targetY = Math.max(0, (atmIdx * 52) - 150);
-    chainScrollRef.current?.scrollToOffset({ offset: targetY, animated: true });
-  };
+    chainScrollRef.current?.scrollToOffset({ offset: targetY, animated: false });
+  }, [currentChain, spotPrice, currConfig.defaultSpot]);
 
+  // Auto-scroll to ATM ONLY ONCE when a new asset or expiry is opened
   useEffect(() => {
     const scrollKey = `${activeAsset}-${activeExpiry}`;
-    if (activeTab === 'chain' && currentChain.length > 0 && hasAutoScrolled.current !== scrollKey) {
-      hasAutoScrolled.current = scrollKey;
-      userScrolledRef.current = false;
-      const timer = setTimeout(() => {
-        scrollToAtm(true);
-      }, 200);
-      return () => clearTimeout(timer);
+    if (activeTab === 'chain' && currentChain.length > 0) {
+      if (!autoScrolledKeysRef.current.has(scrollKey)) {
+        autoScrolledKeysRef.current.add(scrollKey);
+        userScrolledRef.current = false;
+        const timer = setTimeout(() => {
+          scrollToAtm(true);
+        }, 100);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [activeTab, activeAsset, activeExpiry, currentChain.length]);
+  }, [activeTab, activeAsset, activeExpiry, currentChain.length, scrollToAtm]);
 
   const handleToggleLeg = (row: any, type: 'CALL' | 'PUT', side: 'BUY' | 'SELL') => {
     const symbol = type === 'CALL' ? row.callSym : row.putSym;
@@ -2584,6 +2599,14 @@ export default function App() {
     const updatedAccounts = accounts.map(a => a.id === editingAccount.id ? { ...a, name: updatedName, balance: updatedBalance } : a);
     setAccounts(updatedAccounts);
     AsyncStorage.setItem(`@delta_accounts_${selectedMarket}`, JSON.stringify(updatedAccounts)).catch(() => {});
+    
+    // Persist explicit user customization overrides
+    AsyncStorage.getItem(`@delta_custom_meta_${selectedMarket}`).then(metaStr => {
+      const meta: Record<number, { name?: string; balance?: number }> = metaStr ? JSON.parse(metaStr) : {};
+      meta[editingAccount.id] = { name: updatedName, balance: updatedBalance };
+      AsyncStorage.setItem(`@delta_custom_meta_${selectedMarket}`, JSON.stringify(meta)).catch(() => {});
+    }).catch(() => {});
+
     setEditingAccount(null);
     setTradeMessage(`⚡ Account updated: ${updatedName} (Balance: ${selectedMarket === 'CRYPTO' ? '$' : '₹'}${updatedBalance.toLocaleString('en-IN')})`);
     setTimeout(() => setTradeMessage(''), 3000);
@@ -3886,11 +3909,18 @@ export default function App() {
             keyExtractor={(item: any) => item.strike.toString()}
             style={styles.scrollArea}
             contentContainerStyle={{ paddingBottom: stratBasket.length > 0 ? 190 : 80 }}
-            initialNumToRender={22}
+            initialNumToRender={24}
             maxToRenderPerBatch={16}
             windowSize={11}
-            removeClippedSubviews={Platform.OS === 'android'}
+            removeClippedSubviews={false}
+            scrollEventThrottle={16}
+            onScroll={() => {
+              userScrolledRef.current = true;
+            }}
             onScrollBeginDrag={() => {
+              userScrolledRef.current = true;
+            }}
+            onMomentumScrollBegin={() => {
               userScrolledRef.current = true;
             }}
             getItemLayout={(_data, index) => ({
